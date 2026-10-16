@@ -13,6 +13,12 @@ function build(DAYS) {
   ACTOR = 'mock'
   const S = makeSeed()
   S.settings.shopName = 'ร้านยาตัวอย่าง (MOCK)'
+  S.settings.shopAddress = '99 ถนนตัวอย่าง แขวงตัวอย่าง เขตตัวอย่าง กรุงเทพฯ 10000'
+  S.settings.pharmacistName = 'ภก.ตัวอย่าง ใจดี'
+  S.settings.licenseNo = 'ภ.0000 (ตัวอย่าง)'
+  const STAFF = ['ผู้ดูแล (ตัวอย่าง)', 'พนักงานขายตัวอย่าง', 'เภสัชกรตัวอย่าง']
+  const BUYERS = ['สมชาย ใจดี', 'สมหญิง รักสุข', 'วิชัย มั่นคง', 'มาลี สุขใจ', 'ประเสริฐ ดีเลิศ', 'นภา แสงทอง']
+  const MAKERS = ['บริษัท ไทยเภสัช จำกัด', 'บริษัท เมดิฟาร์มา (ประเทศไทย) จำกัด', 'Siam Pharma Co., Ltd.', 'องค์การเภสัชกรรม']
   const GEN = [ // generic, category, unit, cost range, margin, pack strengths
     ['Paracetamol', 'แก้ปวด', 'แผง', [4, 9], ['500 mg', '650 mg']], ['Ibuprofen', 'แก้ปวด', 'แผง', [8, 14], ['200 mg', '400 mg']],
     ['Naproxen', 'แก้ปวด', 'แผง', [15, 30], ['250 mg', '500 mg']], ['Diclofenac gel', 'แก้ปวด', 'หลอด', [30, 70], ['1%']],
@@ -56,6 +62,8 @@ function build(DAYS) {
         barcode: '8851' + String(200000 + n * 53), supplier: pick(SUP), location: pick(LOC),
         danger: ['Amoxicillin', 'Cefalexin', 'Roxithromycin', 'Norfloxacin', 'Omeprazole', 'Diclofenac gel', 'Amlodipine', 'Metformin', 'Simvastatin'].includes(g[0]),
         controlled: g[0] === 'Lorazepam' }
+      p.manufacturer = pick(MAKERS); p.packSize = '10 ' + g[2] + '/กล่อง'; p.regNo = pick(['1A', '1C', '2A']) + ' ' + ri(10, 99) + '/' + ri(40, 66) + '(NC)'
+      p.ky13 = rnd() < 0.05
       p.ky8 = rnd() < 0.06; p.ky11 = rnd() < 0.06; p.special = /cream|gel|eye|lotion|tear/i.test(g[0])
       S.products.push(p); mock.push(p)
     }
@@ -119,8 +127,13 @@ function build(DAYS) {
       const sub = items.reduce((t, i) => t + i.qty * i.price, 0)
       const cash = rnd() < 0.7
       try {
+        ACTOR = pick(STAFF)
+        const needB = items.some(i => { const q = S.products.find(x => x.id === i.pid); return q && (q.controlled || q.ky11 || q.ky13) })
+        const isRx = needB && rnd() < 0.25
+        const buyer = needB ? { name: pick(BUYERS), addr: 'ที่อยู่ตัวอย่าง ' + ri(1, 99) + ' กรุงเทพฯ', type: 'ผู้บริโภค' } : undefined
+        const rx = isRx ? { doc: 'นพ.ตัวอย่าง รักษา', docAddr: 'โรงพยาบาลตัวอย่าง', user: buyer.name, age: String(ri(18, 80)), addr: buyer.addr } : undefined
         const sale = Logic.commitSale(S, { items, discount: rnd() < 0.08 ? Math.min(10, sub) : 0, method: cash ? 'cash' : 'transfer',
-          received: Math.ceil(sub / 20) * 20, at: at.toISOString(), memberId: rnd() < 0.15 ? pick(members).id : '' })
+          received: Math.ceil(sub / 20) * 20, at: at.toISOString(), memberId: rnd() < 0.15 ? pick(members).id : '', buyer, rx })
         bills++
         if (rnd() < 0.02) { Logic.voidSale(S, sale.id, 'ลูกค้ายกเลิก'); voided++ }
       } catch (e) { skipped++ }

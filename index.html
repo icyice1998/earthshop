@@ -41,16 +41,44 @@
       .rt td.c-name { order:-1; grid-column:1 / -1; margin-bottom:.25rem; }
       .rt td.c-name::before, .rt td.c-code::before { display:none !important; }
     }
+    .ky-page { background:#fff; color:#000; padding:1.2rem; margin:0 auto .75rem; max-width:1123px; border:1px solid var(--line); border-radius:.6rem; font-size:.92rem; }
+    .ky-no { text-align:right; font-weight:700; }
+    .ky-title { text-align:center; font-weight:700; font-size:1.05rem; margin:.15rem 0 .5rem; }
+    .ky-shop { text-align:center; font-weight:600; }
+    .ky-cap { text-align:center; font-size:.8rem; color:#444; border-top:1px dotted #000; width:min(34rem, 90%); margin:.1rem auto .6rem; padding-top:.1rem; }
+    .ky-hd { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:.2rem 1rem; margin-bottom:.6rem; }
+    .ky-f { border-bottom:1px dotted #000; padding:.1rem 0; min-width:0; overflow-wrap:anywhere; }
+    .ky-f.wide { grid-column:1 / -1; }
+    .ky-f .v { font-weight:400; padding-left:.3rem; }
+    .ky-table { width:100%; border-collapse:collapse; }
+    .ky-table th, .ky-table td { border:1px solid #000; padding:.25rem .4rem; vertical-align:top; text-align:left; }
+    .ky-table th { text-align:center; font-weight:700; }
+    .ky-table td.c { text-align:center; }
+    .ky-table td.empty, .ky .empty { color:#666; padding:1rem; }
+    .ky-table thead { display:table-header-group; }
+    .ky-table tr { page-break-inside:avoid; }
+    .ky-sign { margin-top:1rem; text-align:right; line-height:2.2; }
+    @media (max-width: 767px) { .ky-page { overflow-x:auto; } .ky-table { min-width:640px; } .ky-hd { grid-template-columns:1fr; } }
     #print-area { display: none; }
+    @page wide { size: A4 landscape; margin: 10mm; }
+    #print-area .prt { width: 100%; border-collapse: collapse; font-size: 10pt; }
+    #print-area .prt th, #print-area .prt td { border: 1px solid #000; padding: 1.2mm 1.8mm; text-align: left; vertical-align: top; }
+    #print-area .prt th { text-align: center; font-weight: 700; }
+    #print-area .prt td.n { text-align: right; }
+    #print-area .prt thead { display: table-header-group; }
+    #print-area .prt tr { page-break-inside: avoid; }
     @media print {
       @page { margin: 3mm; }
       body * { visibility: hidden !important; }
       #print-area, #print-area * { visibility: visible !important; }
+      #print-area.print-wide { page: wide; width: auto !important; right: 0; }
       #print-area { display: block; position: absolute; left: 0; top: 0; width: 76mm; color: #000; background: #fff; font-size: 11pt; line-height: 1.35; }
       #print-area .dl-page { page-break-after: always; border: 1px solid #000; padding: 2.5mm; margin-bottom: 2mm; }
       #print-area .dl-page:last-child { page-break-after: auto; }
       #print-area .rc-row { display: flex; justify-content: space-between; gap: 2mm; }
       #print-area .rc-line { border-top: 1px dashed #000; margin: 1.5mm 0; }
+      #print-area .ky-page { border:0; border-radius:0; padding:0 0 4mm; margin:0; max-width:none; page-break-after:always; font-size:10pt; }
+      #print-area .ky-page:last-child { page-break-after:auto; }
     }
     .sub { min-height: 40px; padding: .35rem .9rem; font-size: .92rem; border-radius: 999px; font-weight: 600; white-space: nowrap; color: #b9dcd7; border: 1.5px solid #2f6b64; }
     .sub-on { background: #b9dcd7; color: #0f3f3a; border-color: #b9dcd7; }
@@ -173,13 +201,13 @@
           <div class="flex gap-2 overflow-x-auto pt-3 pb-1">
             <button class="chip" :class="cat === 'ทั้งหมด' ? 'chip-on' : ''" @click="cat = 'ทั้งหมด'">ทั้งหมด</button>
             <button class="chip" :class="cat === 'ขายบ่อย' ? 'chip-on' : ''" @click="cat = 'ขายบ่อย'">★ ขายบ่อย</button>
-            <button v-for="c in CATS" :key="c" class="chip" :class="cat === c ? 'chip-on' : ''" @click="cat = c">{{ c }}</button>
+            <button v-for="c in posCats" :key="c" class="chip" :class="cat === c ? 'chip-on' : ''" @click="cat = c">{{ c }}</button>
           </div>
         </div>
         <div class="flex-1 overflow-y-auto p-3 pb-24 md:pb-3">
           <div v-if="posList.length === 0" class="text-center text-slate-400 py-10">ไม่พบรายการ ลองพิมพ์คำอื่น</div>
           <div class="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2">
-            <button v-for="p in posList" :key="p.id" class="tile" :class="availFor(p) <= 0 || p.banned ? 'tile-out' : ''" @click="addToCart(p)">
+            <button v-for="p in posList.slice(0, posLimit)" :key="p.id" class="tile" :class="availFor(p) <= 0 || p.banned ? 'tile-out' : ''" @click="addToCart(p)">
               <div>
                 <div class="text-xs text-slate-500">{{ p.code }}</div>
                 <div class="font-semibold leading-normal">{{ p.name }}</div>
@@ -192,6 +220,7 @@
               </div>
             </button>
           </div>
+          <div v-if="posList.length > posLimit" class="text-center py-3"><button class="btn btn-ghost" @click="posLimit += 120">แสดงเพิ่ม ({{ posLimit }} / {{ posList.length }})</button></div>
         </div>
       </div>
 
@@ -626,6 +655,145 @@
       </div>
     </section>
 
+    <!-- ============ รายงานการขาย ============ -->
+    <section v-else-if="tab === 'salesrep'" class="h-full overflow-y-auto p-3">
+      <div class="card p-4 mb-3">
+        <div class="flex gap-2 overflow-x-auto pb-2">
+          <button v-for="pr in [['today', 'วันนี้'], ['yesterday', 'เมื่อวาน'], ['7d', '7 วัน'], ['30d', '30 วัน'], ['month', 'เดือนนี้'], ['lastmonth', 'เดือนที่แล้ว'], ['year', 'ปีนี้']]" :key="pr[0]" class="chip" :class="srPreset === pr[0] ? 'chip-on' : ''" @click="srSetPreset(pr[0])">{{ pr[1] }}</button>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
+          <div><label class="lbl" for="sr-f">ตั้งแต่วันที่</label><input id="sr-f" type="date" v-model="srFrom" class="inp" @input="srPreset = ''"></div>
+          <div><label class="lbl" for="sr-tf">เวลา</label><input id="sr-tf" type="time" v-model="srTf" class="inp" @input="srPreset = ''"></div>
+          <div><label class="lbl" for="sr-t">ถึงวันที่</label><input id="sr-t" type="date" v-model="srTo" class="inp" @input="srPreset = ''"></div>
+          <div><label class="lbl" for="sr-tt">เวลา</label><input id="sr-tt" type="time" v-model="srTt" class="inp" @input="srPreset = ''"></div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+          <div><label class="lbl" for="sr-staff">พนักงาน</label><select id="sr-staff" v-model="srStaff" class="inp"><option value="">ทุกคน</option><option v-for="u in srStaffList" :key="u" :value="u">{{ u }}</option></select></div>
+          <div><label class="lbl" for="sr-cat">กลุ่มยา</label><select id="sr-cat" v-model="srCat" class="inp"><option value="">ทุกกลุ่ม</option><option v-for="c in srCats" :key="c">{{ c }}</option></select></div>
+          <div><label class="lbl" for="sr-flag">ประเภทยา</label><select id="sr-flag" v-model="srFlag" class="inp"><option value="">ทุกประเภท</option><option value="none">ไม่มีประเภทพิเศษ</option><option v-for="fl in DRUG_FLAGS" :key="fl.k" :value="fl.k">{{ fl.label }}</option></select></div>
+          <div><label class="lbl" for="sr-m">วิธีชำระ</label><select id="sr-m" v-model="srMethod" class="inp"><option value="">ทั้งหมด</option><option value="cash">เงินสด</option><option value="transfer">โอน</option></select></div>
+          <div class="col-span-2 sm:col-span-4"><label class="lbl" for="sr-q">ค้นหาชื่อยา / ชื่อสามัญ</label><input id="sr-q" v-model="srQ" class="inp" placeholder="เช่น paracetamol" autocomplete="off"></div>
+        </div>
+        <div class="mt-3"><span class="text-sm text-slate-500 mr-1">แยกตาม:</span>
+          <span class="inline-flex flex-wrap gap-2 align-middle">
+            <button v-for="g in [['day', 'วัน'], ['month', 'เดือน'], ['hour', 'ชั่วโมง'], ['staff', 'พนักงาน'], ['category', 'กลุ่มยา'], ['flag', 'ประเภทยา'], ['product', 'สินค้า'], ['method', 'วิธีชำระ'], ['detail', 'รายการละเอียด']]" :key="g[0]" class="chip" :class="srGroup === g[0] ? 'chip-on' : ''" @click="srGroup = g[0]; srLimit = 100">{{ g[1] }}</button>
+          </span>
+        </div>
+      </div>
+
+      <div class="grid gap-2 mb-3" :class="can('viewCost') ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-3'">
+        <div class="card p-3"><div class="text-xs text-slate-500">ยอดขายสุทธิ</div><div class="text-2xl font-bold num" style="color:var(--pine)">฿{{ money(srData.totals.sales) }}</div></div>
+        <div v-if="can('viewCost')" class="card p-3"><div class="text-xs text-slate-500">ต้นทุน</div><div class="text-2xl font-bold num">฿{{ money(srData.totals.cost) }}</div></div>
+        <div v-if="can('viewCost')" class="card p-3"><div class="text-xs text-slate-500">กำไร</div><div class="text-2xl font-bold num" :style="srData.totals.profit < 0 ? 'color:#b91c1c' : ''">฿{{ money(srData.totals.profit) }}<span class="text-sm font-semibold text-slate-500"> {{ srData.totals.sales > 0 ? Math.round(srData.totals.profit / srData.totals.sales * 100) + '%' : '' }}</span></div></div>
+        <div class="card p-3"><div class="text-xs text-slate-500">จำนวนบิล</div><div class="text-2xl font-bold num">{{ srData.totals.bills }}</div></div>
+        <div class="card p-3"><div class="text-xs text-slate-500">เฉลี่ยต่อบิล / จำนวนชิ้น</div><div class="text-2xl font-bold num">฿{{ money(srData.totals.bills ? srData.totals.sales / srData.totals.bills : 0) }}<span class="text-sm font-semibold text-slate-500"> · {{ srData.totals.qty }} ชิ้น</span></div></div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <div class="text-sm text-slate-500 min-w-0">{{ srSummary }}</div>
+        <div class="flex gap-2"><button class="btn btn-ghost !min-h-0 !py-2" @click="srCsv">ส่งออก CSV</button><button class="btn btn-ghost !min-h-0 !py-2" @click="srPrint">พิมพ์</button></div>
+      </div>
+
+      <div v-if="srGroup !== 'detail'" class="card overflow-x-auto mb-3">
+        <table class="rt text-sm">
+          <thead><tr class="text-left text-slate-500" style="border-bottom:1.5px solid var(--line)">
+            <th class="p-2">{{ srGroupLabel }}</th><th class="p-2 text-right">บิล</th><th class="p-2 text-right">ชิ้น</th><th class="p-2 text-right">ยอดขาย</th>
+            <template v-if="can('viewCost')"><th class="p-2 text-right">ต้นทุน</th><th class="p-2 text-right">กำไร</th><th class="p-2 text-right">กำไร%</th></template><th class="p-2" style="width:22%">สัดส่วน</th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="r in srData.rows.slice(0, srLimit)" :key="r.key" style="border-bottom:1px solid var(--line)">
+              <td class="p-2 font-semibold c-name">{{ srGroup === 'day' ? fmtDayBE(r.label) : (srGroup === 'month' ? fmtMonth(r.label) : r.label) }}</td>
+              <td class="p-2 text-right num" data-l="บิล">{{ r.bills }}</td>
+              <td class="p-2 text-right num" data-l="ชิ้น">{{ r.qty }}</td>
+              <td class="p-2 text-right num font-bold" data-l="ยอดขาย">{{ money(r.sales) }}</td>
+              <template v-if="can('viewCost')">
+                <td class="p-2 text-right num" data-l="ต้นทุน">{{ money(r.cost) }}</td>
+                <td class="p-2 text-right num" data-l="กำไร" :style="r.profit < 0 ? 'color:#b91c1c' : ''">{{ money(r.profit) }}</td>
+                <td class="p-2 text-right num" data-l="กำไร%">{{ r.sales > 0 ? Math.round(r.profit / r.sales * 100) + '%' : '-' }}</td>
+              </template>
+              <td class="p-2 col-lg"><div style="height:.55rem;background:#e6efed;border-radius:99px;overflow:hidden"><div :style="'height:100%;background:var(--pine);width:' + Math.round(r.sales / srMax * 100) + '%'"></div></div></td>
+            </tr>
+            <tr v-if="srData.rows.length === 0"><td class="p-6 text-center text-slate-400" colspan="8">ไม่มีข้อมูลในช่วงและเงื่อนไขที่เลือก</td></tr>
+          </tbody>
+        </table>
+        <div v-if="srData.rows.length > srLimit" class="text-center py-3"><button class="btn btn-ghost" @click="srLimit += 100">แสดงเพิ่ม ({{ srLimit }} / {{ srData.rows.length }})</button></div>
+        <div v-if="srGroup === 'flag'" class="p-3 text-xs text-slate-500">ยาที่มีหลายประเภทจะนับซ้ำในแต่ละประเภท ยอดรวมด้านบนไม่ซ้ำ</div>
+      </div>
+
+      <div v-else class="card overflow-x-auto mb-3">
+        <table class="rt text-sm">
+          <thead><tr class="text-left text-slate-500" style="border-bottom:1.5px solid var(--line)">
+            <th class="p-2">วันที่เวลา</th><th class="p-2">บิล</th><th class="p-2">สินค้า</th><th class="p-2 text-right">จำนวน</th><th class="p-2 text-right">ยอดขาย</th>
+            <template v-if="can('viewCost')"><th class="p-2 text-right">กำไร</th></template><th class="p-2">พนักงาน</th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="(l, i) in srData.lines.slice(0, srLimit)" :key="l.sale.id + '-' + i" style="border-bottom:1px solid var(--line)">
+              <td class="p-2 whitespace-nowrap c-code">{{ fmtDayBE(dayKey(new Date(l.ts))) }} {{ fmtTime(l.sale.ts) }}</td>
+              <td class="p-2 whitespace-nowrap" data-l="บิล">{{ l.sale.no }}</td>
+              <td class="p-2 font-semibold c-name">{{ l.it.name }} <span v-for="t in flagTags(l.p)" :key="t.k" class="tag ml-1" :style="t.style">{{ t.label }}</span></td>
+              <td class="p-2 text-right num" data-l="จำนวน">{{ l.it.qty }}</td>
+              <td class="p-2 text-right num font-bold" data-l="ยอดขาย">{{ money(l.rev) }}</td>
+              <td v-if="can('viewCost')" class="p-2 text-right num" data-l="กำไร">{{ money(l.profit) }}</td>
+              <td class="p-2" data-l="พนักงาน">{{ l.sale.by || '-' }}</td>
+            </tr>
+            <tr v-if="srData.lines.length === 0"><td class="p-6 text-center text-slate-400" colspan="7">ไม่มีข้อมูลในช่วงและเงื่อนไขที่เลือก</td></tr>
+          </tbody>
+        </table>
+        <div v-if="srData.lines.length > srLimit" class="text-center py-3"><button class="btn btn-ghost" @click="srLimit += 100">แสดงเพิ่ม ({{ srLimit }} / {{ srData.lines.length }})</button></div>
+      </div>
+      <div class="text-xs text-slate-500 mb-6">ยอดขายคิดหลังส่วนลดท้ายบิล (ถัวตามสัดส่วนของแต่ละรายการ) ไม่รวมบิลที่ยกเลิก ต้นทุนคิดจากล็อตที่ตัดจริง</div>
+    </section>
+
+    <!-- ============ แบบรายงาน ข.ย. (สร้างอัตโนมัติ) ============ -->
+    <section v-else-if="tab === 'kyforms'" class="h-full overflow-y-auto p-3">
+      <div class="card p-4 mb-3">
+        <div class="font-bold mb-2">สร้างแบบรายงานอัตโนมัติ</div>
+        <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-5 mb-3">
+          <button v-for="f in [['9', 'ข.ย.9', 'บัญชีการซื้อยา'], ['10', 'ข.ย.10', 'ขายยาควบคุมพิเศษ'], ['11', 'ข.ย.11', 'ขายยาอันตราย (ตามที่ อย. กำหนด)'], ['12', 'ข.ย.12', 'ขายตามใบสั่งแพทย์'], ['13', 'ข.ย.13', 'รายงานการขายยา (ตามที่ อย. กำหนด)']]" :key="f[0]" class="text-left p-3 rounded-xl" style="border:1.5px solid var(--line)" :style="kyForm === f[0] ? 'background:#eef7f5;border-color:var(--pine)' : 'background:#fff'" @click="kyForm = f[0]">
+            <div class="font-bold">{{ f[1] }}</div><div class="text-xs text-slate-500">{{ f[2] }}</div>
+          </button>
+        </div>
+        <div class="flex gap-2 overflow-x-auto pb-2">
+          <button v-for="pr in [['month', 'เดือนนี้'], ['lastmonth', 'เดือนที่แล้ว'], ['year', 'ปีนี้'], ['lastyear', 'ปีที่แล้ว']]" :key="pr[0]" class="chip" :class="kyPreset === pr[0] ? 'chip-on' : ''" @click="kySetPreset(pr[0])">{{ pr[1] }}</button>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mt-2">
+          <div><label class="lbl" for="ky-f">ตั้งแต่วันที่</label><input id="ky-f" type="date" v-model="kyFrom" class="inp" @input="kyPreset = ''"></div>
+          <div><label class="lbl" for="ky-t">ถึงวันที่</label><input id="ky-t" type="date" v-model="kyTo" class="inp" @input="kyPreset = ''"></div>
+        </div>
+
+        <div class="mt-3 p-3 rounded-xl text-sm" style="background:#f8fafc;border:1px solid var(--line)">
+          <template v-if="kyForm === '9'">ดึงจากบิลรับเข้าทุกรายการในช่วงที่เลือก (ไม่รวมวัสดุและบิลที่ยกเลิก)
+            <label class="flex items-center gap-2 mt-2"><input type="checkbox" v-model="kyOnly9n" class="w-5 h-5"> เฉพาะยาที่ตั้งประเภท "ยาออกรายงาน ข.ย.9N"</label></template>
+          <template v-else-if="kyForm === '12'">ดึงจากบิลขายที่ติ๊ก "ขายตามใบสั่งแพทย์ / สัตวแพทย์" ตอนรับเงิน (ผู้สั่งยา ผู้ใช้ยา อายุ ที่อยู่)</template>
+          <template v-else>
+            ใช้ยาที่ตั้งประเภท <b>{{ kyForm === '10' ? 'ยาควบคุมพิเศษ' : (kyForm === '11' ? 'ขย.11' : 'ขย.13') }}</b> ({{ kyAutoCount }} รายการ) ทำให้ทีละล็อต ผู้ซื้อมาจากข้อมูลที่กรอกตอนรับเงิน
+            <label class="flex items-center gap-2 mt-2"><input type="checkbox" v-model="kyManual" class="w-5 h-5"> เลือกยาเอง (แทนที่ประเภทยา)</label>
+            <div v-if="kyManual" class="mt-2">
+              <input v-model="kyQ" class="inp mb-2" placeholder="ค้นหายา" aria-label="ค้นหายาที่จะทำบัญชี">
+              <div class="rounded-xl border overflow-y-auto" style="border-color:var(--line);max-height:12rem;background:#fff">
+                <label v-for="p in kyPickList" :key="p.id" class="flex items-center gap-2 px-3 py-2 border-b cursor-pointer" style="border-color:var(--line)"><input type="checkbox" :checked="kyPids.includes(p.id)" @change="kyTogglePid(p.id)" class="w-5 h-5 shrink-0"><span class="truncate"><span class="text-xs text-slate-500">{{ p.code }}</span> {{ p.name }}</span></label>
+              </div>
+              <div class="text-xs text-slate-500 mt-1">เลือกแล้ว {{ kyPids.length }} รายการ</div>
+            </div>
+          </template>
+        </div>
+
+        <div v-if="kyDoc.warn.length" class="mt-3 p-3 rounded-xl text-sm" style="background:#fef3c7;color:#92400e">
+          <div class="font-semibold mb-1">ข้อมูลที่ยังไม่ครบ ({{ kyDoc.warn.length }})</div>
+          <div v-for="w in kyDoc.warn.slice(0, 8)" :key="w">• {{ w }}</div>
+          <div v-if="kyDoc.warn.length > 8" class="text-xs mt-1">และอีก {{ kyDoc.warn.length - 8 }} รายการ</div>
+          <div class="text-xs mt-1">ใส่ผู้ผลิต ขนาดบรรจุ เลขทะเบียนที่ ระบบบริหารจัดการยา ส่วนชื่อผู้ซื้อกรอกตอนรับเงิน</div>
+        </div>
+        <div class="flex flex-wrap gap-2 mt-3 justify-end">
+          <button class="btn btn-ghost" @click="kyCsv">ส่งออก CSV</button>
+          <button class="btn btn-pri" @click="kyPrint">พิมพ์ (A4 แนวนอน)</button>
+        </div>
+      </div>
+
+      <ky-sheet :doc="kyDoc"></ky-sheet>
+      <div class="text-xs text-slate-500 mb-6">แบบฟอร์มจัดตามหัวตารางของแบบ ข.ย. ที่ให้มา ช่องลายมือชื่อเว้นไว้ให้เซ็นหลังพิมพ์ ผู้ประกอบการต้องตรวจสอบเองว่ายาตัวไหนต้องทำบัญชีใด ตามประกาศของ อย. ที่ใช้อยู่ในปัจจุบัน</div>
+    </section>
+
     <!-- ============ ระบบบริหารจัดการยา ============ -->
     <section v-else-if="tab === 'manage'" class="h-full overflow-y-auto p-3">
       <div class="flex gap-2 mb-3">
@@ -717,12 +885,14 @@
                 <div><label class="lbl" for="mg-code">รหัส</label><input id="mg-code" v-model="mg.code" class="inp"></div>
                 <div class="col-span-2 sm:col-span-3"><label class="lbl" for="mg-name">ชื่อการค้า</label><input id="mg-name" v-model="mg.name" class="inp"></div>
                 <div class="col-span-2 sm:col-span-4"><label class="lbl" for="mg-generic">ชื่อสามัญ</label><input id="mg-generic" v-model="mg.generic" class="inp"></div>
-                <div class="col-span-2"><label class="lbl" for="mg-cat">หมวด</label><select id="mg-cat" v-model="mg.category" class="inp"><option v-for="c in CATS" :key="c">{{ c }}</option></select></div>
+                <div class="col-span-2"><label class="lbl" for="mg-cat">หมวด</label><select id="mg-cat" v-model="mg.category" class="inp"><option v-for="c in catList" :key="c">{{ c }}</option></select></div>
                 <div class="col-span-2"><label class="lbl" for="mg-unit">หน่วยขาย</label><input id="mg-unit" v-model="mg.unit" class="inp"></div>
                 <div class="col-span-2"><label class="lbl" for="mg-bar">บาร์โค้ด</label><input id="mg-bar" v-model="mg.barcode" class="inp" inputmode="numeric"></div>
                 <div class="col-span-2"><label class="lbl" for="mg-loc">ที่เก็บ / ชั้นวาง</label><input id="mg-loc" v-model="mg.location" class="inp"></div>
                 <div class="col-span-2"><label class="lbl" for="mg-sup">ผู้จำหน่าย</label><input id="mg-sup" v-model="mg.supplier" list="supplier-list" class="inp"></div>
-                <div class="col-span-2"><label class="lbl" for="mg-reg">เลขที่ขึ้นทะเบียน</label><input id="mg-reg" v-model="mg.regNo" class="inp"></div>
+                <div class="col-span-2"><label class="lbl" for="mg-reg">เลขทะเบียนตำรับยา</label><input id="mg-reg" v-model="mg.regNo" class="inp"></div>
+                <div class="col-span-2"><label class="lbl" for="mg-mfr">ผู้ผลิต / ผู้นำเข้า (ใช้ในบัญชี ข.ย.)</label><input id="mg-mfr" v-model="mg.manufacturer" class="inp"></div>
+                <div class="col-span-2"><label class="lbl" for="mg-pack">ขนาดบรรจุ</label><input id="mg-pack" v-model="mg.packSize" class="inp" placeholder="เช่น 10 เม็ด/แผง"></div>
                 <div class="col-span-2 sm:col-span-4"><label class="lbl" for="mg-note">หมายเหตุ</label><input id="mg-note" v-model="mg.note" class="inp"></div>
               </div>
               <label class="flex items-center gap-2 mt-3"><input type="checkbox" v-model="mg.active" class="w-5 h-5"> ใช้งาน (ไม่ติ๊ก = ซ่อนจากหน้าขายและคลัง)</label>
@@ -915,7 +1085,12 @@
       <div v-if="setTab === 'general' || !isAdmin">
       <div class="card p-4 mb-3">
         <div class="font-bold mb-3">ข้อมูลร้าน</div>
-        <label class="lbl">ชื่อร้าน</label><input v-model="S.settings.shopName" class="inp mb-3">
+        <label class="lbl">ชื่อร้าน (ชื่อสถานที่ขายยา)</label><input v-model="S.settings.shopName" class="inp mb-3">
+        <label class="lbl">ที่อยู่ร้าน</label><input v-model="S.settings.shopAddress" class="inp mb-3" placeholder="ใช้พิมพ์ในแบบรายงาน ข.ย.">
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div><label class="lbl">ชื่อเภสัชกร / ผู้รับอนุญาต</label><input v-model="S.settings.pharmacistName" class="inp"></div>
+          <div><label class="lbl">เลขที่ใบอนุญาต</label><input v-model="S.settings.licenseNo" class="inp" placeholder="เช่น ภ.0000"></div>
+        </div>
         <label class="lbl">เตือนก่อนยาหมดอายุ (วัน)</label><input v-model.number="S.settings.nearExpiryDays" type="number" inputmode="numeric" class="inp">
       </div>
 
@@ -943,6 +1118,33 @@
           <div><label class="lbl">รหัสใหม่ (4 ตัวขึ้นไป)</label><input v-model="pinForm.next" type="password" inputmode="numeric" class="inp"></div>
         </div>
         <button class="btn btn-ghost w-full mt-3" @click="changePin">เปลี่ยนรหัส</button>
+      </div>
+
+      <div v-if="isAdmin" class="card p-4 mb-3">
+        <div class="font-bold mb-1">นำเข้าข้อมูลจาก SmartDrugstore</div>
+        <div class="text-xs text-slate-500 mb-3">เลือกไฟล์ .sql ที่ส่งออกจากโปรแกรมเดิม (Navicat / mysqldump) ระบบอ่านเป็นข้อความอย่างเดียว ไม่รันคำสั่งใดๆ จะนำเข้า สินค้า ล็อต ราคาทุน วันหมดอายุ ใบรับเข้า ผู้จำหน่าย ลูกค้า (ชื่อ เบอร์ ประวัติแพ้ยา) รายชื่อผู้ใช้ (ไม่รวมรหัสผ่าน) ข้อมูลร้าน และบิลขายย้อนหลังตามที่เลือก ไม่นำเข้ารหัสผ่าน เลขบัตรประชาชน ที่อยู่ลูกค้า หรือรูปภาพ</div>
+        <label class="lbl" for="imp-days">นำเข้าบิลขายย้อนหลัง</label>
+        <select id="imp-days" v-model.number="imp.days" class="inp mb-3" :disabled="imp.busy"><option :value="30">30 วันล่าสุด</option><option :value="90">90 วันล่าสุด</option><option :value="365">1 ปีล่าสุด (แนะนำ)</option><option :value="730">2 ปีล่าสุด (ช้าลง)</option><option :value="3650">ทั้งหมด (ไฟล์ใหญ่มาก ไม่แนะนำ)</option></select>
+        <input id="imp-file" type="file" accept=".sql,text/plain" class="inp" :disabled="imp.busy" @change="impPick">
+        <div v-if="imp.busy" class="mt-3"><div style="height:.6rem;background:#e6efed;border-radius:99px;overflow:hidden"><div :style="'height:100%;background:var(--pine);width:' + imp.pct + '%'"></div></div><div class="text-sm text-slate-500 mt-1">{{ imp.msg }} {{ imp.pct }}%</div></div>
+        <div v-else-if="imp.msg" class="text-sm mt-3" :style="imp.msg.startsWith('อ่านไฟล์ไม่สำเร็จ') ? 'color:#b91c1c' : 'color:#166534'">{{ imp.msg }}</div>
+        <div v-if="imp.result" class="mt-3">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center">
+            <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">สินค้า</div><div class="font-bold num">{{ imp.result.stats.products }}</div></div>
+            <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ล็อต (มีของ / ทั้งหมด)</div><div class="font-bold num">{{ imp.result.stats.lotsInStock }} / {{ imp.result.stats.lots }}</div></div>
+            <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ยอดคงเหลือ (ชิ้น)</div><div class="font-bold num">{{ imp.result.stats.stockUnits }}</div></div>
+            <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ใบรับเข้า / ผู้จำหน่าย</div><div class="font-bold num">{{ imp.result.stats.receipts }} / {{ imp.result.stats.suppliers }}</div></div>
+            <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ลูกค้า / ผู้ใช้</div><div class="font-bold num">{{ imp.result.stats.members }} / {{ imp.result.stats.users }}</div></div>
+            <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">บิลขาย ({{ imp.result.stats.from }} ถึง {{ imp.result.stats.to }})</div><div class="font-bold num">{{ imp.result.stats.bills }} · ฿{{ money(imp.result.stats.salesTotal) }}</div></div>
+          </div>
+          <div class="mt-3 p-3 rounded-xl text-sm" :style="imp.result.stats.stockUnits === imp.result.stats.sqlStockUnits && imp.result.stats.lotsMovementMismatch === 0 && imp.result.stats.billsMismatch === 0 ? 'background:#dcfce7;color:#166534' : 'background:#fef3c7;color:#92400e'">
+            ตรวจสอบ: ยอดคงเหลือ {{ imp.result.stats.stockUnits === imp.result.stats.sqlStockUnits ? 'ตรงกับไฟล์เดิม ✓' : 'ไม่ตรง (' + imp.result.stats.stockUnits + ' ต่อ ' + imp.result.stats.sqlStockUnits + ')' }} · ประวัติรายล็อต {{ imp.result.stats.lotsMovementMismatch === 0 ? 'ครบ ✓' : 'ไม่ตรง ' + imp.result.stats.lotsMovementMismatch + ' ล็อต' }} · ยอดบิล {{ imp.result.stats.billsMismatch === 0 ? 'ตรงทุกบิล ✓' : 'ไม่ตรง ' + imp.result.stats.billsMismatch + ' บิล' }}
+            <div v-if="imp.result.stats.linesNoLot" class="text-xs mt-1">มี {{ imp.result.stats.linesNoLot }} รายการขายที่ระบบเดิมไม่ระบุล็อต (ใช้ในแบบ ข.ย. ไม่ได้ แต่ยอดขายและกำไรครบ)</div>
+          </div>
+          <label class="flex items-center gap-2 mt-3 text-sm"><input type="checkbox" v-model="imp.backup" class="w-5 h-5"> ดาวน์โหลดข้อมูลสำรองของปัจจุบันก่อนนำเข้า</label>
+          <button class="btn btn-badline w-full mt-3" @click="impApply">นำเข้า แทนที่ข้อมูลปัจจุบันทั้งหมด (ใส่รหัสผ่าน)</button>
+          <div class="text-xs text-slate-500 mt-2">หลังนำเข้า ระบบจะพาไปหน้าร้าน ผู้ใช้ที่ย้ายมายังไม่มีสิทธิ์พิเศษ ไปตั้งผู้ดูแลที่ "ผู้ใช้และสิทธิ์" และสร้างบัญชีเข้าระบบใน Supabase ให้ตรงชื่อ Login</div>
+        </div>
       </div>
 
       <div class="card p-4 mb-3">
@@ -1060,6 +1262,26 @@
         </div>
       </div>
       <div v-else class="p-4 rounded-xl text-center" style="background:#ccfbf1;color:#0f766e">ตรวจสอบยอดเงินเข้าบัญชีก่อนกดยืนยัน</div>
+      <label class="flex items-center gap-2 mt-4 text-sm cursor-pointer"><input type="checkbox" v-model="payModal.rxOn" class="w-5 h-5"> ขายตามใบสั่งแพทย์ / สัตวแพทย์ (บัญชี ข.ย.12)</label>
+      <div v-if="needBuyer || payModal.rxOn" class="mt-3 p-3 rounded-xl" style="background:#f8fafc;border:1px solid var(--line)">
+        <div class="font-semibold text-sm mb-2">ข้อมูลผู้ซื้อ (ใช้ในบัญชี ข.ย.)<span v-if="needBuyer" class="text-red-600"> * จำเป็น เพราะมียาควบคุม / ข.ย.11 / ข.ย.13 ในบิล</span></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="col-span-2"><label class="lbl" for="by-name">ชื่อ - สกุล ผู้ซื้อ</label><input id="by-name" v-model="payModal.buyer.name" class="inp" autocomplete="off"></div>
+          <div><label class="lbl" for="by-type">ประเภทผู้ซื้อ</label><select id="by-type" v-model="payModal.buyer.type" class="inp"><option>ผู้บริโภค</option><option>ร้านยา</option><option>สถานพยาบาล</option><option>อื่นๆ</option></select></div>
+          <div><label class="lbl" for="by-addr">ที่อยู่</label><input id="by-addr" v-model="payModal.buyer.addr" class="inp" autocomplete="off"></div>
+        </div>
+        <div v-if="payModal.rxOn" class="mt-3 pt-3" style="border-top:1px dashed var(--line)">
+          <div class="font-semibold text-sm mb-2">ใบสั่งยา (ข.ย.12)</div>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="lbl" for="rx-doc">ผู้สั่งยา ชื่อ - สกุล *</label><input id="rx-doc" v-model="payModal.rx.doc" class="inp"></div>
+            <div><label class="lbl" for="rx-da">ที่อยู่ / ที่ทำงานผู้สั่งยา</label><input id="rx-da" v-model="payModal.rx.docAddr" class="inp"></div>
+            <div><label class="lbl" for="rx-user">ผู้ใช้ยา ชื่อ - สกุล *</label><input id="rx-user" v-model="payModal.rx.user" class="inp"></div>
+            <div><label class="lbl" for="rx-age">อายุ</label><input id="rx-age" v-model="payModal.rx.age" class="inp" inputmode="numeric"></div>
+            <div class="col-span-2"><label class="lbl" for="rx-ad">ที่อยู่ผู้ใช้ยา</label><input id="rx-ad" v-model="payModal.rx.addr" class="inp"></div>
+          </div>
+        </div>
+      </div>
+      <div v-if="!buyerOk" class="text-xs mt-2 text-red-600">กรอกข้อมูลที่จำเป็น (*) ก่อนยืนยัน</div>
       <div v-if="!backdate.on" class="grid grid-cols-2 gap-2 mt-4">
         <label class="flex items-center gap-2 p-3 rounded-xl cursor-pointer" style="border:1.5px solid var(--line)" :style="printOpt.receipt ? 'background:#eef7f5;border-color:var(--pine)' : ''">
           <input type="checkbox" v-model="printOpt.receipt" class="w-5 h-5"> <span class="font-semibold">พิมพ์ใบเสร็จ</span>
@@ -1346,7 +1568,7 @@
       </div>
       <label class="lbl">ชื่อสามัญ</label><input v-model="formModal.generic" class="inp mb-3">
       <div class="grid grid-cols-2 gap-3 mb-3">
-        <div><label class="lbl">หมวด</label><select v-model="formModal.category" class="inp"><option v-for="c in CATS" :key="c">{{ c }}</option></select></div>
+        <div><label class="lbl">หมวด</label><select v-model="formModal.category" class="inp"><option v-for="c in catList" :key="c">{{ c }}</option></select></div>
         <div><label class="lbl">หน่วยขาย</label><input v-model="formModal.unit" class="inp" placeholder="แผง / ขวด / ซอง"></div>
         <div><label class="lbl">ราคาขาย</label><input v-model.number="formModal.price" type="number" inputmode="decimal" class="inp"></div>
         <div><label class="lbl">ราคาทุน</label><input v-model.number="formModal.cost" type="number" inputmode="decimal" class="inp"></div>
@@ -1590,7 +1812,7 @@
   </div>
 
   <!-- พื้นที่พิมพ์ (แสดงเฉพาะตอนสั่งพิมพ์) -->
-  <div v-if="printDoc" id="print-area">
+  <div v-if="printDoc" id="print-area" :class="printDoc.kind ? 'print-wide' : ''">
     <div v-if="printDoc.receipt" :style="printDoc.lines.length ? 'page-break-after:always' : ''">
       <div style="text-align:center;font-weight:700;font-size:13pt">{{ S.settings.shopName }}</div>
       <div style="text-align:center;font-size:9.5pt">ใบเสร็จรับเงิน {{ printDoc.sale.no }}</div>
@@ -1611,6 +1833,23 @@
       <div v-else class="rc-row"><span>ชำระโดย</span><span>โอนเงิน</span></div>
       <div class="rc-line"></div>
       <div style="text-align:center;font-size:10pt">ขอบคุณที่ใช้บริการ</div>
+    </div>
+    <ky-sheet v-if="printDoc.kind === 'ky'" :doc="printDoc.doc"></ky-sheet>
+    <div v-if="printDoc.kind === 'sr'" class="sr-print">
+      <div style="text-align:center;font-weight:700;font-size:14pt">{{ S.settings.shopName }}</div>
+      <div style="text-align:center;font-weight:700;font-size:12pt">รายงานการขาย แยกตาม{{ srGroupLabel }}</div>
+      <div style="text-align:center;font-size:9.5pt;margin-bottom:3mm">{{ srSummary }}</div>
+      <table class="prt">
+        <thead v-if="srGroup !== 'detail'"><tr><th>{{ srGroupLabel }}</th><th>บิล</th><th>ชิ้น</th><th>ยอดขาย</th><template v-if="can('viewCost')"><th>ต้นทุน</th><th>กำไร</th></template></tr></thead>
+        <thead v-else><tr><th>วันที่เวลา</th><th>บิล</th><th>สินค้า</th><th>จำนวน</th><th>ยอดขาย</th><th v-if="can('viewCost')">กำไร</th><th>พนักงาน</th></tr></thead>
+        <tbody v-if="srGroup !== 'detail'">
+          <tr v-for="r in srData.rows" :key="r.key"><td>{{ srGroup === 'day' ? fmtDayBE(r.label) : (srGroup === 'month' ? fmtMonth(r.label) : r.label) }}</td><td class="n">{{ r.bills }}</td><td class="n">{{ r.qty }}</td><td class="n">{{ money(r.sales) }}</td><template v-if="can('viewCost')"><td class="n">{{ money(r.cost) }}</td><td class="n">{{ money(r.profit) }}</td></template></tr>
+          <tr style="font-weight:700"><td>รวม</td><td class="n">{{ srData.totals.bills }}</td><td class="n">{{ srData.totals.qty }}</td><td class="n">{{ money(srData.totals.sales) }}</td><template v-if="can('viewCost')"><td class="n">{{ money(srData.totals.cost) }}</td><td class="n">{{ money(srData.totals.profit) }}</td></template></tr>
+        </tbody>
+        <tbody v-else>
+          <tr v-for="(l, i) in srData.lines" :key="i"><td>{{ fmtDayBE(dayKey(new Date(l.ts))) }} {{ fmtTime(l.sale.ts) }}</td><td>{{ l.sale.no }}</td><td>{{ l.it.name }}</td><td class="n">{{ l.it.qty }}</td><td class="n">{{ money(l.rev) }}</td><td v-if="can('viewCost')" class="n">{{ money(l.profit) }}</td><td>{{ l.sale.by || '-' }}</td></tr>
+        </tbody>
+      </table>
     </div>
     <template v-if="printDoc.lines.length">
       <div v-for="(l, i) in printDoc.lines" :key="i" class="dl-page">
@@ -1657,10 +1896,11 @@ const DRUG_FLAGS = [
   { k: 'autolabel', label: 'พิมพ์ฉลากยาอัตโนมัติ', style: 'background:#e0e7ff;color:#3730a3' },
   { k: 'ky8', label: 'ขย.8', style: 'background:#ede9fe;color:#5b21b6' },
   { k: 'ky11', label: 'ขย.11', style: 'background:#e0f2fe;color:#075985' },
+  { k: 'ky13', label: 'ขย.13', style: 'background:#fae8ff;color:#86198f' },
   { k: 'special', label: 'ยาใช้เฉพาะ', style: 'background:#dcfce7;color:#166534' }
 ]
 const PERM_GROUPS = [
-  { title: 'หน้าจอ', items: [['pos', 'หน้าจอหน้าร้าน (ขาย)'], ['members', 'หน้าจอลูกค้า / สมาชิก'], ['stock', 'หน้าจอคลังสินค้า / เบิกวัสดุ'], ['manage', 'ระบบบริหารจัดการยา (แก้ไขข้อมูลยา)'], ['receive', 'หน้าจอสั่งซื้อ / รับเข้า / ส่งคืน'], ['report', 'หน้าจอรายงาน (ปิดวัน / บิลการขาย)'], ['settings', 'หน้าจอตั้งค่า']] },
+  { title: 'หน้าจอ', items: [['pos', 'หน้าจอหน้าร้าน (ขาย)'], ['members', 'หน้าจอลูกค้า / สมาชิก'], ['stock', 'หน้าจอคลังสินค้า / เบิกวัสดุ'], ['manage', 'ระบบบริหารจัดการยา (แก้ไขข้อมูลยา)'], ['receive', 'หน้าจอสั่งซื้อ / รับเข้า / ส่งคืน'], ['report', 'หน้าจอปิดวัน / บิลการขาย'], ['reports', 'รายงานการขาย ยอดขาย กำไร'], ['forms', 'แบบรายงาน ข.ย. (9-13)'], ['settings', 'หน้าจอตั้งค่า']] },
   { title: 'การขาย', items: [['sellOtc', 'ขาย OTC'], ['sellRx', 'ขายยาอันตราย / ควบคุม (Prescription)'], ['editPrice', 'แก้ไขราคาขายที่หน้าร้าน'], ['voidSale', 'ยกเลิกบิลขาย'], ['billsView', 'แสดงรายการบิลขายที่หน้าร้าน']] },
   { title: 'คลังสินค้าและต้นทุน', items: [['adjustStock', 'ปรับสต็อก'], ['editReceipt', 'แก้ไข / ยกเลิกรายการรับเข้า'], ['viewCost', 'เห็นราคาทุนและกำไร']] }
 ]
@@ -1672,7 +1912,7 @@ const PERM_PRESETS = {
   cashier: { label: 'พนักงานขาย', perms: permsOf(['pos', 'members', 'billsView', 'sellOtc']) },
   stock: { label: 'พนักงานคลัง', perms: permsOf(['stock', 'receive', 'viewCost']) }
 }
-const SUB_PERM = { pos: 'pos', report: 'report', history: 'report', members: 'members', stock: 'stock', supplies: 'stock', manage: 'manage', receive: 'receive', settings: 'settings' }
+const SUB_PERM = { salesrep: 'reports', kyforms: 'forms', pos: 'pos', report: 'report', history: 'report', members: 'members', stock: 'stock', supplies: 'stock', manage: 'manage', receive: 'receive', settings: 'settings' }
 const RX_FLAGS = ['danger', 'controlled', 'ky8', 'ky11', 'ky9n']
 const MEAL_TIME = { before: 'ก่อนอาหาร', with: 'พร้อมอาหาร', after: 'หลังอาหาร' }
 const STORAGE_TYPE = { room: 'เก็บที่อุณหภูมิห้อง', fridge: 'เก็บในตู้เย็น' }
@@ -1772,7 +2012,7 @@ function migrate(S) {
     const add = n => { const k = Logic.supplierKey(n); if (k && !seen.has(k)) { seen.add(k); S.suppliers.push({ id: uid(), name: String(n).trim().replace(/\s+/g, ' '), phone: '', note: '' }) } }
     S.receipts.forEach(r => add(r.supplier)); S.products.forEach(p => add(p.supplier))
   }
-  for (const e of EXTRA_PRODUCTS) {
+  for (const e of (S.noExtras ? [] : EXTRA_PRODUCTS)) {
     if (S.products.some(p => p.id === e.id || p.code === e.code)) continue
     S.products.push({ generic: '', category: 'อื่นๆ', cost: 0, price: 0, reorder: 1, note: '', active: true, ...e })
     changed = true
@@ -1803,6 +2043,176 @@ function makeSeed() {
   kit.bundle = [{ pid: 'p46', qty: 1 }, { pid: 'p47', qty: 1 }, { pid: 'p48', qty: 1 }]
   migrate(S)
   return S
+}
+
+/* =====================================================================
+   นำเข้าข้อมูลจากไฟล์ .sql ของ SmartDrugstore (อ่านเป็นข้อความเท่านั้น ไม่รันคำสั่งใดๆ)
+   ===================================================================== */
+const Importer = {
+  WANT: new Set(['tb_product', 'tb_productall', 'tb_recivedetail', 'tb_order', 'tb_supplier', 'tb_customer', 'tb_user', 'tb_shopdetail', 'tb_sale', 'tb_saledetail']),
+  parseValues(s) {
+    const rows = []; let i = 0; const n = s.length
+    while (i < n) {
+      if (s[i] === '(') {
+        i++; const row = []
+        for (;;) {
+          while (s[i] === ' ') i++
+          if (s[i] === "'") {
+            let j = i + 1; const buf = []
+            for (;;) {
+              const ch = s[j]
+              if (ch === '\\') { buf.push(s[j + 1]); j += 2; continue }
+              if (ch === "'") { if (s[j + 1] === "'") { buf.push("'"); j += 2; continue } break }
+              buf.push(ch); j++
+            }
+            row.push(buf.join('')); i = j + 1
+          } else {
+            let j = i
+            while (s[j] !== ',' && s[j] !== ')') j++
+            const v = s.slice(i, j); row.push(v === 'NULL' ? null : v); i = j
+          }
+          if (s[i] === ',') { i++; continue }
+          if (s[i] === ')') { i++; break }
+        }
+        rows.push(row)
+      } else i++
+    }
+    return rows
+  },
+  async readDump(file, onProgress) {
+    const cols = {}, rows = {}; let cur = null
+    const handle = line => {
+      if (line.endsWith('\r')) line = line.slice(0, -1)
+      if (line.startsWith('CREATE TABLE')) { const m = /^CREATE TABLE `([^`]+)`/.exec(line); cur = m ? m[1] : null; if (cur) cols[cur] = []; return }
+      if (cur && !line.startsWith(')')) { const m = /^\s*`([^`]+)` /.exec(line); if (m) cols[cur].push(m[1]); return }
+      if (line.startsWith(')')) cur = null
+      if (line.startsWith('INSERT INTO')) {
+        const m = /^INSERT INTO `([^`]+)` VALUES /.exec(line)
+        if (m && Importer.WANT.has(m[1]) && cols[m[1]]) {
+          const c = cols[m[1]]; const arr = rows[m[1]] || (rows[m[1]] = [])
+          for (const r of Importer.parseValues(line.slice(m[0].length).replace(/;\s*$/, ''))) { const o = {}; for (let k = 0; k < c.length; k++) o[c[k]] = r[k]; arr.push(o) }
+        }
+      }
+    }
+    const reader = file.stream().getReader(), dec = new TextDecoder('utf-8')
+    let buf = '', read = 0, tick = 0
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      read += value.length; buf += dec.decode(value, { stream: true })
+      let start = 0, nl
+      while ((nl = buf.indexOf('\n', start)) >= 0) { handle(buf.slice(start, nl)); start = nl + 1 }
+      buf = buf.slice(start)
+      if (onProgress && (++tick % 8 === 0)) { onProgress(read / file.size); await new Promise(r => setTimeout(r, 0)) }
+    }
+    if (buf) handle(buf)
+    if (onProgress) onProgress(1)
+    return rows
+  },
+  convert(T, days) {
+    const num = (v, d) => { const x = parseFloat(v); return isNaN(x) ? (d === undefined ? 0 : d) : x }
+    const txt = v => { v = v === null || v === undefined ? '' : String(v).trim(); return v.toLowerCase() === 'null' ? '' : v.replace(/\s+/g, ' ') }
+    const dt = v => { v = txt(v); return (!v || v.startsWith('0000')) ? '' : v.slice(0, 10) }
+    const h53 = (str, seed = 0) => { let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed; for (let i = 0; i < str.length; i++) { const ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677) } h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909); return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36) }
+    const id = (p, k) => p + h53(k)
+    const get = t => T[t] || []
+    const sh = get('tb_shopdetail')[0] || {}
+    const settings = { pin: '1234', shopName: txt(sh.shop_name) || 'ร้านยา', nearExpiryDays: 90, shopAddress: [txt(sh.shop_address), txt(sh.shop_province), txt(sh.shop_zip)].filter(Boolean).join(' '), shopPhone: txt(sh.shop_tel), shopTaxId: txt(sh.shop_tax), pharmacistName: txt(sh.doc_name), licenseNo: txt(sh.certificate_number) }
+    const supById = {}, suppliers = []
+    for (const s of get('tb_supplier')) {
+      const nm = txt(s.sup_name); if (!nm) continue
+      const o = { id: id('s', String(s.sup_id)), name: nm, phone: txt(s.sup_tel), note: [txt(s.sup_address), txt(s.sup_province), txt(s.sup_tax) ? 'เลขผู้เสียภาษี ' + txt(s.sup_tax) : ''].filter(Boolean).join(' ') }
+      suppliers.push(o); supById[txt(s.sup_id)] = o
+    }
+    const lotsRaw = get('tb_productall'); const latestCost = {}
+    for (const r of lotsRaw.slice().sort((a, b) => dt(a.recive_date).localeCompare(dt(b.recive_date)))) { const c = num(r.capacity); if (c > 0) latestCost[txt(r.product_id)] = R4(c) }
+    const products = [], pidOf = {}
+    for (const p of get('tb_product')) {
+      const code = txt(p.product_id); if (!code) continue
+      const pid = 'p' + code; pidOf[code] = pid
+      const grp = txt(p.product_group); const prices = {}
+      for (const n of [2, 3, 4, 5]) if (num(p['product_sale_price' + n]) > 0) prices[n] = R2(num(p['product_sale_price' + n]))
+      const o = { id: pid, code, name: txt(p.product_bname) || code, generic: txt(p.product_commonname), category: grp && grp !== '#ไม่ระบุ#' ? grp : 'อื่นๆ', unit: txt(p.product_unit_name) || 'ชิ้น', cost: latestCost[code] || 0, price: R2(num(p.product_sale_price)), reorder: Math.floor(num(p.product_reorder)), note: '', active: txt(p.product_active) !== '0',
+        barcode: txt(p.product_barcode), location: txt(p.product_stay), regNo: txt(p.product_id_number), supplier: (supById[txt(p.product_sup_id)] || {}).name || '', expWarnDays: Math.floor(num(p.product_warning)), orderQty: Math.floor(num(p.product_buy_limit)), usage: txt(p.prscdosage), type: 'sell',
+        danger: txt(p.product_danger) === '1', controlled: txt(p.product_eff) === '1', otc: txt(p.product_OTC_Drug) === '1', offsys: txt(p.drugout) === '1', autolabel: txt(p.printauto) === '1', ky9n: txt(p.Report9N) === '1', ky11: !['', '0'].includes(txt(p.product_report11)), ky13: !['', '0'].includes(txt(p.product_report13)) }
+      if (Object.keys(prices).length) o.prices = prices
+      products.push(o)
+    }
+    const prodById = {}; for (const p of products) prodById[p.id] = p
+    const orderSup = {}; for (const o of get('tb_order')) orderSup[txt(o.order_number)] = txt(o.sup_id)
+    const lots = [], lotKey = {}, lotByPk = {}
+    const pushPk = (k, lot) => { (lotByPk[k] || (lotByPk[k] = [])).push(lot) }
+    for (const r of lotsRaw) {
+      const code = txt(r.product_id); if (!pidOf[code]) continue
+      const rd = dt(r.recive_date), ex = dt(r.exp_date)
+      const lot = { id: id('L', [code, ex, rd, txt(r.order_id), txt(r.produce_num)].join('|')), pid: pidOf[code], lotNo: txt(r.produce_num), expiry: ex, qtyIn: Math.floor(num(r.value_recive)), qtyLeft: Math.floor(num(r.value_now)), cost: R4(num(r.capacity)), receivedAt: (rd || '2000-01-01') + 'T09:00:00+07:00', source: txt(r.order_id) ? 'receive' : 'opening', _rd: rd }
+      lots.push(lot); lotKey[[code, ex, rd, txt(r.order_id)].join('|')] = lot
+      pushPk([code, rd, txt(r.produce_num)].join('|'), lot); pushPk([code, txt(r.produce_num)].join('|'), lot)
+    }
+    const receipts = {}
+    for (const r of get('tb_recivedetail')) {
+      const code = txt(r.product_id), on = txt(r.order_number); if (!pidOf[code]) continue
+      const lot = lotKey[[code, dt(r.EXP_date), dt(r.recive_date), on].join('|')]
+      const sp = supById[txt(r.sup_id)] || supById[orderSup[on]]
+      const rc = receipts[on] || (receipts[on] = { id: id('r', on), ts: (dt(r.recive_date) || '2000-01-01') + 'T09:00:00+07:00', day: dt(r.recive_date), invoice: on, supplier: sp ? sp.name : '', supplierId: sp ? sp.id : '', items: [], discount: 0, invoiceTotal: null, orderId: '', by: 'ย้ายจากระบบเดิม', status: 'ok' })
+      const p = prodById[pidOf[code]], uc = R4(num(r.price_Punit))
+      rc.items.push({ pid: p.id, name: p.name, unit: p.unit, qty: Math.floor(num(r.value_recive)), freeQty: Math.floor(num(r.premium)), unitCost: uc, lineDiscount: 0, effCost: uc, lotNo: lot ? lot.lotNo : '', expiry: dt(r.EXP_date), lotId: lot ? lot.id : '' })
+      if (lot) lot._rc = rc.id
+    }
+    for (const rc of Object.values(receipts)) { rc.subtotal = R2(rc.items.reduce((t, i) => t + i.qty * i.unitCost, 0)); rc.total = rc.subtotal }
+    const members = [], memOf = {}
+    for (const c of get('tb_customer')) {
+      const nm = txt(c.cus_name); if (!nm) continue
+      const al = String(c.cus_druglose === null || c.cus_druglose === undefined ? '' : c.cus_druglose).split(/[\n,;]+/).map(x => x.trim()).filter(x => x && x.toLowerCase() !== 'null')
+      const m = { id: id('m', String(c.cus_id)), code: txt(c.cus_id), name: nm, phone: txt(c.cus_tel), allergies: al.map(a => ({ drug: a, reaction: '' })), note: txt(c.cus_comment), createdAt: new Date().toISOString(), by: 'ย้ายจากระบบเดิม' }
+      members.push(m); memOf[txt(c.cus_id)] = m.id
+    }
+    const users = [], userName = {}
+    for (const u of get('tb_user')) {
+      const lg = txt(u.login_name).toLowerCase(); if (!lg) continue
+      const nm = txt(u.user_name) || lg; userName[txt(u.user_id).toUpperCase()] = nm; userName[lg] = nm
+      const t0 = txt(u.TimeStart).slice(0, 5), t1 = txt(u.TimeStop).slice(0, 5), none = ['', '00:00'].includes(t0) && ['', '00:00'].includes(t1)
+      users.push({ id: id('u', lg), empId: txt(u.user_id), name: nm, login: lg, role: 'ย้ายมา (กำหนดสิทธิ์ใหม่)', active: true, admin: false, workStart: none ? '' : t0, workEnd: none ? '' : t1, perms: { pos: true, members: true, billsView: true, sellOtc: true } })
+    }
+    const salesRaw = get('tb_sale'); let maxd = ''
+    for (const s of salesRaw) { const d = dt(s.sale_date); if (d > maxd) maxd = d }
+    const cutoff = days >= 3650 ? '0000-00-00' : (() => { const x = new Date(maxd + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() - (days - 1)); return x.toISOString().slice(0, 10) })()
+    const det = {}; for (const d of get('tb_saledetail')) (det[txt(d.bill_id)] || (det[txt(d.bill_id)] = [])).push(d)
+    const sales = []; let unmatched = 0, linesN = 0, badTot = 0, appTot = 0
+    for (const s of salesRaw) {
+      const bd = dt(s.sale_date); if (!bd || bd < cutoff) continue
+      const no = txt(s.bill_id), items = []
+      for (const d of det[no] || []) {
+        const code = txt(d.pro_id), p = prodById[pidOf[code]]
+        const qty = Math.floor(num(d.value)), price = R2(num(d.price)), cpu = num(d.capacityPunit)
+        let lot = null; const c = lotByPk[[code, dt(d.recive_date), txt(d.produce_num)].join('|')] || lotByPk[[code, txt(d.produce_num)].join('|')]
+        if (txt(d.produce_num) && c) lot = c.length === 1 ? c[0] : c.slice().sort((a, b) => a._rd.localeCompare(b._rd))[c.length - 1]
+        const it = { pid: p ? p.id : null, name: txt(d.product_name) || (p ? p.name : code), unit: p ? p.unit : '', qty, price, costTotal: R2(qty * cpu), allocs: [] }
+        if (lot && p) it.allocs.push({ lotId: lot.id, qty, cost: R4(cpu), pid: p.id }); else unmatched++
+        items.push(it); linesN++
+      }
+      if (!items.length) continue
+      const sub = R2(items.reduce((t, i) => t + i.qty * i.price, 0)), disc = R2(num(s.discount)), total = R2(num(s.Net_recive_M, sub - disc))
+      if (Math.abs((sub - disc) - total) > 0.05) badTot++
+      const who = userName[txt(s.Login_name).toLowerCase()] || userName[txt(s.user_id).toUpperCase()] || txt(s.Login_name) || txt(s.user_id)
+      const sale = { id: id('b', no), no, ts: bd + 'T' + (txt(s.sale_time) || '12:00:00') + '+07:00', day: bd, items, subtotal: sub, discount: disc, total, method: 'cash', received: R2(num(s.moneyComein, total)), change: R2(num(s.moneyBack)), status: 'ok', by: who, backdated: false, noStock: false, imported: true, memberId: memOf[txt(s.cus_id)] || '' }
+      if (txt(s.doc_name)) { sale.rx = { doc: txt(s.doc_name), docAddr: txt(s.doc_address), user: txt(s.cus_usename), age: txt(s.cus_useage), addr: txt(s.cus_useaddress) }; if (txt(s.cus_usename)) sale.buyer = { name: txt(s.cus_usename), addr: txt(s.cus_useaddress), type: 'ผู้บริโภค' } }
+      sales.push(sale); appTot += total
+    }
+    sales.sort((a, b) => a.ts.localeCompare(b.ts))
+    const mv = []
+    for (const lot of lots) mv.push({ id: id('v', lot.id + 'in'), ts: lot.receivedAt, pid: lot.pid, type: lot._rc ? 'receive' : 'opening', qty: lot.qtyIn, lotId: lot.id, ref: '', note: 'ย้ายจากระบบเดิม', by: 'ย้ายจากระบบเดิม' })
+    for (const s of sales) for (const it of s.items) for (const a of it.allocs) mv.push({ id: id('v', s.no + a.lotId), ts: s.ts, pid: a.pid, type: 'sale', qty: -a.qty, lotId: a.lotId, ref: s.no, note: '', by: s.by })
+    const sums = {}; for (const m of mv) sums[m.lotId] = (sums[m.lotId] || 0) + m.qty
+    for (const lot of lots) { const diff = lot.qtyLeft - (sums[lot.id] || 0); if (diff) mv.push({ id: id('v', lot.id + 'fix'), ts: (maxd || '2026-01-01') + 'T23:59:00+07:00', pid: lot.pid, type: 'adjust', qty: diff, lotId: lot.id, ref: '', note: 'ปรับให้ตรงยอดคงเหลือของระบบเดิม', by: 'ย้ายจากระบบเดิม' }) }
+    mv.sort((a, b) => a.ts.localeCompare(b.ts))
+    for (const lot of lots) { delete lot._rd; delete lot._rc }
+    const state = { products, lots, movements: mv, sales, receipts: Object.values(receipts).sort((a, b) => a.ts.localeCompare(b.ts)), returns: [], issues: [], closings: [], orders: [], members, memberNotes: [], followups: [], suppliers, users, seq: { sale: 0, ret: 0, mem: members.length, po: 0 }, settings, noExtras: true }
+    const mvs = {}; for (const m of mv) mvs[m.lotId] = (mvs[m.lotId] || 0) + m.qty
+    const stats = { products: products.length, lots: lots.length, lotsInStock: lots.filter(l => l.qtyLeft > 0).length, stockUnits: lots.reduce((t, l) => t + l.qtyLeft, 0), sqlStockUnits: lotsRaw.reduce((t, r) => t + Math.floor(num(r.value_now)), 0),
+      receipts: state.receipts.length, suppliers: suppliers.length, members: members.length, users: users.length, bills: sales.length, lines: linesN, linesNoLot: unmatched, salesTotal: R2(appTot), billsMismatch: badTot, lotsMovementMismatch: lots.filter(l => (mvs[l.id] || 0) !== l.qtyLeft).length, from: sales.length ? sales[0].day : '', to: maxd, shop: settings.shopName }
+    return { state, stats }
+  }
 }
 
 /* =====================================================================
@@ -1905,7 +2315,7 @@ const Logic = {
     return Number(p.cost) || 0
   },
   // at = เวลาขายย้อนหลัง (ISO) / deduct=false ใช้บันทึกยอดขายอย่างเดียว ไม่ตัดสต็อก
-  commitSale(S, { items, discount, method, received, at, deduct, memberId }) {
+  commitSale(S, { items, discount, method, received, at, deduct, memberId, buyer, rx }) {
     if (!items.length) throw new Error('ตะกร้าว่าง')
     for (const i of items) { const bp = i.pid ? S.products.find(x => x.id === i.pid) : null; if (bp && bp.banned) throw new Error(bp.name + ' เป็นยาห้ามขาย') }
     const stockOn = deduct !== false
@@ -1952,7 +2362,9 @@ const Logic = {
     const sale = { id: uid(), no, ts, day: dayKey(new Date(ts)), items: lines, subtotal, discount: disc, total,
                    method, received: recv, change: R2(recv - total), status: 'ok', by: ACTOR,
                    backdated: !!at, enteredAt: new Date().toISOString(), noStock: !stockOn,
-                   memberId: (memberId && S.members && S.members.some(m => m.id === memberId)) ? memberId : '' }
+                   memberId: (memberId && S.members && S.members.some(m => m.id === memberId)) ? memberId : '',
+                   ...(buyer && String(buyer.name || '').trim() ? { buyer: { name: String(buyer.name).trim(), addr: String(buyer.addr || '').trim(), type: buyer.type || 'ผู้บริโภค' } } : {}),
+                   ...(rx && String(rx.doc || '').trim() ? { rx: { doc: String(rx.doc).trim(), docAddr: String(rx.docAddr || '').trim(), user: String(rx.user || '').trim(), age: String(rx.age || '').trim(), addr: String(rx.addr || '').trim() } } : {}) }
     S.sales.push(sale)
     return sale
   },
@@ -1970,6 +2382,143 @@ const Logic = {
     }
     sale.status = 'void'; sale.voidTs = ts; sale.voidReason = reason || ''; sale.voidBy = ACTOR
     return sale
+  },
+  // ---------- แบบรายงาน ข.ย. ----------
+  beDay(d) {
+    if (!d) return ''
+    const a = String(d).slice(0, 10).split('-').map(Number)
+    return a[2] + ' ' + ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][a[1] - 1] + ' ' + (a[0] + 543)
+  },
+  kyFlagOf(form) { return { '10': 'controlled', '11': 'ky11', '13': 'ky13' }[form] || '' },
+  kyProducts(S, form, o) {
+    const fl = this.kyFlagOf(form)
+    if (o && Array.isArray(o.pids)) return S.products.filter(p => o.pids.includes(p.id))
+    return S.products.filter(p => fl && p[fl])
+  },
+  buildKy(S, form, o) {
+    const st = S.settings || {}
+    const shop = { name: st.shopName || '', address: st.shopAddress || '', pharmacist: st.pharmacistName || '', license: st.licenseNo || '' }
+    const d0 = dayKey(new Date(o.from)), d1 = dayKey(new Date(o.to))
+    const inRange = d => d >= d0 && d <= d1
+    const doc = { form, shop, period: this.beDay(d0) + ' - ' + this.beDay(d1), rows: [], pages: [], warn: [] }
+    const unitOf = (p, u) => u || (p && p.unit) || ''
+    if (form === '9') {
+      for (const rc of S.receipts) {
+        if (rc.status === 'void' || !inRange(rc.day)) continue
+        for (const row of rc.items) {
+          const p = S.products.find(x => x.id === row.pid)
+          if (!p || p.type === 'supply') continue
+          if (o.only9n && !p.ky9n) continue
+          const free = row.freeQty || 0
+          doc.rows.push({ ts: rc.ts, date: this.beDay(rc.day), supplier: rc.supplier || '', drug: p.name + (p.packSize ? ' (' + p.packSize + ')' : ''), lotNo: row.lotNo || '', qty: (row.qty + free) + ' ' + unitOf(p, row.unit), note: (free ? 'แถม ' + free + ' ' : '') + (rc.invoice ? 'บิล ' + rc.invoice : '') })
+          if (!row.lotNo) doc.warn.push('ไม่มีเลขที่ครั้งที่ผลิต: ' + p.name + ' (' + (rc.invoice || this.beDay(rc.day)) + ')')
+        }
+      }
+      doc.rows.sort((a, b) => a.ts.localeCompare(b.ts)).forEach((r, i) => { r.no = i + 1 })
+      return doc
+    }
+    if (form === '12') {
+      for (const sale of S.sales) {
+        if (sale.status !== 'ok' || !sale.rx || !inRange(sale.day)) continue
+        doc.rows.push({ ts: sale.ts, date: this.beDay(sale.day), doc: sale.rx.doc, docAddr: sale.rx.docAddr, user: sale.rx.user || (sale.buyer && sale.buyer.name) || '', age: sale.rx.age, addr: sale.rx.addr || (sale.buyer && sale.buyer.addr) || '',
+          drugs: sale.items.filter(i => i.pid).map(i => i.name + ' ' + i.qty + ' ' + (i.unit || '')).join(', '), note: 'บิล ' + sale.no })
+      }
+      doc.rows.sort((a, b) => a.ts.localeCompare(b.ts)).forEach((r, i) => { r.no = i + 1 })
+      return doc
+    }
+    // 10 / 11 / 13: one page per drug lot
+    const prods = this.kyProducts(S, form, o)
+    const pset = new Set(prods.map(p => p.id))
+    const saleAllocs = {}
+    for (const sale of S.sales) {
+      if (sale.status !== 'ok' || !inRange(sale.day)) continue
+      for (const it of sale.items) for (const a of (it.allocs || [])) { (saleAllocs[a.lotId] = saleAllocs[a.lotId] || []).push({ sale, a, pid: a.pid || it.pid }) }
+    }
+    for (const lot of S.lots) {
+      if (!pset.has(lot.pid)) continue
+      const p = S.products.find(x => x.id === lot.pid)
+      let from = '', dateIn = lot.receivedAt ? dayKey(new Date(lot.receivedAt)) : ''
+      for (const rc of S.receipts) { if (rc.status === 'void') continue; const row = rc.items.find(r => r.lotId === lot.id); if (row) { from = rc.supplier || ''; dateIn = rc.day; break } }
+      const sales = (saleAllocs[lot.id] || []).sort((x, y) => x.sale.ts.localeCompare(y.sale.ts))
+      if (!sales.length && !inRange(dateIn)) continue
+      const mv = S.movements.map((m, i) => ({ m, i })).filter(x => x.m.lotId === lot.id).sort((x, y) => x.m.ts.localeCompare(y.m.ts) || x.i - y.i)
+      let run = 0; const remainAt = {}
+      for (const x of mv) { run += x.m.qty; if (x.m.type === 'sale') (remainAt[x.m.ref] = remainAt[x.m.ref] || []).push(run) }
+      const rows = sales.map((x, i) => {
+        const mb = x.sale.memberId ? (S.members || []).find(m => m.id === x.sale.memberId) : null
+        const buyer = (x.sale.buyer && x.sale.buyer.name) || (mb && mb.name) || ''
+        const rem = (remainAt[x.sale.no] || []).shift()
+        return { no: i + 1, date: this.beDay(x.sale.day), qty: x.a.qty + ' ' + unitOf(p), buyer, addr: (x.sale.buyer && x.sale.buyer.addr) || '', type: (x.sale.buyer && x.sale.buyer.type) || '', remain: rem === undefined ? '' : rem + ' ' + unitOf(p), note: 'บิล ' + x.sale.no }
+      })
+      const page = { drug: p.name + (p.generic ? ' (' + p.generic + ')' : ''), maker: p.manufacturer || '', lotNo: lot.lotNo || '', pack: p.packSize || '', from, qtyIn: lot.qtyIn + ' ' + unitOf(p), dateIn: this.beDay(dateIn), reg: p.regNo || '', rows }
+      if (!page.maker) doc.warn.push('ยังไม่ได้ใส่ผู้ผลิต/ผู้นำเข้า: ' + p.name)
+      if (!page.pack) doc.warn.push('ยังไม่ได้ใส่ขนาดบรรจุ: ' + p.name)
+      if (form === '13' && !page.reg) doc.warn.push('ยังไม่ได้ใส่เลขทะเบียนตำรับยา: ' + p.name)
+      if (!page.lotNo) doc.warn.push('ล็อตไม่มีเลขที่ครั้งที่ผลิต: ' + p.name)
+      if (rows.some(r => !r.buyer)) doc.warn.push('มีรายการขายที่ไม่มีชื่อผู้ซื้อ: ' + p.name + (page.lotNo ? ' ล็อต ' + page.lotNo : ''))
+      doc.pages.push(page)
+    }
+    doc.pages.sort((a, b) => a.drug.localeCompare(b.drug, 'th') || a.lotNo.localeCompare(b.lotNo))
+    doc.warn = [...new Set(doc.warn)]
+    return doc
+  },
+  // ---------- รายงานการขาย ----------
+  salesLines(S, o) {
+    const lines = []
+    const q = String(o.q || '').trim().toLowerCase()
+    for (const sale of S.sales) {
+      if (sale.status !== 'ok') continue
+      const t = new Date(sale.ts).getTime()
+      if (t < o.from || t > o.to) continue
+      if (o.staff && (sale.by || '-') !== o.staff) continue
+      if (o.method && sale.method !== o.method) continue
+      const ratio = sale.subtotal > 0 ? sale.total / sale.subtotal : 1
+      for (const it of sale.items) {
+        const p = it.pid ? S.products.find(x => x.id === it.pid) : null
+        const cat = p ? (p.category || 'อื่นๆ') : 'รายรับอื่น'
+        if (o.category && cat !== o.category) continue
+        if (o.flag === 'none') { if (p && DRUG_FLAGS.some(f => p[f.k])) continue }
+        else if (o.flag && !(p && p[o.flag])) continue
+        if (q && !(String(it.name || '').toLowerCase().includes(q) || (p && String(p.generic || '').toLowerCase().includes(q)))) continue
+        const rev = R2(it.qty * it.price * ratio), cost = R2(it.costTotal || 0)
+        lines.push({ sale, it, p, cat, ts: t, rev, cost, profit: R2(rev - cost) })
+      }
+    }
+    return lines.sort((a, b) => a.ts - b.ts)
+  },
+  salesReport(S, o) {
+    const lines = this.salesLines(S, o)
+    const g = o.group || 'day'
+    const keyOf = l => {
+      const d = new Date(l.ts)
+      if (g === 'day') return [[dayKey(d), dayKey(d)]]
+      if (g === 'month') return [[ymOf(d), ymOf(d)]]
+      if (g === 'hour') return [[pad(d.getHours()), pad(d.getHours()) + ':00 - ' + pad(d.getHours()) + ':59']]
+      if (g === 'staff') return [[l.sale.by || '-', l.sale.by || '(ไม่ระบุ)']]
+      if (g === 'category') return [[l.cat, l.cat]]
+      if (g === 'method') return [[l.sale.method, l.sale.method === 'cash' ? 'เงินสด' : 'โอน']]
+      if (g === 'product') return [[l.it.pid || l.it.name, l.it.name]]
+      if (g === 'flag') {
+        const fs = l.p ? DRUG_FLAGS.filter(f => l.p[f.k]) : []
+        return fs.length ? fs.map(f => [f.k, f.label]) : [['none', 'ไม่มีประเภทพิเศษ']]
+      }
+      return [['all', 'ทั้งหมด']]
+    }
+    const map = new Map()
+    const billsAll = new Set()
+    const tot = { bills: 0, qty: 0, sales: 0, cost: 0, profit: 0 }
+    for (const l of lines) {
+      billsAll.add(l.sale.id); tot.qty += l.it.qty; tot.sales += l.rev; tot.cost += l.cost; tot.profit += l.profit
+      for (const [k, label] of keyOf(l)) {
+        let r = map.get(k); if (!r) { r = { key: k, label, bills: new Set(), qty: 0, sales: 0, cost: 0, profit: 0 }; map.set(k, r) }
+        r.bills.add(l.sale.id); r.qty += l.it.qty; r.sales += l.rev; r.cost += l.cost; r.profit += l.profit
+      }
+    }
+    tot.bills = billsAll.size
+    for (const k of ['sales', 'cost', 'profit']) tot[k] = R2(tot[k])
+    let rows = [...map.values()].map(r => ({ key: r.key, label: r.label, bills: r.bills.size, qty: r.qty, sales: R2(r.sales), cost: R2(r.cost), profit: R2(r.profit) }))
+    rows = ['day', 'month', 'hour'].includes(g) ? rows.sort((a, b) => String(a.key).localeCompare(String(b.key))) : rows.sort((a, b) => b.sales - a.sales)
+    return { rows, totals: tot, lines }
   },
   // ---------- ผู้จำหน่าย / ใบสั่งซื้อ / รับเข้า ----------
   supplierKey(n) { return String(n || '').trim().toLowerCase().replace(/\s+/g, ' ') },
@@ -2385,7 +2934,7 @@ const Logic = {
    ส่วนที่ 5: หน้าจอ (Vue)
    ===================================================================== */
 const { createApp } = Vue
-createApp({
+const app = createApp({
   data() {
     const today = dayKey(new Date())
     let lastUser = ''
@@ -2410,10 +2959,11 @@ createApp({
         { id: 'members', name: 'ระบบสมาชิก', short: 'สมาชิก', subs: [{ id: 'members', name: 'สมาชิก' }] },
         { id: 'stock', name: 'คลังสินค้า / เบิกวัสดุ', short: 'คลังสินค้า', subs: [{ id: 'stock', name: 'คลังสินค้า' }, { id: 'supplies', name: 'เบิกวัสดุ' }, { id: 'manage', name: 'ระบบบริหารจัดการยา' }] },
         { id: 'receive', name: 'ระบบรับเข้า / ส่งคืนสินค้า', short: 'รับเข้า/คืน', subs: [{ id: 'receive', name: 'รับเข้า / ส่งคืน' }] },
+        { id: 'reports', name: 'รายงาน', short: 'รายงาน', subs: [{ id: 'salesrep', name: 'รายงานการขาย' }, { id: 'kyforms', name: 'แบบรายงาน ข.ย.' }] },
         { id: 'settings', name: 'ตั้งค่า', short: 'ตั้งค่า', subs: [{ id: 'settings', name: 'ตั้งค่า' }] }],
       tab: 'pos',
       search: '', cat: 'ทั้งหมด', cart: [], discount: '', cartOpen: false,
-      payModal: { open: false, method: 'cash', received: '' }, resultSale: null, editPriceKey: null,
+      payModal: { open: false, method: 'cash', received: '', buyer: { name: '', addr: '', type: 'ผู้บริโภค' }, rxOn: false, rx: { doc: '', docAddr: '', user: '', age: '', addr: '' } }, resultSale: null, editPriceKey: null,
       otherModal: { open: false, name: 'ทิป / รายรับอื่น', amount: '' },
       printDoc: null,
       printOpt: (() => { try { const o = JSON.parse(localStorage.getItem('knockdown_print_opt')); return { receipt: !!(o && o.receipt), label: !!(o && o.label) } } catch (e) { return { receipt: false, label: false } } })(),
@@ -2425,6 +2975,9 @@ createApp({
                 { key: 'margin', cls: 'col-tab', label: 'กำไร%', num: true }, { key: 'exp', cls: 'col-tab', label: 'หมดอายุ' }, { key: 'barcode', cls: 'col-xl', label: 'บาร์โค้ด' }, { key: 'supplier', cls: 'col-xl', label: 'ผู้จำหน่าย' }, { key: 'location', cls: 'col-lg', label: 'ที่เก็บ' }], productModal: null, adj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, formModal: null,
       Logic: Vue.markRaw(Logic),
       PERM_GROUPS, PERM_PRESETS,
+      kyForm: '11', kyFrom: '', kyTo: '', kyPreset: 'month', kyOnly9n: false, kyManual: false, kyPids: [], kyQ: '',
+      srPreset: 'month', srFrom: '', srTo: '', srTf: '00:00', srTt: '23:59', srStaff: '', srCat: '', srFlag: '', srMethod: '', srQ: '', srGroup: 'day', srLimit: 100,
+      posLimit: 120, imp: { busy: false, pct: 0, msg: '', days: 365, result: null, backup: true },
       loginName: '', nowTick: Date.now(), setTab: 'general', usSel: null, us: null,
       mgMode: 'edit', bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
       mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
@@ -2447,6 +3000,38 @@ createApp({
     activeProducts() { return this.S.products.filter(p => p.active !== false) },
     autoLabelCount() { return this.cart.filter(i => { const p = i.pid && this.S.products.find(x => x.id === i.pid); return p && p.autolabel }).length },
     cartHasDrug() { return this.cart.some(i => i.pid) },
+    kyRange() {
+      const m = (d, end) => { const a = String(d || dayKey(new Date())).split('-').map(Number); return new Date(a[0], a[1] - 1, a[2], end ? 23 : 0, end ? 59 : 0, end ? 59 : 0, end ? 999 : 0).getTime() }
+      return { from: m(this.kyFrom, false), to: m(this.kyTo || this.kyFrom, true) }
+    },
+    kyDoc() { return Logic.buildKy(this.S, this.kyForm, { from: this.kyRange.from, to: this.kyRange.to, only9n: this.kyOnly9n, pids: (['10', '11', '13'].includes(this.kyForm) && this.kyManual) ? this.kyPids : undefined }) },
+    kyAutoCount() { return Logic.kyProducts(this.S, this.kyForm, {}).length },
+    kyPickList() {
+      const q = this.kyQ.trim().toLowerCase()
+      return this.S.products.filter(p => p.type !== 'supply' && !(p.bundle && p.bundle.length) && (!q || p.name.toLowerCase().includes(q) || (p.generic || '').toLowerCase().includes(q) || p.code.toLowerCase().includes(q))).slice(0, 80)
+    },
+    kyTitle() { return { '9': 'บัญชีการซื้อยา', '10': 'บัญชีการขายยาควบคุมพิเศษ', '11': 'บัญชีการขายยาอันตราย เฉพาะรายการยาที่เลขาธิการคณะกรรมการอาหารและยากำหนด', '12': 'บัญชีการขายยาตามใบสั่งของผู้ประกอบวิชาชีพเวชกรรม ผู้ประกอบโรคศิลปะ หรือผู้ประกอบวิชาชีพการสัตวแพทย์', '13': 'รายงานการขายยาตามที่เลขาธิการคณะกรรมการอาหารและยากำหนด' }[this.kyForm] },
+    srRange() {
+      const tm = (d, t, end) => { const a = String(d || dayKey(new Date())).split('-').map(Number), b = String(t || (end ? '23:59' : '00:00')).split(':').map(Number); return new Date(a[0], a[1] - 1, a[2], b[0] || 0, b[1] || 0, end ? 59 : 0, end ? 999 : 0).getTime() }
+      return { from: tm(this.srFrom, this.srTf, false), to: tm(this.srTo || this.srFrom, this.srTt, true) }
+    },
+    srOpts() { return { from: this.srRange.from, to: this.srRange.to, staff: this.srStaff, category: this.srCat, flag: this.srFlag, method: this.srMethod, q: this.srQ, group: this.srGroup === 'detail' ? 'day' : this.srGroup } },
+    srData() { return Logic.salesReport(this.S, this.srOpts) },
+    srStaffList() { return [...new Set(this.S.sales.map(x => x.by || '-'))].sort((a, b) => a.localeCompare(b, 'th')) },
+    catList() { const extra = [...new Set(this.S.products.map(p => p.category).filter(Boolean))].filter(c => !CATS.includes(c)).sort((a, b) => a.localeCompare(b, 'th')); return [...CATS, ...extra] },
+    posCats() { const have = new Set(this.sellProducts.map(p => p.category)); return this.catList.filter(c => have.has(c)) },
+    srCats() { return [...this.catList, 'รายรับอื่น'] },
+    srMax() { return Math.max(1, ...this.srData.rows.map(r => r.sales)) },
+    srSummary() {
+      const f = []
+      f.push(this.fmtDayBE(this.srFrom) + ' ' + this.srTf + ' - ' + this.fmtDayBE(this.srTo || this.srFrom) + ' ' + this.srTt)
+      if (this.srStaff) f.push('พนักงาน: ' + this.srStaff)
+      if (this.srCat) f.push('กลุ่มยา: ' + this.srCat)
+      if (this.srFlag) f.push('ประเภท: ' + (this.srFlag === 'none' ? 'ไม่มีประเภทพิเศษ' : (DRUG_FLAGS.find(x => x.k === this.srFlag) || {}).label))
+      if (this.srMethod) f.push('ชำระ: ' + (this.srMethod === 'cash' ? 'เงินสด' : 'โอน'))
+      if (this.srQ) f.push('ค้นหา: ' + this.srQ)
+      return f.join(' · ')
+    },
     me() { const n = this.loginName; return (this.S.users || []).find(u => String(u.login || '').toLowerCase() === n) || null },
     hasAdmin() { return (this.S.users || []).some(u => u.active !== false && u.admin) },
     isAdmin() { return !this.hasAdmin || !!(this.me && this.me.admin && this.me.active !== false) },
@@ -2548,7 +3133,14 @@ createApp({
     total() { return R2(this.subtotal - this.discountAmt) },
     quickCash() { return [20, 50, 100, 500, 1000].filter(v => v >= this.total && v !== this.total) },
     cashChange() { return R2((Number(this.payModal.received) || 0) - this.total) },
-    canPay() { return this.payModal.method === 'transfer' || (this.payModal.received !== '' && this.cashChange >= 0) },
+    needBuyer() { return this.cart.some(i => { const p = i.pid && this.S.products.find(x => x.id === i.pid); return p && (p.controlled || p.ky11 || p.ky13) }) },
+    buyerOk() {
+      const m = this.payModal
+      if (this.needBuyer && !String(m.buyer.name || '').trim()) return false
+      if (m.rxOn && (!String(m.rx.doc || '').trim() || !String(m.rx.user || '').trim())) return false
+      return true
+    },
+    canPay() { return this.buyerOk && (this.payModal.method === 'transfer' || (this.payModal.received !== '' && this.cashChange >= 0)) },
 
     histSales() { return this.S.sales.filter(s => s.day === this.histDay).sort((a, b) => b.ts.localeCompare(a.ts)) },
     histReport() { return Logic.dayReport(this.S, this.histDay) },
@@ -2601,6 +3193,7 @@ createApp({
         (!q || r.p.name.toLowerCase().includes(q) || r.p.generic.toLowerCase().includes(q) || r.p.code.includes(q) ||
           (r.p.barcode || '').includes(q) || (r.p.supplier || '').toLowerCase().includes(q) || (r.p.location || '').toLowerCase().includes(q)))
     },
+    srGroupLabel() { return { day: 'วัน', month: 'เดือน', hour: 'ชั่วโมง', staff: 'พนักงาน', category: 'กลุ่มยา', flag: 'ประเภทยา', method: 'วิธีชำระ', product: 'สินค้า', detail: 'รายการ' }[this.srGroup] },
     invColsShown() { return this.can('viewCost') ? this.invCols : this.invCols.filter(c => c.key !== 'cost' && c.key !== 'margin') },
     invShown() {
       const k = this.invSort.key, d = this.invSort.dir
@@ -2684,6 +3277,8 @@ createApp({
     formModal(v) { if (!v && this.mgSel && this.mgProduct) this.mg = this.mgDraft(this.mgProduct) },
     'S.users': { deep: true, handler() { this.ensureTab() } },
     loginName() { this.ensureTab() },
+    search() { this.posLimit = 120 },
+    cat() { this.posLimit = 120 },
     mgQ() { this.mgLimit = 50 },
     mgFilter() { this.mgLimit = 50 },
     invSearch() { this.invLimit = 50 },
@@ -2714,6 +3309,7 @@ createApp({
     window.addEventListener('online', () => { if (this.authed) { if (this.dirty) this.saveNow(); else this.checkRemote() } })
     window.addEventListener('pagehide', () => { if (this.authed && this.dirty) this.saveNow() })
     window.addEventListener('keydown', this.onKey)
+    this.srSetPreset('month'); this.kySetPreset('month')
     setInterval(() => { this.nowTick = Date.now() }, 30000)
     window.addEventListener('afterprint', () => { this.printDoc = null })
     this.remoteTimer = setInterval(() => { if (this.authed && !document.hidden) this.checkRemote() }, 45000)
@@ -2890,6 +3486,92 @@ createApp({
       clearTimeout(this.toastTimer)
       this.toastTimer = setTimeout(() => { this.toastMsg.text = '' }, 2600)
     },
+    fmtDayBE(d) {
+      if (!d) return ''
+      const a = String(d).split('-').map(Number)
+      return a[2] + ' ' + ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][a[1] - 1] + ' ' + (a[0] + 543)
+    },
+    kySetPreset(k) {
+      const t = new Date(); t.setHours(0, 0, 0, 0)
+      let a = t, b = t
+      if (k === 'lastmonth') { a = new Date(t.getFullYear(), t.getMonth() - 1, 1); b = new Date(t.getFullYear(), t.getMonth(), 0) }
+      else if (k === 'month') { a = new Date(t.getFullYear(), t.getMonth(), 1) }
+      else if (k === 'year') { a = new Date(t.getFullYear(), 0, 1) }
+      else if (k === 'lastyear') { a = new Date(t.getFullYear() - 1, 0, 1); b = new Date(t.getFullYear() - 1, 11, 31) }
+      this.kyPreset = k; this.kyFrom = dayKey(a); this.kyTo = dayKey(b)
+    },
+    kyTogglePid(id) { const i = this.kyPids.indexOf(id); if (i >= 0) this.kyPids.splice(i, 1); else this.kyPids.push(id) },
+    kyPrint() { this.printDoc = { kind: 'ky', sale: null, receipt: false, lines: [], doc: this.kyDoc }; this.runPrint() },
+    kyCsv() {
+      const d = this.kyDoc, f = this.kyForm
+      let rows = []
+      if (f === '9') rows = [['ลำดับที่', 'วัน เดือน ปี ที่ซื้อ', 'ชื่อผู้ขาย', 'ชื่อยา', 'เลขที่หรืออักษรของครั้งที่ผลิต', 'จำนวน/ปริมาณ', 'หมายเหตุ']].concat(d.rows.map(r => [r.no, r.date, r.supplier, r.drug, r.lotNo, r.qty, r.note]))
+      else if (f === '12') rows = [['ลำดับที่', 'วัน เดือน ปี ที่ขายยา', 'ผู้สั่งยา', 'ที่อยู่/ที่ทำงานผู้สั่ง', 'ผู้ใช้ยา', 'อายุ', 'ที่อยู่ผู้ใช้ยา', 'ชื่อยาและจำนวน', 'หมายเหตุ']].concat(d.rows.map(r => [r.no, r.date, r.doc, r.docAddr, r.user, r.age, r.addr, r.drugs, r.note]))
+      else {
+        rows = [['ชื่อยา', 'ผู้ผลิต/ผู้นำเข้า', 'เลขที่ครั้งที่ผลิต', 'ขนาดบรรจุ', 'ได้มาจาก', 'จำนวนรับ', 'วันที่รับ', 'เลขทะเบียนตำรับยา', 'ลำดับที่', 'วัน เดือน ปี ที่ขาย', 'จำนวนที่ขาย', 'ชื่อ-สกุล/ชื่อผู้รับ', 'ที่อยู่', 'ประเภท', 'คงเหลือ', 'หมายเหตุ']]
+        for (const pg of d.pages) for (const r of pg.rows) rows.push([pg.drug, pg.maker, pg.lotNo, pg.pack, pg.from, pg.qtyIn, pg.dateIn, pg.reg, r.no, r.date, r.qty, r.buyer, r.addr, r.type, r.remain, r.note])
+      }
+      this.downloadCsv('ky' + f + '-' + dayKey(new Date()) + '.csv', rows)
+    },
+    srSetPreset(k) {
+      const t = new Date(); t.setHours(0, 0, 0, 0)
+      const add = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x }
+      let a = t, b = t
+      if (k === 'yesterday') { a = b = add(t, -1) }
+      else if (k === '7d') { a = add(t, -6) }
+      else if (k === '30d') { a = add(t, -29) }
+      else if (k === 'month') { a = new Date(t.getFullYear(), t.getMonth(), 1) }
+      else if (k === 'lastmonth') { a = new Date(t.getFullYear(), t.getMonth() - 1, 1); b = new Date(t.getFullYear(), t.getMonth(), 0) }
+      else if (k === 'year') { a = new Date(t.getFullYear(), 0, 1) }
+      this.srPreset = k; this.srFrom = dayKey(a); this.srTo = dayKey(b); this.srTf = '00:00'; this.srTt = '23:59'; this.srLimit = 100
+    },
+    srCsv() {
+      const rows = this.srGroup === 'detail'
+        ? [['วันที่เวลา', 'เลขที่บิล', 'สินค้า', 'กลุ่มยา', 'จำนวน', 'ราคา', 'ยอดขาย', 'ต้นทุน', 'กำไร', 'พนักงาน', 'ชำระ']].concat(this.srData.lines.map(l => [new Date(l.ts).toLocaleString('th-TH'), l.sale.no, l.it.name, l.cat, l.it.qty, l.it.price, l.rev, l.cost, l.profit, l.sale.by || '', l.sale.method === 'cash' ? 'เงินสด' : 'โอน']))
+        : [[this.srGroupLabel, 'จำนวนบิล', 'จำนวนชิ้น', 'ยอดขาย', 'ต้นทุน', 'กำไร']].concat(this.srData.rows.map(r => [r.label, r.bills, r.qty, r.sales, r.cost, r.profit]))
+      this.downloadCsv('sales-report-' + dayKey(new Date()) + '.csv', rows)
+    },
+    downloadCsv(name, rows) {
+      const cell = v => { v = String(v === null || v === undefined ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v }
+      const text = '\ufeff' + rows.map(r => r.map(cell).join(',')).join('\n')
+      try {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' })); a.download = name; a.click()
+        this.toast('สร้างไฟล์ ' + name + ' แล้ว')
+      } catch (e) { this.toast('เบราว์เซอร์นี้สร้างไฟล์ไม่ได้', 'bad') }
+    },
+    srPrint() { this.printDoc = { kind: 'sr', sale: null, receipt: false, lines: [] }; this.runPrint() },
+    async impPick(ev) {
+      const f = ev && ev.target && ev.target.files && ev.target.files[0]
+      if (!f) return
+      this.imp.busy = true; this.imp.pct = 0; this.imp.result = null; this.imp.msg = 'กำลังอ่านไฟล์ ' + f.name + ' ...'
+      try {
+        const rows = await Importer.readDump(f, p => { this.imp.pct = Math.round(p * 100) })
+        this.imp.msg = 'กำลังแปลงข้อมูล ...'
+        await new Promise(r => setTimeout(r, 30))
+        if (!rows.tb_product || !rows.tb_product.length) throw new Error('ไม่พบตารางสินค้า (tb_product) ในไฟล์นี้ ต้องเป็นไฟล์ .sql ที่ส่งออกจาก SmartDrugstore')
+        this.imp.result = Vue.markRaw(Importer.convert(rows, Number(this.imp.days)))
+        this.imp.msg = 'อ่านเสร็จแล้ว ตรวจสอบสรุปด้านล่างก่อนนำเข้า'
+      } catch (e) { this.imp.msg = 'อ่านไฟล์ไม่สำเร็จ: ' + (e && e.message) }
+      this.imp.busy = false
+      if (ev && ev.target) ev.target.value = ''
+    },
+    impApply() {
+      const r = this.imp.result
+      if (!r || !this.isAdmin) return
+      this.askPin('นำเข้าข้อมูลจาก SmartDrugstore (แทนที่ข้อมูลปัจจุบันทั้งหมด)', () => {
+        try {
+          if (this.imp.backup) this.makeBackup()
+          const d = r.state
+          for (const k of Object.keys(this.S)) delete this.S[k]
+          Object.assign(this.S, JSON.parse(JSON.stringify(d)))
+          migrate(this.S)
+          this.cart = []; this.cat = 'ทั้งหมด'; this.search = ''; this.mgSel = null; this.mg = null; this.invSort = { key: '', dir: 1 }
+          this.imp.result = null; this.imp.msg = 'นำเข้าเรียบร้อยแล้ว'
+          this.ensureTab(); this.goTab('pos')
+          this.toast('นำเข้า ' + r.stats.products + ' สินค้า ' + r.stats.lotsInStock + ' ล็อตที่มีของ ' + r.stats.bills + ' บิล เรียบร้อยแล้ว')
+        } catch (e) { this.toast('นำเข้าไม่สำเร็จ: ' + e.message, 'bad') }
+      })
+    },
     usBlank() { return { id: '', empId: '', name: '', login: '', role: '', active: true, admin: false, workStart: '', workEnd: '', perms: { ...PERM_PRESETS.cashier.perms } } },
     usNew() { this.usSel = 'new'; this.us = this.usBlank() },
     usSelect(u) { this.usSel = u.id; this.us = { ...this.usBlank(), ...JSON.parse(JSON.stringify(u)), perms: { ...this.usBlank().perms, ...(u.perms || {}) } } },
@@ -3002,7 +3684,8 @@ createApp({
       if (!this.cart.length) return
       if (this.cart.some(i => (Number(i.price) || 0) < 0)) return this.toast('มีรายการที่ราคาติดลบ', 'bad')
       this.editPriceKey = null
-      this.payModal = { open: true, method: method || 'cash', received: this.total }
+      const mb = this.cartMember
+      this.payModal = { open: true, method: method || 'cash', received: this.total, buyer: { name: mb ? mb.name : '', addr: '', type: 'ผู้บริโภค' }, rxOn: false, rx: { doc: '', docAddr: '', user: '', age: '', addr: '' } }
     },
     startEditPrice(item) {
       if (!this.can('editPrice')) return this.deny('แก้ไขราคาขาย')
@@ -3022,7 +3705,7 @@ createApp({
       try {
         const items = this.cart.map(i => ({ pid: i.pid, name: i.name, unit: i.unit, qty: i.qty, price: Number(i.price) || 0 }))
         const bd = this.backdate.on
-        const sale = Logic.commitSale(this.S, { items, discount: this.discountAmt, method: this.payModal.method, received: Number(this.payModal.received) || 0,
+        const sale = Logic.commitSale(this.S, { items, discount: this.discountAmt, method: this.payModal.method, received: Number(this.payModal.received) || 0, buyer: (this.needBuyer || this.payModal.rxOn) ? this.payModal.buyer : undefined, rx: this.payModal.rxOn ? this.payModal.rx : undefined,
           at: bd ? new Date(this.backdate.date + 'T' + (this.backdate.time || '12:00')).toISOString() : undefined, deduct: bd ? this.backdate.deduct : true, memberId: this.cartMemberId })
         this.resultSale = sale
         this.$nextTick(() => this.saveNow())
@@ -3138,7 +3821,7 @@ createApp({
     mgDraft(p) {
       return { code: p.code, name: p.name, generic: p.generic || '', category: p.category || CATS[0], unit: p.unit || '', type: p.type || 'sell', barcode: p.barcode || '', supplier: p.supplier || '', location: p.location || '',
                note: p.note || '', price: p.price, cost: p.cost, reorder: p.reorder, expWarnDays: p.expWarnDays || '', active: p.active !== false,
-               regNo: p.regNo || '', orderQty: p.orderQty || '', mealTime: p.mealTime || '', storageType: p.storageType || '',
+               regNo: p.regNo || '', manufacturer: p.manufacturer || '', packSize: p.packSize || '', orderQty: p.orderQty || '', mealTime: p.mealTime || '', storageType: p.storageType || '',
                flags: Object.fromEntries(DRUG_FLAGS.map(f => [f.k, !!p[f.k]])), usage: p.usage || '', indication: p.indication || '', warning: p.warning || '', storage: p.storage || '' }
     },
     mgInitLots() { const m = {}; for (const l of this.mgLotRows) m[l.id] = { qty: l.qtyLeft, cost: l.cost }; this.mgLots = m },
@@ -3167,7 +3850,7 @@ createApp({
       if (!(Number(d.cost) >= 0 || d.cost === '')) return this.toast('ราคาทุนไม่ถูกต้อง', 'bad')
       const next = { code: d.code.trim(), name: d.name.trim(), generic: d.generic.trim(), category: d.category, unit: d.unit.trim() || 'ชิ้น', type: d.type, barcode: bc, supplier: d.supplier.trim(), location: d.location.trim(),
         note: d.note.trim(), price: Number(d.price) || 0, reorder: Number(d.reorder) || 0, expWarnDays: Number(d.expWarnDays) || 0, active: !!d.active,
-        regNo: (d.regNo || '').trim(), orderQty: Math.floor(Number(d.orderQty)) || 0, mealTime: d.mealTime || '', storageType: d.storageType || '',
+        regNo: (d.regNo || '').trim(), manufacturer: (d.manufacturer || '').trim(), packSize: (d.packSize || '').trim(), orderQty: Math.floor(Number(d.orderQty)) || 0, mealTime: d.mealTime || '', storageType: d.storageType || '',
         usage: d.usage.trim(), indication: d.indication.trim(), warning: d.warning.trim(), storage: d.storage.trim() }
       if (!this.mgIsBundle) next.cost = Number(d.cost) || 0
       for (const f of DRUG_FLAGS) next[f.k] = !!d.flags[f.k]
@@ -3584,7 +4267,75 @@ createApp({
       })
     }
   }
-}).mount('#app')
+})
+app.component('ky-sheet', {
+  props: ['doc'],
+  template: `<div class="ky">
+    <template v-if="doc.form === '9' || doc.form === '12'">
+      <div class="ky-page">
+        <div class="ky-no">{{ doc.form === '9' ? 'แบบ ข.ย. ๙' : 'แบบ ข.ย. 12' }}</div>
+        <div class="ky-title">{{ doc.form === '9' ? 'บัญชีการซื้อยา' : 'บัญชีการขายยาตามใบสั่งของผู้ประกอบวิชาชีพเวชกรรม ผู้ประกอบโรคศิลปะ หรือผู้ประกอบวิชาชีพการสัตวแพทย์' }}</div>
+        <div class="ky-shop">{{ doc.shop.name }}<span v-if="doc.shop.address"> · {{ doc.shop.address }}</span></div>
+        <div class="ky-cap">(ชื่อสถานที่ขายยา) · ช่วง {{ doc.period }}</div>
+        <table v-if="doc.form === '9'" class="ky-table">
+          <thead><tr><th>ลำดับที่</th><th>วัน เดือน ปี<br>ที่ซื้อ</th><th>ชื่อผู้ขาย</th><th>ชื่อยา</th><th>เลขที่หรืออักษร<br>ของครั้งที่ผลิต</th><th>จำนวน/ปริมาณ</th><th>ลายมือชื่อ<br>ผู้มีหน้าที่ปฏิบัติการ</th><th>หมายเหตุ</th></tr></thead>
+          <tbody>
+            <tr v-for="r in doc.rows" :key="r.no"><td class="c">{{ r.no }}</td><td>{{ r.date }}</td><td>{{ r.supplier }}</td><td>{{ r.drug }}</td><td>{{ r.lotNo }}</td><td class="c">{{ r.qty }}</td><td></td><td>{{ r.note }}</td></tr>
+            <tr v-if="!doc.rows.length"><td colspan="8" class="c empty">ไม่มีรายการในช่วงที่เลือก</td></tr>
+          </tbody>
+        </table>
+        <table v-else class="ky-table">
+          <thead>
+            <tr><th rowspan="2">ลำดับที่</th><th rowspan="2">วัน เดือน ปี<br>ที่ขายยา</th><th colspan="2">ผู้สั่งยา</th><th colspan="3">ผู้ใช้ยา</th><th rowspan="2">ชื่อยา และ<br>จำนวน / ปริมาณ</th><th rowspan="2">ลายมือชื่อ<br>ผู้มีหน้าที่ปฏิบัติการ</th><th rowspan="2">หมายเหตุ</th></tr>
+            <tr><th>ชื่อ – สกุล</th><th>ที่อยู่หรือทำงาน</th><th>ชื่อ – สกุล</th><th>อายุ</th><th>ที่อยู่</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in doc.rows" :key="r.no"><td class="c">{{ r.no }}</td><td>{{ r.date }}</td><td>{{ r.doc }}</td><td>{{ r.docAddr }}</td><td>{{ r.user }}</td><td class="c">{{ r.age }}</td><td>{{ r.addr }}</td><td>{{ r.drugs }}</td><td></td><td>{{ r.note }}</td></tr>
+            <tr v-if="!doc.rows.length"><td colspan="10" class="c empty">ไม่มีรายการในช่วงที่เลือก (ติ๊ก "ขายตามใบสั่งแพทย์" ตอนรับเงินเพื่อบันทึกข้อมูลบัญชีนี้)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
+    <template v-else>
+      <div v-for="(pg, pi) in doc.pages" :key="pi" class="ky-page">
+        <div class="ky-no">{{ doc.form === '10' ? 'แบบ ข.ย. ๑๐' : (doc.form === '11' ? 'แบบ ข.ย. 11' : 'แบบ ข.ย. ๑๓') }}</div>
+        <div class="ky-title">{{ doc.form === '10' ? 'บัญชีการขายยาควบคุมพิเศษ' : (doc.form === '11' ? 'บัญชีการขายยาอันตราย เฉพาะรายการยาที่เลขาธิการคณะกรรมการอาหารและยากำหนด' : 'รายงานการขายยาตามที่เลขาธิการคณะกรรมการอาหารและยากำหนด') }}</div>
+        <div class="ky-shop">{{ doc.shop.name }}<span v-if="doc.shop.address"> · {{ doc.shop.address }}</span></div>
+        <div class="ky-cap">{{ doc.form === '13' ? '(ชื่อ ที่อยู่ สถานที่ขายยา)' : '(ชื่อสถานที่ขายยา)' }} · ช่วง {{ doc.period }}</div>
+        <div class="ky-hd">
+          <div class="ky-f wide"><b>ชื่อยา</b> <span class="v">{{ pg.drug }}</span></div>
+          <div v-if="doc.form === '13'" class="ky-f"><b>เลขทะเบียนตำรับยา</b> <span class="v">{{ pg.reg }}</span></div>
+          <div class="ky-f"><b>ชื่อผู้ผลิต / ผู้นำเข้า</b> <span class="v">{{ pg.maker }}</span></div>
+          <div class="ky-f"><b>เลขที่หรืออักษรของครั้งที่ผลิต</b> <span class="v">{{ pg.lotNo }}</span></div>
+          <div class="ky-f"><b>ขนาดบรรจุ</b> <span class="v">{{ pg.pack }}</span></div>
+          <div class="ky-f"><b>ได้มาจาก</b> <span class="v">{{ pg.from }}</span></div>
+          <div class="ky-f"><b>จำนวนรับ</b> <span class="v">{{ pg.qtyIn }}</span></div>
+          <div class="ky-f"><b>วันที่รับ</b> <span class="v">{{ pg.dateIn }}</span></div>
+        </div>
+        <table v-if="doc.form !== '13'" class="ky-table">
+          <thead><tr><th>ลำดับที่</th><th>วัน เดือน ปี<br>ที่ขาย</th><th>จำนวน / ปริมาณที่ขาย</th><th>ชื่อ สกุล ผู้ซื้อ</th><th>ลายมือชื่อ<br>ผู้มีหน้าที่ปฏิบัติการ</th><th>หมายเหตุ</th></tr></thead>
+          <tbody>
+            <tr v-for="r in pg.rows" :key="r.no"><td class="c">{{ r.no }}</td><td>{{ r.date }}</td><td class="c">{{ r.qty }}</td><td>{{ r.buyer }}</td><td></td><td>{{ r.note }}</td></tr>
+            <tr v-if="!pg.rows.length"><td colspan="6" class="c empty">ไม่มีรายการขายในช่วงที่เลือก</td></tr>
+          </tbody>
+        </table>
+        <table v-else class="ky-table">
+          <thead>
+            <tr><th rowspan="2">ลำดับที่</th><th rowspan="2">วัน เดือน ปี<br>ที่ขาย</th><th colspan="2">จ่ายไปให้</th><th colspan="2">จำนวน / ปริมาณ</th><th rowspan="2">หมายเหตุ</th></tr>
+            <tr><th>ชื่อและที่อยู่</th><th>ประเภท</th><th>ขาย (หน่วยนับ)</th><th>คงเหลือ (หน่วยนับ)</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in pg.rows" :key="r.no"><td class="c">{{ r.no }}</td><td>{{ r.date }}</td><td>{{ r.buyer }}<span v-if="r.addr"> {{ r.addr }}</span></td><td>{{ r.type }}</td><td class="c">{{ r.qty }}</td><td class="c">{{ r.remain }}</td><td>{{ r.note }}</td></tr>
+            <tr v-if="!pg.rows.length"><td colspan="7" class="c empty">ไม่มีรายการขายในช่วงที่เลือก</td></tr>
+          </tbody>
+        </table>
+        <div v-if="doc.form === '13'" class="ky-sign"><div>(ลายมือชื่อ) ....................................... ผู้รับอนุญาต <span v-if="doc.shop.pharmacist">({{ doc.shop.pharmacist }}<span v-if="doc.shop.license"> {{ doc.shop.license }}</span>)</span></div><div>(ลายมือชื่อ) ....................................... ผู้มีหน้าที่ปฏิบัติการ</div></div>
+      </div>
+      <div v-if="!doc.pages.length" class="ky-page"><div class="empty c">ไม่มียาที่ต้องทำบัญชีนี้ในช่วงที่เลือก (กำหนดประเภทยาที่ ระบบบริหารจัดการยา หรือเลือกยาเอง)</div></div>
+    </template>
+  </div>`
+})
+app.mount('#app')
 </script>
 </body>
 </html>
