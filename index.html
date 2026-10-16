@@ -39,6 +39,17 @@
       .rt td.c-name { order:-1; grid-column:1 / -1; margin-bottom:.25rem; }
       .rt td.c-name::before, .rt td.c-code::before { display:none !important; }
     }
+    #print-area { display: none; }
+    @media print {
+      @page { margin: 3mm; }
+      body * { visibility: hidden !important; }
+      #print-area, #print-area * { visibility: visible !important; }
+      #print-area { display: block; position: absolute; left: 0; top: 0; width: 76mm; color: #000; background: #fff; font-size: 11pt; line-height: 1.35; }
+      #print-area .dl-page { page-break-after: always; border: 1px solid #000; padding: 2.5mm; margin-bottom: 2mm; }
+      #print-area .dl-page:last-child { page-break-after: auto; }
+      #print-area .rc-row { display: flex; justify-content: space-between; gap: 2mm; }
+      #print-area .rc-line { border-top: 1px dashed #000; margin: 1.5mm 0; }
+    }
     .sub { min-height: 40px; padding: .35rem .9rem; font-size: .92rem; border-radius: 999px; font-weight: 600; white-space: nowrap; color: #b9dcd7; border: 1.5px solid #2f6b64; }
     .sub-on { background: #b9dcd7; color: #0f3f3a; border-color: #b9dcd7; }
     .badge { position:absolute; top:-4px; right:-2px; background:#dc2626; color:#fff; font-size:11px; min-width:18px; height:18px;
@@ -160,9 +171,10 @@
           <button class="underline font-semibold whitespace-nowrap" @click="endBackdate">ออกจากโหมด</button>
         </div>
         <div class="p-3 border-b" style="border-color:var(--line)">
-          <input v-model="search" @keyup.enter="onSearchEnter" class="inp" placeholder="พิมพ์รหัส หรือชื่อยา แล้วกด Enter" autocomplete="off">
+          <input ref="searchInput" v-model="search" @keyup.enter="onSearchEnter" @keydown.esc="search = ''; $event.target.blur()" class="inp" placeholder="พิมพ์ชื่อ รหัส หรือยิงบาร์โค้ด แล้วกด Enter  ( / หรือ F2 = ค้นหา, F9 = เงินสด, F10 = โอน )" autocomplete="off">
           <div class="flex gap-2 overflow-x-auto pt-3 pb-1">
             <button class="chip" :class="cat === 'ทั้งหมด' ? 'chip-on' : ''" @click="cat = 'ทั้งหมด'">ทั้งหมด</button>
+            <button class="chip" :class="cat === 'ขายบ่อย' ? 'chip-on' : ''" @click="cat = 'ขายบ่อย'">★ ขายบ่อย</button>
             <button v-for="c in CATS" :key="c" class="chip" :class="cat === c ? 'chip-on' : ''" @click="cat = c">{{ c }}</button>
           </div>
         </div>
@@ -698,8 +710,12 @@
         <div class="text-sm">เงินทอน</div><div class="text-5xl font-bold num">฿{{ money(resultSale.change) }}</div>
       </div>
       <div class="grid grid-cols-2 gap-2 mt-4">
+        <button class="btn btn-ghost" @click="printReceipt(resultSale)">พิมพ์ใบเสร็จ</button>
+        <button class="btn btn-ghost" @click="printLabels(resultSale)">พิมพ์ฉลากยา</button>
+      </div>
+      <div class="grid grid-cols-2 gap-2 mt-2">
         <button class="btn btn-badline" @click="undoResult">ยกเลิกบิลนี้</button>
-        <button class="btn btn-pri" @click="resultSale = null">ขายรายการต่อไป</button>
+        <button class="btn btn-pri" @click="nextSale">ขายรายการต่อไป</button>
       </div>
     </div>
   </div>
@@ -847,6 +863,10 @@
         {{ curSale.method === 'cash' ? 'เงินสด รับมา ฿' + money(curSale.received) + ' ทอน ฿' + money(curSale.change) : 'รับโอน' }}
       </div>
       <div v-if="curSale.backdated" class="text-xs p-2 rounded-lg mb-3" style="background:#fef3c7;color:#92400e">คีย์ย้อนหลังเมื่อ {{ fmtDay(dayKey(new Date(curSale.enteredAt))) }} {{ fmtTime(curSale.enteredAt) }}<span v-if="curSale.noStock"> · ไม่ได้ตัดสต็อก (บันทึกเป็นยอดขายอย่างเดียว)</span></div>
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <button class="btn btn-ghost" @click="printReceipt(curSale)">พิมพ์ใบเสร็จ</button>
+        <button class="btn btn-ghost" @click="printLabels(curSale)">พิมพ์ฉลากยา</button>
+      </div>
       <div v-if="curSale.status === 'ok'">
         <label class="lbl">เหตุผลที่ยกเลิก</label>
         <select v-model="voidReason" class="inp mb-3">
@@ -1166,6 +1186,44 @@
       <button class="btn btn-ghost w-full mb-2" @click="conflictCopyLocal">คัดลอกข้อมูลของเครื่องนี้เก็บไว้ก่อน</button>
       <button class="btn btn-badline w-full" @click="conflictForce">ใช้ข้อมูลเครื่องนี้ทับคลาวด์ (ต้องใส่รหัสผ่าน)</button>
     </div>
+  </div>
+
+  <!-- พื้นที่พิมพ์ (แสดงเฉพาะตอนสั่งพิมพ์) -->
+  <div v-if="printDoc" id="print-area">
+    <template v-if="printDoc.type === 'receipt'">
+      <div style="text-align:center;font-weight:700;font-size:13pt">{{ S.settings.shopName }}</div>
+      <div style="text-align:center;font-size:9.5pt">ใบเสร็จรับเงิน {{ printDoc.sale.no }}</div>
+      <div style="text-align:center;font-size:9.5pt">{{ fmtDay(printDoc.sale.day) }} {{ fmtTime(printDoc.sale.ts) }}<span v-if="printDoc.sale.by"> · {{ printDoc.sale.by }}</span></div>
+      <div v-if="printDoc.sale.memberId" style="text-align:center;font-size:9.5pt">สมาชิก {{ memberName(printDoc.sale.memberId) }}</div>
+      <div class="rc-line"></div>
+      <div v-for="(it, i) in printDoc.sale.items" :key="i" style="margin-bottom:1mm">
+        <div>{{ it.name }}</div>
+        <div class="rc-row" style="font-size:10pt"><span>{{ it.qty }} × {{ money(it.price) }}</span><span>{{ money(it.qty * it.price) }}</span></div>
+      </div>
+      <div class="rc-line"></div>
+      <div v-if="printDoc.sale.discount" class="rc-row"><span>ส่วนลด</span><span>-{{ money(printDoc.sale.discount) }}</span></div>
+      <div class="rc-row" style="font-weight:700;font-size:13pt"><span>รวม</span><span>฿{{ money(printDoc.sale.total) }}</span></div>
+      <div v-if="printDoc.sale.method === 'cash'">
+        <div class="rc-row"><span>รับเงินสด</span><span>{{ money(printDoc.sale.received) }}</span></div>
+        <div class="rc-row"><span>เงินทอน</span><span>{{ money(printDoc.sale.change) }}</span></div>
+      </div>
+      <div v-else class="rc-row"><span>ชำระโดย</span><span>โอนเงิน</span></div>
+      <div class="rc-line"></div>
+      <div style="text-align:center;font-size:10pt">ขอบคุณที่ใช้บริการ</div>
+    </template>
+    <template v-else>
+      <div v-for="(l, i) in printDoc.lines" :key="i" class="dl-page">
+        <div style="font-size:9pt">{{ S.settings.shopName }} · {{ fmtDay(printDoc.sale.day) }}<span v-if="printDoc.sale.memberId"> · {{ memberName(printDoc.sale.memberId) }}</span></div>
+        <div style="font-weight:700;font-size:13pt">{{ l.name }}</div>
+        <div v-if="l.generic" style="font-size:9.5pt">({{ l.generic }})</div>
+        <div style="margin:1mm 0">จำนวน {{ l.qty }} {{ l.unit }}</div>
+        <div v-if="l.usage" style="font-weight:700;font-size:12pt">วิธีใช้: {{ l.usage }}</div>
+        <div v-if="l.indication">ข้อบ่งใช้: {{ l.indication }}</div>
+        <div v-if="l.warning" style="font-weight:600">คำเตือน: {{ l.warning }}</div>
+        <div v-if="l.storage" style="font-size:9.5pt">เก็บ: {{ l.storage }}</div>
+        <div v-if="l.exp" style="font-size:9.5pt">หมดอายุ: {{ fmtExp(l.exp) }}</div>
+      </div>
+    </template>
   </div>
 
   <!-- Toast -->
@@ -1853,7 +1911,7 @@ createApp({
       search: '', cat: 'ทั้งหมด', cart: [], discount: '', cartOpen: false,
       payModal: { open: false, method: 'cash', received: '' }, resultSale: null, editPriceKey: null,
       otherModal: { open: false, name: 'ทิป / รายรับอื่น', amount: '' },
-      histDay: today, billsOpen: window.innerHeight >= 900, saleDetailId: null, voidReason: 'คีย์ผิด',
+      printDoc: null, histDay: today, billsOpen: window.innerHeight >= 900, saleDetailId: null, voidReason: 'คีย์ผิด',
       invSearch: '', invFilter: 'all', invLimit: 50, invSort: { key: '', dir: 1 },
       invView: (() => { try { return localStorage.getItem('knockdown_inv_view') === 'table' ? 'table' : 'card' } catch (e) { return 'card' } })(),
       invCols: [{ key: 'code', label: 'รหัส' }, { key: 'name', label: 'ชื่อสินค้า' }, { key: 'generic', cls: 'col-xl', label: 'ชื่อสามัญ' }, { key: 'category', cls: 'col-lg', label: 'หมวด' },
@@ -1902,10 +1960,18 @@ createApp({
       return m
     },
 
+    hotIds() {
+      const since = Date.now() - 30 * 86400000, q = {}
+      for (const sale of this.S.sales) {
+        if (sale.status !== 'ok' || new Date(sale.ts).getTime() < since) continue
+        for (const it of sale.items) if (it.pid) q[it.pid] = (q[it.pid] || 0) + it.qty
+      }
+      return new Set(Object.keys(q).sort((a, b) => q[b] - q[a]).slice(0, 16))
+    },
     posList() {
       const q = this.search.trim().toLowerCase()
       return this.sellProducts.filter(p =>
-        (this.cat === 'ทั้งหมด' || p.category === this.cat) &&
+        (this.cat === 'ทั้งหมด' || (this.cat === 'ขายบ่อย' ? this.hotIds.has(p.id) : p.category === this.cat)) &&
         (!q || p.name.toLowerCase().includes(q) || p.generic.toLowerCase().includes(q) || p.code.includes(q) || (p.barcode || '').includes(q)))
     },
     cartCount() { return this.cart.reduce((s, i) => s + i.qty, 0) },
@@ -2048,6 +2114,8 @@ createApp({
     })
     window.addEventListener('online', () => { if (this.authed) { if (this.dirty) this.saveNow(); else this.checkRemote() } })
     window.addEventListener('pagehide', () => { if (this.authed && this.dirty) this.saveNow() })
+    window.addEventListener('keydown', this.onKey)
+    window.addEventListener('afterprint', () => { this.printDoc = null })
     this.remoteTimer = setInterval(() => { if (this.authed && !document.hidden) this.checkRemote() }, 45000)
     _supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT' && this.authed) { this.authed = false; this.loginForm.error = 'หมดเวลาการเข้าสู่ระบบ กรุณาเข้าใหม่' }
@@ -2256,6 +2324,7 @@ createApp({
       const exact = this.sellProducts.find(p => (p.barcode && p.barcode === q) || p.code === q || (/^\d+$/.test(q) && Number(p.code) === Number(q)))
       const hit = exact || (this.posList.length === 1 ? this.posList[0] : null)
       if (hit) { this.addToCart(hit); this.search = '' }
+      else if (/^\d{6,}$/.test(q) && this.posList.length === 0) this.toast('ไม่พบบาร์โค้ด ' + q, 'bad')
       else if (this.posList.length > 1) this.toast('พบหลายรายการ เลือกจากรายการด้านล่าง')
     },
     changeQty(i, d) { this.setQty(i, this.cart[i].qty + d) },
@@ -2308,6 +2377,42 @@ createApp({
         this.payModal.open = false
         this.cart = []; this.discount = ''; this.cartOpen = false; this.cartMemberId = ''; this.allergyAck = false
       } catch (e) { this.toast(e.message, 'bad') }
+    },
+    focusSearch(force) {
+      if (this.tab !== 'pos') return
+      if (!force && window.matchMedia && !window.matchMedia('(pointer: fine)').matches) return
+      this.$nextTick(() => { const el = this.$refs.searchInput; if (el) el.focus() })
+    },
+    nextSale() { this.resultSale = null; this.focusSearch() },
+    onKey(e) {
+      if (!this.authed || e.ctrlKey || e.metaKey || e.altKey) return
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')
+      if (document.querySelector('.modal-bg')) return
+      if (this.tab !== 'pos') return
+      if (e.key === 'F2' || (e.key === '/' && !typing)) { e.preventDefault(); this.focusSearch(true) }
+      else if (e.key === 'F9' && this.cart.length) { e.preventDefault(); this.openPay('cash') }
+      else if (e.key === 'F10' && this.cart.length) { e.preventDefault(); this.openPay('transfer') }
+    },
+    // ===== พิมพ์ใบเสร็จ / ฉลากยา =====
+    runPrint() {
+      this.$nextTick(() => { try { window.print() } catch (e) { this.toast('เบราว์เซอร์นี้พิมพ์ไม่ได้', 'bad'); this.printDoc = null } })
+    },
+    printReceipt(sale) { this.printDoc = { type: 'receipt', sale }; this.runPrint() },
+    labelLines(sale) {
+      const out = []
+      for (const it of sale.items) {
+        if (!it.pid) continue
+        const p = this.S.products.find(x => x.id === it.pid); if (!p) continue
+        let exp = ''
+        for (const a of it.allocs || []) { const l = this.S.lots.find(x => x.id === a.lotId); if (l && l.expiry && (!exp || l.expiry < exp)) exp = l.expiry }
+        out.push({ name: it.name, generic: p.generic || '', usage: p.usage || '', indication: p.indication || '', warning: p.warning || '', storage: p.storage || '', qty: it.qty, unit: it.unit || p.unit || '', exp })
+      }
+      return out
+    },
+    printLabels(sale) {
+      const lines = this.labelLines(sale)
+      if (!lines.length) return this.toast('ไม่มีรายการยาในบิลนี้', 'bad')
+      this.printDoc = { type: 'label', sale, lines }; this.runPrint()
     },
     undoResult() {
       const s = this.resultSale
