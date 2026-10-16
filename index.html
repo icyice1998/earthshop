@@ -25,6 +25,8 @@
     .hdr { background: #0f3f3a; color: #fff; }
     .tab { padding: .65rem 1.1rem; font-size: 1rem; border-radius: .6rem; font-weight: 600; white-space: nowrap; color: #b9dcd7; position: relative; }
     .tab-on { background: #fff; color: #0f3f3a; }
+    .sub { padding: .35rem .9rem; font-size: .92rem; border-radius: 999px; font-weight: 600; white-space: nowrap; color: #b9dcd7; border: 1.5px solid #2f6b64; }
+    .sub-on { background: #b9dcd7; color: #0f3f3a; border-color: #b9dcd7; }
     .badge { position:absolute; top:-4px; right:-2px; background:#dc2626; color:#fff; font-size:11px; min-width:18px; height:18px;
              border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
     .inp { width:100%; padding:.7rem .8rem; border:1.5px solid var(--line); border-radius:.6rem; font-size:16px; background:#fff; color: var(--ink); }
@@ -102,11 +104,14 @@
       </div>
     </div>
     <nav class="flex gap-1 overflow-x-auto pb-1">
-      <button v-for="t in tabs" :key="t.id" @click="goTab(t.id)" class="tab" :class="tab === t.id ? 'tab-on' : ''">
-        {{ t.name }}
-        <span v-if="t.id === 'stock' && alertCount > 0" class="badge">{{ alertCount }}</span>
-        <span v-if="t.id === 'members' && dueCount > 0" class="badge">{{ dueCount }}</span>
+      <button v-for="g in groups" :key="g.id" @click="goTab(g.subs[0].id)" class="tab" :class="curGroup.id === g.id ? 'tab-on' : ''">
+        {{ g.name }}
+        <span v-if="g.id === 'stock' && alertCount > 0" class="badge">{{ alertCount }}</span>
+        <span v-if="g.id === 'members' && dueCount > 0" class="badge">{{ dueCount }}</span>
       </button>
+    </nav>
+    <nav v-if="curGroup.subs.length > 1" class="flex gap-2 overflow-x-auto pt-1 pb-1">
+      <button v-for="t in curGroup.subs" :key="t.id" @click="goTab(t.id)" class="sub" :class="tab === t.id ? 'sub-on' : ''">{{ t.name }}</button>
     </nav>
   </header>
   <div v-if="!storageOk" class="bg-amber-100 text-amber-900 text-sm px-4 py-2">
@@ -1763,8 +1768,12 @@ createApp({
       cartMemberId: '', allergyAck: false, noteText: '', fuForm: { date: '', reason: '' }, fuDone: { open: false, id: null, result: '' },
       stashAt: stash ? new Date(stash.at).toLocaleString('th-TH') : '',
       S: makeSeed(), storageOk: true, CATS, MOVE_LABEL,
-      tabs: [{ id: 'pos', name: 'ขาย' }, { id: 'history', name: 'บิล' }, { id: 'members', name: 'สมาชิก' }, { id: 'stock', name: 'คลังสินค้า' },
-             { id: 'receive', name: 'รับของ/คืนของ' }, { id: 'supplies', name: 'วัสดุ' }, { id: 'report', name: 'ปิดวัน' }, { id: 'settings', name: 'ตั้งค่า' }],
+      groups: [
+        { id: 'shop', name: 'หน้าร้าน', subs: [{ id: 'pos', name: 'ขาย' }, { id: 'history', name: 'บิล' }, { id: 'report', name: 'ปิดวัน' }] },
+        { id: 'members', name: 'ระบบสมาชิก', subs: [{ id: 'members', name: 'สมาชิก' }] },
+        { id: 'stock', name: 'คลังสินค้า / เบิกวัสดุ', subs: [{ id: 'stock', name: 'คลังสินค้า' }, { id: 'supplies', name: 'เบิกวัสดุ' }] },
+        { id: 'receive', name: 'ระบบรับเข้า / ส่งคืนสินค้า', subs: [{ id: 'receive', name: 'รับเข้า / ส่งคืน' }] },
+        { id: 'settings', name: 'ตั้งค่า', subs: [{ id: 'settings', name: 'ตั้งค่า' }] }],
       tab: 'pos',
       search: '', cat: 'ทั้งหมด', cart: [], discount: '', cartOpen: false,
       payModal: { open: false, method: 'cash', received: '' }, resultSale: null, editPriceKey: null,
@@ -1789,6 +1798,7 @@ createApp({
     syncLabel() { return { saved: 'บันทึกแล้ว', saving: 'กำลังบันทึก...', dirty: 'รอบันทึก...', error: 'ยังไม่ได้บันทึก (ลองใหม่)', conflict: 'ข้อมูลไม่ตรงกับคลาวด์' }[this.syncState] || '' },
     syncColor() { return { saved: '#4ade80', saving: '#fbbf24', dirty: '#fbbf24', error: '#f87171', conflict: '#f87171' }[this.syncState] || '#4ade80' },
     activeProducts() { return this.S.products.filter(p => p.active !== false) },
+    curGroup() { return this.groups.find(g => g.subs.some(t => t.id === this.tab)) || this.groups[0] },
     stockMap() {
       const m = {}
       for (const l of this.S.lots) m[l.pid] = (m[l.pid] || 0) + l.qtyLeft
