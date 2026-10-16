@@ -138,12 +138,12 @@
         <button class="flex items-center gap-1" @click="onSyncTap">
           <span :style="'display:inline-block;width:10px;height:10px;border-radius:50%;background:' + syncColor"></span>{{ syncLabel }}
         </button>
-        <span v-if="actor">{{ actor }}</span>
+        <span v-if="actor">{{ actor }}</span><span v-if="meLabel" class="tag" style="background:#134e48;color:#b9dcd7">{{ meLabel }}</span>
         <button class="underline" @click="askLogout">ออก</button>
       </div>
     </div>
-    <nav class="grid grid-cols-5 gap-1 pb-1 sm:flex sm:overflow-x-auto">
-      <button v-for="g in groups" :key="g.id" @click="goTab(g.subs[0].id)" class="tab" :class="curGroup.id === g.id ? 'tab-on' : ''">
+    <nav class="grid gap-1 pb-1 sm:flex sm:overflow-x-auto" :style="'grid-template-columns:repeat(' + Math.max(visibleGroups.length, 1) + ',minmax(0,1fr))'">
+      <button v-for="g in visibleGroups" :key="g.id" @click="goTab(g.subs[0].id)" class="tab" :class="curGroup.id === g.id ? 'tab-on' : ''">
         <span class="sm:hidden">{{ g.short }}</span><span class="hidden sm:inline">{{ g.name }}</span>
         <span v-if="g.id === 'stock' && alertCount > 0" class="badge">{{ alertCount }}</span>
         <span v-if="g.id === 'members' && dueCount > 0" class="badge">{{ dueCount }}</span>
@@ -198,7 +198,7 @@
       <!-- ตะกร้า -->
       <aside :class="cartOpen ? 'flex' : 'hidden md:flex'" class="cart-panel flex-col bg-white">
         <!-- บิล (กล่องเหนือตะกร้า) -->
-        <div class="shrink-0 flex flex-col min-h-0" style="border-bottom:1.5px solid var(--line);max-height:38%">
+        <div v-if="can('billsView')" class="shrink-0 flex flex-col min-h-0" style="border-bottom:1.5px solid var(--line);max-height:38%">
           <button class="w-full flex items-center justify-between gap-2 px-4 py-2 text-left shrink-0" style="background:#f2f6f5" @click="billsOpen = !billsOpen">
             <span class="font-bold min-w-0">บิล
               <span class="text-sm font-normal text-slate-600">{{ histDay === todayKey ? 'วันนี้' : fmtDay(histDay) }} · {{ histReport.count }} บิล · ฿{{ money(histReport.total) }}<span v-if="histReport.voidCount" class="text-red-600"> · ยกเลิก {{ histReport.voidCount }}</span></span>
@@ -258,7 +258,7 @@
               <div class="text-right">
                 <div v-if="editPriceKey !== item.key" class="text-sm text-slate-500">
                   ฿{{ money(item.price) }} × {{ item.qty }}
-                  <button class="underline ml-1" style="color:var(--pine)" @click="startEditPrice(item)">แก้ราคา</button>
+                  <button v-if="can('editPrice')" class="underline ml-1" style="color:var(--pine)" @click="startEditPrice(item)">แก้ราคา</button>
                 </div>
                 <div v-else class="flex items-center justify-end gap-1 text-sm">
                   ฿<input :id="'price-' + item.key" v-model.number="item.price" @blur="editPriceKey = null" @keyup.enter="editPriceKey = null" type="number" inputmode="decimal" class="inp !w-24 !py-1 !px-2 text-right">
@@ -330,7 +330,7 @@
       <div class="flex gap-2 mb-3">
         <input v-model="invSearch" class="inp" placeholder="ค้นหาชื่อ / ชื่อสามัญ / รหัส / บาร์โค้ด / ผู้จำหน่าย / ที่เก็บ">
         <button class="btn btn-ghost whitespace-nowrap" @click="toggleInvView">{{ invView === 'table' ? 'มุมมองการ์ด' : 'มุมมองตาราง' }}</button>
-        <button class="btn btn-pri whitespace-nowrap" @click="openForm(null)">+ เพิ่มสินค้า</button>
+        <button v-if="can('manage')" class="btn btn-pri whitespace-nowrap" @click="openForm(null)">+ เพิ่มสินค้า</button>
       </div>
       <div class="flex gap-2 overflow-x-auto pb-2 mb-1">
         <button class="chip" :class="invFilter === 'all' ? 'chip-on' : ''" @click="invFilter = 'all'">ทั้งหมด {{ invAll.length }}</button>
@@ -344,7 +344,7 @@
         <table class="rt text-sm">
           <thead>
             <tr class="text-left text-slate-500" style="border-bottom:1.5px solid var(--line)">
-              <th v-for="c in invCols" :key="c.key" class="p-2 whitespace-nowrap cursor-pointer select-none" :class="[c.num ? 'text-right' : '', c.cls]" @click="sortInv(c.key)">
+              <th v-for="c in invColsShown" :key="c.key" class="p-2 whitespace-nowrap cursor-pointer select-none" :class="[c.num ? 'text-right' : '', c.cls]" @click="sortInv(c.key)">
                 {{ c.label }}<span v-if="invSort.key === c.key"> {{ invSort.dir > 0 ? '▲' : '▼' }}</span>
               </th>
             </tr>
@@ -357,9 +357,9 @@
               <td class="p-2 whitespace-nowrap col-lg" data-l="หมวด">{{ r.p.category }}</td>
               <td class="p-2 whitespace-nowrap col-lg" data-l="หน่วย">{{ r.p.unit }}</td>
               <td class="p-2 text-right num font-bold" data-l="คงเหลือ" :class="r.out ? 'text-red-600' : (r.low ? 'text-amber-700' : '')">{{ r.stock }}</td>
-              <td class="p-2 text-right num" data-l="ทุน">{{ money(r.p.cost) }}</td>
+              <td v-if="can('viewCost')" class="p-2 text-right num" data-l="ทุน">{{ money(r.p.cost) }}</td>
               <td class="p-2 text-right num" data-l="ขาย">{{ money(r.p.price) }}</td>
-              <td class="p-2 text-right num col-tab" data-l="กำไร%">{{ invMargin(r) }}</td>
+              <td v-if="can('viewCost')" class="p-2 text-right num col-tab" data-l="กำไร%">{{ invMargin(r) }}</td>
               <td class="p-2 whitespace-nowrap col-tab" data-l="หมดอายุ" :class="r.days !== null && r.days < 0 ? 'text-red-600 font-semibold' : (r.near ? 'text-amber-700 font-semibold' : '')">{{ r.exp ? fmtExp(r.exp) : '-' }}</td>
               <td class="p-2 whitespace-nowrap col-xl" data-l="บาร์โค้ด">{{ r.p.barcode || '-' }}</td>
               <td class="p-2 whitespace-nowrap col-xl" data-l="ผู้จำหน่าย">{{ r.p.supplier || '-' }}</td>
@@ -732,9 +732,9 @@
               <div class="font-bold mb-3">ราคา</div>
               <div class="grid grid-cols-2 gap-3">
                 <div><label class="lbl" for="mg-price">ราคาขาย (บาท)</label><input id="mg-price" v-model.number="mg.price" type="number" inputmode="decimal" class="inp" :disabled="mg.type === 'supply'"></div>
-                <div><label class="lbl" for="mg-cost">ราคาทุนล่าสุด (บาท)</label><input id="mg-cost" v-model.number="mg.cost" type="number" inputmode="decimal" class="inp" :disabled="mgIsBundle"></div>
+                <div v-if="can('viewCost')"><label class="lbl" for="mg-cost">ราคาทุนล่าสุด (บาท)</label><input id="mg-cost" v-model.number="mg.cost" type="number" inputmode="decimal" class="inp" :disabled="mgIsBundle"></div>
               </div>
-              <div class="grid grid-cols-2 gap-3 mt-3 text-center">
+              <div v-if="can('viewCost')" class="grid grid-cols-2 gap-3 mt-3 text-center">
                 <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">กำไรต่อหน่วย</div><div class="font-bold num">{{ mgMargin === null ? '-' : '฿' + money(mg.price - (Number(mg.cost) || 0)) + ' (' + mgMargin + '%)' }}</div></div>
                 <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ทุนเฉลี่ยของที่เหลือ</div><div class="font-bold num">{{ !mgIsBundle && Logic.avgCost(S, mgProduct.id) !== null ? '฿' + money(Logic.avgCost(S, mgProduct.id)) : '-' }}</div></div>
               </div>
@@ -755,7 +755,7 @@
               </div>
             </div>
 
-            <div v-if="!mgIsBundle && mg.type !== 'supply'" class="card p-4 mb-3">
+            <div v-if="!mgIsBundle && mg.type !== 'supply' && can('adjustStock')" class="card p-4 mb-3">
               <div class="font-bold mb-3">ปรับสต็อก</div>
               <label class="lbl" for="mg-reason">เหตุผล</label>
               <select id="mg-reason" v-model="mgAdj.reason" class="inp mb-2">
@@ -879,7 +879,7 @@
           <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">โอน</div><div class="font-bold num">฿{{ money(rep.transfer) }}</div></div>
           <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">รายรับอื่น</div><div class="font-bold num">฿{{ money(rep.other) }}</div></div>
         </div>
-        <div class="text-sm text-slate-600 mt-3">กำไรขั้นต้นโดยประมาณ ฿{{ money(rep.profit) }} <span v-if="rep.voidCount">, ยกเลิก {{ rep.voidCount }} บิล (฿{{ money(rep.voidTotal) }})</span></div>
+        <div v-if="can('viewCost')" class="text-sm text-slate-600 mt-3">กำไรขั้นต้นโดยประมาณ ฿{{ money(rep.profit) }} <span v-if="rep.voidCount">, ยกเลิก {{ rep.voidCount }} บิล (฿{{ money(rep.voidTotal) }})</span></div>
       </div>
 
       <div v-if="closingStale" class="p-3 rounded-xl mb-3 text-sm" style="background:#fef3c7;color:#92400e">ยอดขายเงินสดของวันนี้เปลี่ยนหลังบันทึกปิดวัน (เช่น มีบิลย้อนหลังหรือยกเลิกบิล) ตอนปิดวันไว้ ฿{{ money(savedClosing.cashSales) }} ตอนนี้ ฿{{ money(rep.cash) }} ตรวจแล้วกดบันทึกปิดวันใหม่</div>
@@ -908,6 +908,11 @@
 
     <!-- ============ 6) ตั้งค่า ============ -->
     <section v-else-if="tab === 'settings'" class="h-full overflow-y-auto p-3">
+      <div class="flex gap-2 mb-3">
+        <button class="chip" :class="setTab === 'general' ? 'chip-on' : ''" @click="setTab = 'general'">ทั่วไป</button>
+        <button v-if="isAdmin" class="chip" :class="setTab === 'users' ? 'chip-on' : ''" @click="setTab = 'users'">ผู้ใช้และสิทธิ์</button>
+      </div>
+      <div v-if="setTab === 'general' || !isAdmin">
       <div class="card p-4 mb-3">
         <div class="font-bold mb-3">ข้อมูลร้าน</div>
         <label class="lbl">ชื่อร้าน</label><input v-model="S.settings.shopName" class="inp mb-3">
@@ -962,6 +967,65 @@
         <div class="font-bold mb-1">กลับไปค่าเริ่มต้นจาก Excel</div>
         <div class="text-xs text-slate-500 mb-3">ล้างทั้งหมดรวมทั้งรายการยาที่เพิ่ม/แก้ไว้ แล้วกลับไปใช้รายการและสต็อกตั้งต้นจากไฟล์ Excel (ชื่อร้านและรหัสผ่านยังอยู่)</div>
         <button class="btn btn-badline w-full" @click="resetAll">ล้างข้อมูลและกลับไปค่าเริ่มต้น</button>
+      </div>
+    </div>
+
+      <div v-else class="grid gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
+        <div class="card p-3">
+          <div class="font-bold mb-2">ผู้ใช้โปรแกรม</div>
+          <div v-if="!hasAdmin" class="p-3 rounded-xl text-sm mb-3" style="background:#fef3c7;color:#92400e">
+            ยังไม่มีผู้ดูแลระบบ ตอนนี้ทุกคนที่เข้าสู่ระบบมีสิทธิ์เต็ม ตั้งผู้ดูแลก่อน แล้วค่อยเพิ่มพนักงานและกำหนดสิทธิ์
+            <button class="btn btn-pri w-full mt-2" @click="usMakeMeAdmin">ตั้งฉัน ({{ loginName }}) เป็นผู้ดูแล</button>
+          </div>
+          <button v-for="u in S.users" :key="u.id" class="w-full text-left p-2 border-b" style="border-color:var(--line)" :style="usSel === u.id ? 'background:#eef7f5' : ''" @click="usSelect(u)">
+            <div class="font-semibold truncate">{{ u.name || u.login }} <span v-if="u.admin" class="tag ml-1" style="background:#dbeafe;color:#1e40af">ผู้ดูแล</span><span v-if="u.active === false" class="tag ml-1" style="background:#e2e8f0">ปิดใช้งาน</span></div>
+            <div class="text-xs text-slate-500">ล็อกอิน {{ u.login }}<span v-if="u.role"> · {{ u.role }}</span></div>
+          </button>
+          <div v-if="S.users.length === 0" class="text-sm text-slate-400 py-3">ยังไม่มีผู้ใช้</div>
+          <button class="btn btn-ghost w-full mt-3" @click="usNew">+ เพิ่มผู้ใช้</button>
+        </div>
+
+        <div class="min-w-0">
+          <div v-if="!us" class="card p-8 text-center text-slate-400">เลือกผู้ใช้จากรายการ หรือกด "+ เพิ่มผู้ใช้"</div>
+          <div v-else>
+            <div class="card p-4 mb-3">
+              <div class="font-bold mb-3">รายละเอียดผู้ใช้โปรแกรม</div>
+              <div class="grid grid-cols-2 gap-3">
+                <div><label class="lbl" for="us-emp">รหัสพนักงาน</label><input id="us-emp" v-model="us.empId" class="inp"></div>
+                <div><label class="lbl" for="us-name">ชื่อพนักงาน</label><input id="us-name" v-model="us.name" class="inp"></div>
+                <div class="col-span-2"><label class="lbl" for="us-login">ชื่อ Login (ส่วนหน้าของอีเมลที่สร้างไว้ใน Supabase เช่น earth)</label><input id="us-login" v-model="us.login" class="inp" autocapitalize="none" autocomplete="off"></div>
+                <div><label class="lbl" for="us-ws">เวลาเข้างาน (เว้นว่าง = ไม่จำกัด)</label><input id="us-ws" v-model="us.workStart" type="time" class="inp"></div>
+                <div><label class="lbl" for="us-we">เวลาเลิกงาน</label><input id="us-we" v-model="us.workEnd" type="time" class="inp"></div>
+              </div>
+              <div class="flex flex-wrap gap-4 mt-3">
+                <label class="flex items-center gap-2"><input type="checkbox" v-model="us.active" class="w-5 h-5"> ใช้งาน</label>
+                <label class="flex items-center gap-2"><input type="checkbox" v-model="us.admin" class="w-5 h-5"> ผู้ดูแลระบบ (สิทธิ์เต็ม ไม่จำกัดเวลา)</label>
+              </div>
+              <div class="text-xs text-slate-500 mt-2">รหัสผ่านเข้าระบบสร้างและเปลี่ยนที่ Supabase (Authentication, Users) ส่วนหน้านี้กำหนดว่าชื่อ Login นั้นทำอะไรได้บ้าง</div>
+            </div>
+
+            <div class="card p-4 mb-3" :style="us.admin ? 'opacity:.55' : ''">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div class="font-bold">ระดับการเข้าใช้โปรแกรม</div>
+                <div class="flex flex-wrap gap-2"><span class="text-sm text-slate-500 self-center">ชุดสิทธิ์:</span><button v-for="(pr, k) in PERM_PRESETS" :key="k" class="chip !py-1" :disabled="us.admin" @click="usPreset(k)">{{ pr.label }}</button></div>
+              </div>
+              <div v-for="g in PERM_GROUPS" :key="g.title" class="mb-3">
+                <div class="text-sm font-semibold text-slate-600 mb-1">{{ g.title }}</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                  <label v-for="it in g.items" :key="it[0]" class="flex items-center gap-2 p-2 rounded-lg cursor-pointer"><input type="checkbox" v-model="us.perms[it[0]]" :disabled="us.admin" class="w-5 h-5 shrink-0"> <span>{{ it[1] }}</span></label>
+                </div>
+              </div>
+              <div v-if="us.admin" class="text-xs text-slate-500">ผู้ดูแลระบบมีสิทธิ์ทุกอย่างอยู่แล้ว</div>
+            </div>
+
+            <div class="flex flex-wrap gap-2 justify-end">
+              <button v-if="us.id" class="btn btn-badline" @click="usDelete">ลบผู้ใช้</button>
+              <button class="btn btn-ghost" @click="us = null; usSel = null">ปิด</button>
+              <button class="btn btn-pri" @click="usSave">บันทึก (ใส่รหัสผ่าน)</button>
+            </div>
+          </div>
+          <div class="text-xs text-slate-500 mt-3">หมายเหตุ: สิทธิ์เหล่านี้ควบคุมที่หน้าจอของโปรแกรม ช่วยกันพนักงานกดผิดหรือเข้าส่วนที่ไม่เกี่ยวข้อง ยังไม่ใช่การป้องกันระดับฐานข้อมูล ซึ่งต้องย้ายไปฐานข้อมูลแบบตารางจริงก่อน</div>
+        </div>
       </div>
     </section>
   </main>
@@ -1026,7 +1090,7 @@
         <button class="btn btn-ghost" @click="printLabels(resultSale)">พิมพ์ฉลากยา</button>
       </div>
       <div class="grid grid-cols-2 gap-2 mt-2">
-        <button class="btn btn-badline" @click="undoResult">ยกเลิกบิลนี้</button>
+        <button class="btn btn-badline" :disabled="!can('voidSale')" @click="undoResult">ยกเลิกบิลนี้</button>
         <button class="btn btn-pri" @click="nextSale">ขายรายการต่อไป</button>
       </div>
     </div>
@@ -1179,7 +1243,7 @@
         <button class="btn btn-ghost" @click="printReceipt(curSale)">พิมพ์ใบเสร็จ</button>
         <button class="btn btn-ghost" @click="printLabels(curSale)">พิมพ์ฉลากยา</button>
       </div>
-      <div v-if="curSale.status === 'ok'">
+      <div v-if="curSale.status === 'ok' && can('voidSale')">
         <label class="lbl">เหตุผลที่ยกเลิก</label>
         <select v-model="voidReason" class="inp mb-3">
           <option>คีย์ผิด</option><option>ลูกค้าไม่เอา</option><option>ทอนเงินผิด</option><option>อื่นๆ</option>
@@ -1200,7 +1264,7 @@
         <div class="grid grid-cols-3 gap-2 text-center">
           <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">คงเหลือ</div><div class="text-xl font-bold num">{{ stockMap[curProduct.id] || 0 }}</div></div>
           <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ราคาขาย</div><div class="text-xl font-bold num">฿{{ money(curProduct.price) }}</div></div>
-          <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ทุนล่าสุด</div><div class="text-xl font-bold num">฿{{ money(costOf(curProduct)) }}</div><div v-if="!curProduct.bundle && Logic.avgCost(S, curProduct.id) !== null" class="text-xs text-slate-500">เฉลี่ยคงเหลือ ฿{{ money(Logic.avgCost(S, curProduct.id)) }}</div></div>
+          <div v-if="can('viewCost')" class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ทุนล่าสุด</div><div class="text-xl font-bold num">฿{{ money(costOf(curProduct)) }}</div><div v-if="!curProduct.bundle && Logic.avgCost(S, curProduct.id) !== null" class="text-xs text-slate-500">เฉลี่ยคงเหลือ ฿{{ money(Logic.avgCost(S, curProduct.id)) }}</div></div>
         </div>
         <div v-if="curProduct.barcode || curProduct.supplier || curProduct.location || flagTags(curProduct).length" class="text-sm p-3 rounded-lg grid grid-cols-2 gap-x-3 gap-y-1" style="background:#f8fafc;border:1px solid var(--line)">
           <div v-if="curProduct.barcode"><span class="text-slate-500">บาร์โค้ด</span> {{ curProduct.barcode }}</div>
@@ -1241,7 +1305,7 @@
           </div>
         </div>
 
-        <div v-if="!curProduct.bundle" class="p-3 rounded-xl" style="background:#fffbeb;border:1px solid #fde68a">
+        <div v-if="!curProduct.bundle && can('adjustStock')" class="p-3 rounded-xl" style="background:#fffbeb;border:1px solid #fde68a">
           <div class="font-bold mb-2">ปรับสต็อก (นับของจริงแล้วไม่ตรง)</div>
           <label class="lbl">จำนวนที่นับได้จริง</label>
           <div class="flex items-center gap-2 mb-2">
@@ -1267,7 +1331,7 @@
             <span class="num font-semibold" :class="m.qty > 0 ? 'text-green-700' : 'text-red-600'">{{ m.qty > 0 ? '+' : '' }}{{ m.qty }}</span>
           </div>
         </div>
-        <button class="btn btn-ghost w-full" @click="openForm(curProduct)">แก้ไขชื่อ / ราคา / จุดสั่งซื้อ</button>
+        <button v-if="can('manage')" class="btn btn-ghost w-full" @click="openForm(curProduct)">แก้ไขชื่อ / ราคา / จุดสั่งซื้อ</button>
       </div>
     </div>
   </div>
@@ -1414,7 +1478,7 @@
           <div class="font-semibold mb-1">ประวัติการแก้ไข</div>
           <div v-for="(h, i) in curReceipt.history" :key="i">{{ fmtDay(dayKey(new Date(h.ts))) }} {{ fmtTime(h.ts) }} {{ h.by }}: {{ h.text }}</div>
         </div>
-        <div v-if="curReceipt.status !== 'void'">
+        <div v-if="curReceipt.status !== 'void' && can('editReceipt')">
           <div class="grid grid-cols-2 gap-2">
             <button class="btn btn-ghost" @click="startEditReceipt">แก้ไข (ใส่รหัสผ่าน)</button>
             <button class="btn btn-badline" @click="rcVoidOpen = !rcVoidOpen">ยกเลิกบิลรับเข้า</button>
@@ -1563,6 +1627,13 @@
     </template>
   </div>
 
+  <!-- ล็อกหน้าจอ (ไม่มีสิทธิ์ / นอกเวลาทำงาน) -->
+  <div v-if="lockReason" class="fixed inset-0 flex flex-col items-center justify-center p-6 text-center" style="z-index:150;background:#0f3f3a;color:#fff">
+    <div class="text-2xl font-bold mb-2">ไม่สามารถใช้งานได้</div>
+    <div class="mb-5" style="color:#b9dcd7">{{ lockReason }}</div>
+    <button class="btn btn-ghost" @click="doLogout">ออกจากระบบ</button>
+  </div>
+
   <!-- Toast -->
   <div v-if="toastMsg.text" class="fixed left-1/2 -translate-x-1/2 top-4 z-[90] px-4 py-3 rounded-xl shadow-lg text-white font-semibold max-w-[90vw]"
        :style="toastMsg.kind === 'bad' ? 'background:#b91c1c' : 'background:#0f3f3a'">{{ toastMsg.text }}</div>
@@ -1588,6 +1659,21 @@ const DRUG_FLAGS = [
   { k: 'ky11', label: 'ขย.11', style: 'background:#e0f2fe;color:#075985' },
   { k: 'special', label: 'ยาใช้เฉพาะ', style: 'background:#dcfce7;color:#166534' }
 ]
+const PERM_GROUPS = [
+  { title: 'หน้าจอ', items: [['pos', 'หน้าจอหน้าร้าน (ขาย)'], ['members', 'หน้าจอลูกค้า / สมาชิก'], ['stock', 'หน้าจอคลังสินค้า / เบิกวัสดุ'], ['manage', 'ระบบบริหารจัดการยา (แก้ไขข้อมูลยา)'], ['receive', 'หน้าจอสั่งซื้อ / รับเข้า / ส่งคืน'], ['report', 'หน้าจอรายงาน (ปิดวัน / บิลการขาย)'], ['settings', 'หน้าจอตั้งค่า']] },
+  { title: 'การขาย', items: [['sellOtc', 'ขาย OTC'], ['sellRx', 'ขายยาอันตราย / ควบคุม (Prescription)'], ['editPrice', 'แก้ไขราคาขายที่หน้าร้าน'], ['voidSale', 'ยกเลิกบิลขาย'], ['billsView', 'แสดงรายการบิลขายที่หน้าร้าน']] },
+  { title: 'คลังสินค้าและต้นทุน', items: [['adjustStock', 'ปรับสต็อก'], ['editReceipt', 'แก้ไข / ยกเลิกรายการรับเข้า'], ['viewCost', 'เห็นราคาทุนและกำไร']] }
+]
+const PERM_KEYS = PERM_GROUPS.flatMap(g => g.items.map(i => i[0]))
+const permsOf = list => Object.fromEntries(PERM_KEYS.map(k => [k, list === 'all' ? true : (list === 'allButSettings' ? k !== 'settings' : list.includes(k))]))
+const PERM_PRESETS = {
+  admin: { label: 'ผู้ดูแล', perms: permsOf('all') },
+  pharmacist: { label: 'เภสัชกร', perms: permsOf('allButSettings') },
+  cashier: { label: 'พนักงานขาย', perms: permsOf(['pos', 'members', 'billsView', 'sellOtc']) },
+  stock: { label: 'พนักงานคลัง', perms: permsOf(['stock', 'receive', 'viewCost']) }
+}
+const SUB_PERM = { pos: 'pos', report: 'report', history: 'report', members: 'members', stock: 'stock', supplies: 'stock', manage: 'manage', receive: 'receive', settings: 'settings' }
+const RX_FLAGS = ['danger', 'controlled', 'ky8', 'ky11', 'ky9n']
 const MEAL_TIME = { before: 'ก่อนอาหาร', with: 'พร้อมอาหาร', after: 'หลังอาหาร' }
 const STORAGE_TYPE = { room: 'เก็บที่อุณหภูมิห้อง', fridge: 'เก็บในตู้เย็น' }
 const SEED = [
@@ -1678,6 +1764,7 @@ function migrate(S) {
   if (!Array.isArray(S.memberNotes)) { S.memberNotes = []; changed = true }
   if (!Array.isArray(S.followups)) { S.followups = []; changed = true }
   if (!Array.isArray(S.orders)) { S.orders = []; changed = true }
+  if (!Array.isArray(S.users)) { S.users = []; changed = true }
   if (S.seq.po === undefined) { S.seq.po = 0; changed = true }
   if (!Array.isArray(S.suppliers)) {
     S.suppliers = []; changed = true
@@ -2337,6 +2424,8 @@ createApp({
                 { key: 'unit', cls: 'col-lg', label: 'หน่วย' }, { key: 'stock', label: 'คงเหลือ', num: true }, { key: 'cost', label: 'ทุน', num: true }, { key: 'price', label: 'ขาย', num: true },
                 { key: 'margin', cls: 'col-tab', label: 'กำไร%', num: true }, { key: 'exp', cls: 'col-tab', label: 'หมดอายุ' }, { key: 'barcode', cls: 'col-xl', label: 'บาร์โค้ด' }, { key: 'supplier', cls: 'col-xl', label: 'ผู้จำหน่าย' }, { key: 'location', cls: 'col-lg', label: 'ที่เก็บ' }], productModal: null, adj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, formModal: null,
       Logic: Vue.markRaw(Logic),
+      PERM_GROUPS, PERM_PRESETS,
+      loginName: '', nowTick: Date.now(), setTab: 'general', usSel: null, us: null,
       mgMode: 'edit', bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
       mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
       DRUG_FLAGS,
@@ -2358,6 +2447,25 @@ createApp({
     activeProducts() { return this.S.products.filter(p => p.active !== false) },
     autoLabelCount() { return this.cart.filter(i => { const p = i.pid && this.S.products.find(x => x.id === i.pid); return p && p.autolabel }).length },
     cartHasDrug() { return this.cart.some(i => i.pid) },
+    me() { const n = this.loginName; return (this.S.users || []).find(u => String(u.login || '').toLowerCase() === n) || null },
+    hasAdmin() { return (this.S.users || []).some(u => u.active !== false && u.admin) },
+    isAdmin() { return !this.hasAdmin || !!(this.me && this.me.admin && this.me.active !== false) },
+    meLabel() { return this.hasAdmin ? (this.me ? (this.me.admin ? 'ผู้ดูแล' : (this.me.role || this.me.name || '')) : 'ไม่อยู่ในรายชื่อ') : '' },
+    visibleGroups() { return this.groups.map(g => ({ ...g, subs: g.subs.filter(t => this.allowedTab(t.id)) })).filter(g => g.subs.length) },
+    lockReason() {
+      if (!this.authed || !this.hasAdmin) return ''
+      const u = this.me
+      if (u && u.active === false) return 'บัญชีนี้ถูกปิดใช้งาน'
+      if (!this.visibleGroups.length) return 'บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้งานหน้าจอใดๆ'
+      if (u && !u.admin && u.workStart && u.workEnd) {
+        const d = new Date(this.nowTick), m = d.getHours() * 60 + d.getMinutes()
+        const toM = t => { const a = String(t).split(':'); return (Number(a[0]) || 0) * 60 + (Number(a[1]) || 0) }
+        const a = toM(u.workStart), b = toM(u.workEnd)
+        const inside = a <= b ? (m >= a && m <= b) : (m >= a || m <= b)
+        if (!inside) return 'อยู่นอกเวลาทำงานของบัญชีนี้ (' + u.workStart + ' - ' + u.workEnd + ')'
+      }
+      return ''
+    },
     mgRows() {
       const q = this.mgQ.trim().toLowerCase(), f = this.mgFilter
       return this.S.products.filter(p => {
@@ -2391,7 +2499,7 @@ createApp({
     mgLotRows() { return this.mgProduct ? this.S.lots.filter(l => l.pid === this.mgProduct.id && l.qtyLeft > 0).sort((a, b) => (a.expiry || '9999').localeCompare(b.expiry || '9999') || a.receivedAt.localeCompare(b.receivedAt)) : [] },
     mgMargin() { const d = this.mg; return d && Number(d.price) > 0 ? Math.round((d.price - (Number(d.cost) || 0)) / d.price * 100) : null },
     mgLog() { return this.mgProduct && this.mgProduct.log ? this.mgProduct.log.slice(-8).reverse() : [] },
-    curGroup() { return this.groups.find(g => g.subs.some(t => t.id === this.tab)) || this.groups[0] },
+    curGroup() { return this.visibleGroups.find(g => g.subs.some(t => t.id === this.tab)) || this.visibleGroups[0] || this.groups[0] },
     stockMap() {
       const m = {}
       for (const l of this.S.lots) m[l.pid] = (m[l.pid] || 0) + l.qtyLeft
@@ -2493,6 +2601,7 @@ createApp({
         (!q || r.p.name.toLowerCase().includes(q) || r.p.generic.toLowerCase().includes(q) || r.p.code.includes(q) ||
           (r.p.barcode || '').includes(q) || (r.p.supplier || '').toLowerCase().includes(q) || (r.p.location || '').toLowerCase().includes(q)))
     },
+    invColsShown() { return this.can('viewCost') ? this.invCols : this.invCols.filter(c => c.key !== 'cost' && c.key !== 'margin') },
     invShown() {
       const k = this.invSort.key, d = this.invSort.dir
       let rows = this.invRows
@@ -2573,6 +2682,8 @@ createApp({
   watch: {
     printOpt: { deep: true, handler(v) { try { localStorage.setItem('knockdown_print_opt', JSON.stringify(v)) } catch (e) { /* ignore */ } } },
     formModal(v) { if (!v && this.mgSel && this.mgProduct) this.mg = this.mgDraft(this.mgProduct) },
+    'S.users': { deep: true, handler() { this.ensureTab() } },
+    loginName() { this.ensureTab() },
     mgQ() { this.mgLimit = 50 },
     mgFilter() { this.mgLimit = 50 },
     invSearch() { this.invLimit = 50 },
@@ -2603,6 +2714,7 @@ createApp({
     window.addEventListener('online', () => { if (this.authed) { if (this.dirty) this.saveNow(); else this.checkRemote() } })
     window.addEventListener('pagehide', () => { if (this.authed && this.dirty) this.saveNow() })
     window.addEventListener('keydown', this.onKey)
+    setInterval(() => { this.nowTick = Date.now() }, 30000)
     window.addEventListener('afterprint', () => { this.printDoc = null })
     this.remoteTimer = setInterval(() => { if (this.authed && !document.hidden) this.checkRemote() }, 45000)
     _supabase.auth.onAuthStateChange((event) => {
@@ -2629,6 +2741,7 @@ createApp({
       this.isLoading = true
       const dn = user.user_metadata && user.user_metadata.display_name
       this.actor = dn || userNameOf(user.email); ACTOR = this.actor; this.nameForm.name = dn || ''
+      this.loginName = userNameOf(user.email).toLowerCase()
       const local = Storage.loadLocal()
       const cloud = await Storage.loadFromCloud()
       const hasCloud = !!(cloud.data && cloud.data.products)
@@ -2652,6 +2765,7 @@ createApp({
       }
       if (migrate(next)) dirty = true
       this.setState(next); this.cloudRev = rev; this.dirty = dirty
+      this.ensureTab()
       this.authed = true; this.isLoading = false
       Storage.saveLocal(this.S, this.cloudRev, this.dirty); this.storageOk = Storage.ok
       this.loadClosing()
@@ -2776,7 +2890,53 @@ createApp({
       clearTimeout(this.toastTimer)
       this.toastTimer = setTimeout(() => { this.toastMsg.text = '' }, 2600)
     },
-    goTab(id) { this.tab = id; this.cartOpen = false; if (id === 'report') this.loadClosing() },
+    usBlank() { return { id: '', empId: '', name: '', login: '', role: '', active: true, admin: false, workStart: '', workEnd: '', perms: { ...PERM_PRESETS.cashier.perms } } },
+    usNew() { this.usSel = 'new'; this.us = this.usBlank() },
+    usSelect(u) { this.usSel = u.id; this.us = { ...this.usBlank(), ...JSON.parse(JSON.stringify(u)), perms: { ...this.usBlank().perms, ...(u.perms || {}) } } },
+    usPreset(k) { this.us.perms = { ...PERM_PRESETS[k].perms }; this.us.role = PERM_PRESETS[k].label },
+    usMakeMeAdmin() {
+      if (!this.loginName) return
+      this.askPin('ตั้งผู้ดูแลระบบ', () => {
+        const ex = this.S.users.find(u => String(u.login).toLowerCase() === this.loginName)
+        if (ex) { ex.admin = true; ex.active = true } else this.S.users.push({ ...this.usBlank(), id: uid(), name: this.actor, login: this.loginName, admin: true, role: 'ผู้ดูแล', perms: { ...PERM_PRESETS.admin.perms } })
+        this.toast('ตั้งเป็นผู้ดูแลแล้ว ต่อไปเพิ่มพนักงานและกำหนดสิทธิ์ได้')
+      })
+    },
+    usSave() {
+      const d = this.us
+      if (!d) return
+      const login = String(d.login || '').trim().toLowerCase()
+      if (!login || /[\s@]/.test(login)) return this.toast('ใส่ชื่อ Login ให้ถูกต้อง (ไม่มีช่องว่างและ @)', 'bad')
+      if (!String(d.name || '').trim()) return this.toast('ใส่ชื่อพนักงานก่อน', 'bad')
+      if (this.S.users.some(u => String(u.login).toLowerCase() === login && u.id !== d.id)) return this.toast('มีชื่อ Login นี้แล้ว', 'bad')
+      const others = this.S.users.filter(u => u.id !== d.id && u.active !== false && u.admin)
+      if (this.hasAdmin && !others.length && !(d.admin && d.active)) return this.toast('ต้องมีผู้ดูแลที่ใช้งานอยู่อย่างน้อย 1 คน', 'bad')
+      this.askPin('บันทึกสิทธิ์ผู้ใช้ ' + login, () => {
+        const rec = { id: d.id || uid(), empId: String(d.empId || '').trim(), name: d.name.trim(), login, role: d.role || '', active: !!d.active, admin: !!d.admin, workStart: d.workStart || '', workEnd: d.workEnd || '', perms: { ...d.perms }, updatedAt: new Date().toISOString(), updatedBy: ACTOR }
+        const i = this.S.users.findIndex(u => u.id === rec.id)
+        if (i >= 0) this.S.users.splice(i, 1, rec); else this.S.users.push(rec)
+        this.usSel = rec.id; this.us = null; this.toast('บันทึกสิทธิ์แล้ว')
+      })
+    },
+    usDelete() {
+      const d = this.us
+      if (!d || !d.id) return
+      if (String(d.login).toLowerCase() === this.loginName) return this.toast('ลบบัญชีที่กำลังใช้อยู่ไม่ได้', 'bad')
+      if (d.admin && !this.S.users.some(u => u.id !== d.id && u.active !== false && u.admin)) return this.toast('ต้องมีผู้ดูแลอย่างน้อย 1 คน', 'bad')
+      this.askPin('ลบผู้ใช้ ' + d.login, () => { this.S.users = this.S.users.filter(u => u.id !== d.id); this.us = null; this.usSel = null; this.toast('ลบผู้ใช้แล้ว') })
+    },
+    can(key) {
+      if (!this.hasAdmin) return true
+      const u = this.me
+      if (!u) return !!PERM_PRESETS.cashier.perms[key]
+      if (u.active === false) return false
+      if (u.admin) return true
+      return !!(u.perms && u.perms[key])
+    },
+    allowedTab(id) { const k = SUB_PERM[id]; return !k || this.can(k) },
+    ensureTab() { if (!this.allowedTab(this.tab)) { const g = this.visibleGroups[0]; if (g) this.tab = g.subs[0].id } },
+    deny(what) { this.toast('ไม่มีสิทธิ์' + (what ? ': ' + what : ''), 'bad') },
+    goTab(id) { if (!this.allowedTab(id)) return this.deny('เข้าหน้านี้'); this.tab = id; this.cartOpen = false; if (id === 'report') this.loadClosing() },
     askPin(title, cb) { this.pin = { open: true, title, value: '', error: '', cb } },
     submitPin() {
       if (this.pin.value === this.S.settings.pin) { const cb = this.pin.cb; this.pin.open = false; cb && cb() }
@@ -2794,6 +2954,8 @@ createApp({
     lineTotal(i) { return R2((Number(i.price) || 0) * i.qty) },
     addToCart(p) {
       if (p.banned) return this.toast(p.name + ' เป็นยาห้ามขาย', 'bad')
+      if (RX_FLAGS.some(k => p[k]) && !this.can('sellRx')) return this.deny('ขาย ' + p.name + ' (ยาอันตราย / ควบคุม)')
+      if (p.otc && !this.can('sellOtc')) return this.deny('ขายยา OTC')
       if (this.availFor(p) <= 0) {
         const parent = this.S.products.find(x => x.unpack && x.unpack.pid === p.id && (this.stockMap[x.id] || 0) > 0)
         return this.toast(parent ? 'หมดแล้ว แต่ยังมี ' + parent.name + ' อยู่ ' + this.stockMap[parent.id] + ' ' + parent.unit + ' ไปแกะแบ่งขายที่คลังสินค้าได้' : 'สต็อกหมดแล้ว ถ้าของจริงยังมี ให้ปรับสต็อกก่อน', 'bad')
@@ -2843,6 +3005,7 @@ createApp({
       this.payModal = { open: true, method: method || 'cash', received: this.total }
     },
     startEditPrice(item) {
+      if (!this.can('editPrice')) return this.deny('แก้ไขราคาขาย')
       this.editPriceKey = item.key
       this.$nextTick(() => { const el = document.getElementById('price-' + item.key); if (el) { el.focus(); el.select() } })
     },
@@ -2913,6 +3076,7 @@ createApp({
     },
     undoResult() {
       const s = this.resultSale
+      if (!this.can('voidSale')) return this.deny('ยกเลิกบิลขาย')
       this.askConfirm('ยกเลิกบิล ' + s.no + '?', 'สต็อกจะถูกคืนเข้าคลัง และบิลนี้จะไม่นับเป็นยอดขาย', 'ยกเลิกบิล', () => {
         try { Logic.voidSale(this.S, s.id, 'ยกเลิกทันทีหลังขาย'); this.resultSale = null; this.toast('ยกเลิกบิล ' + s.no + ' แล้ว') }
         catch (e) { this.toast(e.message, 'bad') }
@@ -2923,6 +3087,7 @@ createApp({
     voidFromHistory() {
       const s = this.curSale
       if (!s) return
+      if (!this.can('voidSale')) return this.deny('ยกเลิกบิลขาย')
       this.askPin('ยกเลิกบิล ' + s.no, () => {
         try { Logic.voidSale(this.S, s.id, this.voidReason); this.toast('ยกเลิกบิล ' + s.no + ' และคืนสต็อกแล้ว') }
         catch (e) { this.toast(e.message, 'bad') }
@@ -2932,6 +3097,7 @@ createApp({
     // ===== คลังสินค้า =====
     openProduct(p) { this.productModal = p.id; this.adj = { counted: this.stockMap[p.id] || 0, reason: 'นับสต็อกไม่ตรง', note: '' } },
     doAdjust() {
+      if (!this.can('adjustStock')) return this.deny('ปรับสต็อก')
       const p = this.curProduct
       if (!p || this.adjDiff === 0) return
       const counted = Math.floor(Number(this.adj.counted))
@@ -2955,6 +3121,7 @@ createApp({
     bkDelSel() { const m = { ...this.bkSet }; for (const id of Object.keys(this.bkSelR)) if (this.bkSelR[id]) delete m[id]; this.bkSet = m; this.bkSelR = {} },
     bkDelAll() { const m = { ...this.bkSet }; for (const p of this.bkRight) delete m[p.id]; this.bkSet = m; this.bkSelR = {} },
     bkSave() {
+      if (!this.can('manage')) return this.deny('กำหนดประเภทยา')
       const f = DRUG_FLAGS.find(x => x.k === this.bkType); if (!f) return
       let on = 0, off = 0
       for (const p of this.S.products) {
@@ -2988,6 +3155,7 @@ createApp({
       return JSON.stringify(d) !== JSON.stringify(this.mgDraft(p))
     },
     mgSave() {
+      if (!this.can('manage')) return this.deny('แก้ไขข้อมูลยา')
       const p = this.mgProduct, d = this.mg
       if (!p || !d) return
       if (!d.name.trim()) return this.toast('ใส่ชื่อสินค้าก่อน', 'bad')
@@ -3017,6 +3185,7 @@ createApp({
       this.toast('บันทึกข้อมูลยาแล้ว')
     },
     mgAdjustTotal() {
+      if (!this.can('adjustStock')) return this.deny('ปรับสต็อก')
       const p = this.mgProduct
       if (!p || this.mgDiff === 0) return
       const counted = Math.floor(Number(this.mgAdj.counted))
@@ -3030,6 +3199,7 @@ createApp({
       })
     },
     mgLotSave(l) {
+      if (!this.can('adjustStock')) return this.deny('ปรับสต็อก')
       const d = this.mgLots[l.id]
       if (!d) return
       const nq = Math.floor(Number(d.qty)), nc = Number(d.cost)
@@ -3136,6 +3306,7 @@ createApp({
       this.rcvSearch = ''; this.rcvOpen = false
     },
     marginText(it) {
+      if (!this.can('viewCost')) return ''
       const p = this.S.products.find(x => x.id === it.pid)
       const c = Number(it.unitCost) || 0
       if (!p || !p.price || !c) return ''
@@ -3314,6 +3485,7 @@ createApp({
     closeReceipt() { this.receiptModalId = null; this.rcEdit = null; this.rcVoidOpen = false },
     receiptLot(row) { const rc = this.curReceipt; return rc ? Logic.lotOfRow(this.S, rc, row) : null },
     startEditReceipt() {
+      if (!this.can('editReceipt')) return this.deny('แก้ไขรายการรับเข้า')
       this.askPin('แก้ไขบิลรับเข้า', () => {
         const rc = this.curReceipt; if (!rc) return
         this.rcEdit = { invoice: rc.invoice || '', supplier: rc.supplier || '', day: rc.day,
@@ -3329,6 +3501,7 @@ createApp({
       } catch (err) { this.toast(err.message, 'bad') }
     },
     doVoidReceipt() {
+      if (!this.can('editReceipt')) return this.deny('ยกเลิกรายการรับเข้า')
       this.askPin('ยกเลิกบิลรับเข้า', () => {
         try { Logic.voidReceipt(this.S, this.receiptModalId, this.rcVoidReason); this.rcVoidOpen = false; this.toast('ยกเลิกบิลรับเข้าแล้ว') }
         catch (err) { this.toast(err.message, 'bad') }

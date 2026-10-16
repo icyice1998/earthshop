@@ -16,7 +16,7 @@ body = re.sub(r"^const supabaseUrl = .*$", "const supabaseUrl = 'https://demo.in
 body = re.sub(r"^const supabaseKey = .*$", "const supabaseKey = 'demo'", body, flags=re.M)
 app_i = body.index('<script>\n/* ====')
 body = body[:app_i] + '<script id="mockdata" type="application/json">' + mock + '</script>\n<script>\n' + stub + '</script>\n' + body[app_i:]
-tag = '<div id="demo-tag"><span>เดโม ข้อมูลตัวอย่าง ไม่เชื่อมฐานข้อมูลจริง รหัส PIN 1234</span><button type="button" onclick="__resetDemo()">รีเซ็ต</button></div>'
+tag = '<div id="demo-tag"><span>เดโม ข้อมูลตัวอย่าง ไม่เชื่อมฐานข้อมูลจริง · PIN 1234 · ลองสิทธิ์: ออกจากระบบแล้วเข้าด้วยชื่อ demo / pharm / cashier / stock (รหัสผ่านอะไรก็ได้)</span><button type="button" onclick="__resetDemo()">รีเซ็ต</button></div>'
 head = '''<title>Pharmacy POS Demo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

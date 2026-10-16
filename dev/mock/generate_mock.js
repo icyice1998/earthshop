@@ -141,7 +141,9 @@ function build(DAYS) {
   // a few items out of stock / negative-looking edge cases for UI testing
   mock.slice(0, 6).forEach(p => { const q = Logic.stockOf(S, p.id); if (q > 0) { try { Logic.adjust(S, p.id, 0, 'นับสต็อกไม่ตรง', 'MOCK หมดสต็อก') } catch (e) {} } })
   mock.slice(6, 14).forEach(p => { const q = Logic.stockOf(S, p.id); if (q > 1) { try { Logic.adjust(S, p.id, 1, 'นับสต็อกไม่ตรง', 'MOCK เหลือน้อย') } catch (e) {} } })
-  return { state: JSON.stringify(S), stats: { products: S.products.length, lots: S.lots.length, receipts: S.receipts.length, orders: S.orders.length, suppliers: S.suppliers.length, sales: S.sales.length, voided, members: S.members.length, returns: S.returns.length, skipped } }
+  const mkUser = (login, name, preset, extra) => ({ id: uid(), empId: 'E' + String(S.users.length + 1).padStart(3, '0'), login, name, role: PERM_PRESETS[preset].label, active: true, admin: preset === 'admin', workStart: '', workEnd: '', perms: { ...PERM_PRESETS[preset].perms }, ...(extra || {}) })
+  S.users = [mkUser('demo', 'ผู้ดูแล (ตัวอย่าง)', 'admin'), mkUser('pharm', 'เภสัชกรตัวอย่าง', 'pharmacist'), mkUser('cashier', 'พนักงานขายตัวอย่าง', 'cashier'), mkUser('stock', 'พนักงานคลังตัวอย่าง', 'stock')]
+  return { state: JSON.stringify(S), stats: { products: S.products.length, lots: S.lots.length, receipts: S.receipts.length, orders: S.orders.length, users: S.users.length, suppliers: S.suppliers.length, sales: S.sales.length, voided, members: S.members.length, returns: S.returns.length, skipped } }
 }
 
 ;(async () => {
