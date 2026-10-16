@@ -11,6 +11,9 @@ assert '</script' not in mock
 style = re.search(r'<style>(.*?)</style>', s, re.S).group(1)
 body = s[s.index('<body>') + 6:s.rindex('</body>')]
 body = body.replace('style="height:100vh; height:100dvh;"', 'style="height:100%;"', 1)
+# the demo never contacts Supabase, so drop the real project address and key from the page
+body = re.sub(r"^const supabaseUrl = .*$", "const supabaseUrl = 'https://demo.invalid'", body, flags=re.M)
+body = re.sub(r"^const supabaseKey = .*$", "const supabaseKey = 'demo'", body, flags=re.M)
 app_i = body.index('<script>\n/* ====')
 body = body[:app_i] + '<script id="mockdata" type="application/json">' + mock + '</script>\n<script>\n' + stub + '</script>\n' + body[app_i:]
 tag = '<div id="demo-tag"><span>เดโม ข้อมูลตัวอย่าง ไม่เชื่อมฐานข้อมูลจริง รหัส PIN 1234</span><button type="button" onclick="__resetDemo()">รีเซ็ต</button></div>'
