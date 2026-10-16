@@ -61,8 +61,9 @@ function build(DAYS) {
   }
   // opening-style initial receiving, 1 day before first sale
   const start = dayAdd(today, -DAYS)
-  const recv = (day, items, supplier, invoice) => {
-    const rc = Logic.receive(S, { invoice, supplier, day: ymd(day), items })
+  const recv = (day, items, supplier, invoice, orderId) => {
+    const rc = Logic.receive(S, { invoice, supplier, day: ymd(day), items, discount: rnd() < 0.2 ? ri(5, 40) : 0, orderId })
+    if (rnd() < 0.7) rc.invoiceTotal = rc.total
     const ts = iso(day, 9)
     rc.ts = ts
     for (const it of rc.items) {
@@ -77,7 +78,7 @@ function build(DAYS) {
     else if (r < 0.14) expDays = ri(10, 80)       // near expiry
     else expDays = ri(240, 900)
     const cost = Math.max(0.5, Math.round(p.cost * (0.92 + rnd() * 0.16) * 100) / 100)
-    return { pid: p.id, qty, unitCost: cost, lotNo: 'L' + ri(10000, 99999), expiry: ymd(dayAdd(today, expDays + (dayRef ? 0 : 0))) }
+    return { pid: p.id, qty, freeQty: rnd() < 0.12 ? ri(1, 4) : 0, unitCost: cost, lotNo: 'L' + ri(10000, 99999), expiry: ymd(dayAdd(today, expDays + (dayRef ? 0 : 0))) }
   }
   const sellables = () => S.products.filter(p => p.active !== false && p.type !== 'supply' && !(p.bundle && p.bundle.length))
   const byS = {}; for (const p of sellables()) (byS[p.supplier] = byS[p.supplier] || []).push(p)
@@ -124,13 +125,22 @@ function build(DAYS) {
       } catch (e) { skipped++ }
     }
   }
+  // purchase orders: one open, one partly received, one fully received
+  const ordProducts = mock.filter(p => Logic.stockOf(S, p.id) <= p.reorder * 3 && !p.controlled).slice(0, 14)
+  const mk = (sup, list) => Logic.createOrder(S, { supplier: sup, day: ymd(today), note: 'MOCK', items: list.map(p => ({ pid: p.id, qty: ri(20, 60), unitCost: p.cost })) })
+  const oOpen = mk(SUP[0], ordProducts.slice(0, 4))
+  const oPart = mk(SUP[1], ordProducts.slice(4, 8))
+  const oDone = mk(SUP[2], ordProducts.slice(8, 11))
+  const rcvOrder = (o, only, short) => recv(today, o.items.filter((_, i) => !only || only.includes(i)).map(i => ({ pid: i.pid, qty: short ? Math.max(1, Math.floor(i.qty / 2)) : i.qty, unitCost: i.unitCost, lotNo: 'L' + ri(10000, 99999), expiry: ymd(dayAdd(today, ri(300, 700))) })), o.supplier, 'MOCK-' + String(++inv).padStart(4, '0'), o.id)
+  rcvOrder(oPart, [0, 1], false)
+  rcvOrder(oDone, null, false)
   // two supplier returns of near-expiry lots
   const cand = S.lots.filter(l => l.qtyLeft > 3 && l.expiry && l.expiry < ymd(dayAdd(today, 60))).slice(0, 2)
   cand.forEach(l => { try { Logic.returnGoods(S, { supplier: S.products.find(p => p.id === l.pid).supplier, day: ymd(today), reason: 'ใกล้หมดอายุ', items: [{ lotId: l.id, qty: 2 }], refund: '' }) } catch (e) {} })
   // a few items out of stock / negative-looking edge cases for UI testing
   mock.slice(0, 6).forEach(p => { const q = Logic.stockOf(S, p.id); if (q > 0) { try { Logic.adjust(S, p.id, 0, 'นับสต็อกไม่ตรง', 'MOCK หมดสต็อก') } catch (e) {} } })
   mock.slice(6, 14).forEach(p => { const q = Logic.stockOf(S, p.id); if (q > 1) { try { Logic.adjust(S, p.id, 1, 'นับสต็อกไม่ตรง', 'MOCK เหลือน้อย') } catch (e) {} } })
-  return { state: JSON.stringify(S), stats: { products: S.products.length, lots: S.lots.length, receipts: S.receipts.length, sales: S.sales.length, voided, members: S.members.length, returns: S.returns.length, skipped } }
+  return { state: JSON.stringify(S), stats: { products: S.products.length, lots: S.lots.length, receipts: S.receipts.length, orders: S.orders.length, suppliers: S.suppliers.length, sales: S.sales.length, voided, members: S.members.length, returns: S.returns.length, skipped } }
 }
 
 ;(async () => {
