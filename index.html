@@ -157,6 +157,32 @@
 
       <!-- ตะกร้า -->
       <aside :class="cartOpen ? 'flex' : 'hidden md:flex'" class="cart-panel flex-col bg-white">
+        <!-- บิล (กล่องเหนือตะกร้า) -->
+        <div class="shrink-0 flex flex-col min-h-0" style="border-bottom:1.5px solid var(--line);max-height:38%">
+          <button class="w-full flex items-center justify-between gap-2 px-4 py-2 text-left shrink-0" style="background:#f2f6f5" @click="billsOpen = !billsOpen">
+            <span class="font-bold min-w-0">บิล
+              <span class="text-sm font-normal text-slate-600">{{ histDay === todayKey ? 'วันนี้' : fmtDay(histDay) }} · {{ histReport.count }} บิล · ฿{{ money(histReport.total) }}<span v-if="histReport.voidCount" class="text-red-600"> · ยกเลิก {{ histReport.voidCount }}</span></span>
+            </span>
+            <span class="text-slate-500">{{ billsOpen ? '▾' : '▸' }}</span>
+          </button>
+          <div v-if="billsOpen" class="overflow-y-auto p-2 min-h-0" style="max-height:13rem">
+            <div class="flex items-center gap-2 mb-2">
+              <input type="date" v-model="histDay" class="inp !w-auto !py-1">
+              <button class="btn btn-ghost !min-h-0 !py-1 text-sm" @click="histDay = todayKey">วันนี้</button>
+            </div>
+            <div v-if="histSales.length === 0" class="text-center text-slate-400 text-sm py-4">ยังไม่มีบิล</div>
+            <button v-for="s in histSales" :key="s.id" class="w-full text-left py-2 px-2 border-b text-sm" style="border-color:var(--line)" :class="s.status === 'void' ? 'row-void' : ''" @click="saleDetailId = s.id; voidReason = 'คีย์ผิด'">
+              <div class="flex justify-between items-center gap-2">
+                <span class="font-semibold">{{ s.no }} <span class="font-normal text-slate-500">{{ fmtTime(s.ts) }}</span>
+                  <span class="tag ml-1" :style="s.method === 'cash' ? 'background:#e2e8f0' : 'background:#ccfbf1;color:#0f766e'">{{ s.method === 'cash' ? 'เงินสด' : 'โอน' }}</span>
+                  <span v-if="s.status === 'void'" class="tag ml-1" style="background:#fee2e2;color:#b91c1c">ยกเลิก</span>
+                  <span v-if="s.backdated" class="tag ml-1" style="background:#fef3c7;color:#92400e">ย้อนหลัง</span></span>
+                <span class="font-bold num" :class="s.status === 'void' ? 'line-through' : ''">฿{{ money(s.total) }}</span>
+              </div>
+              <div class="text-xs text-slate-500 truncate">{{ saleSummary(s) }}<span v-if="s.memberId"> · {{ memberName(s.memberId) }}</span></div>
+            </button>
+          </div>
+        </div>
         <div class="p-4 flex items-center justify-between" style="background:#1f2937;color:#fff">
           <div class="font-bold text-lg">ตะกร้า <span class="text-sm font-normal opacity-70">({{ cart.length }} รายการ)</span></div>
           <div class="flex gap-2">
@@ -229,34 +255,6 @@
           <span>ตะกร้า {{ cartCount }} ชิ้น</span><span class="num">฿{{ money(total) }} &rsaquo;</span>
         </button>
       </div>
-    </section>
-
-    <!-- ============ 2) บิล ============ -->
-    <section v-else-if="tab === 'history'" class="h-full overflow-y-auto p-3">
-      <div class="flex items-center gap-2 mb-3">
-        <input type="date" v-model="histDay" class="inp !w-auto">
-        <button class="btn btn-ghost !min-h-0 !py-2" @click="histDay = dayKey(new Date())">วันนี้</button>
-      </div>
-      <div class="grid grid-cols-3 gap-2 mb-3 text-center">
-        <div class="card p-3"><div class="text-xs text-slate-500">จำนวนบิล</div><div class="text-xl font-bold num">{{ histReport.count }}</div></div>
-        <div class="card p-3"><div class="text-xs text-slate-500">ยอดขาย</div><div class="text-xl font-bold num" style="color:var(--pine)">฿{{ money(histReport.total) }}</div></div>
-        <div class="card p-3"><div class="text-xs text-slate-500">ยกเลิก</div><div class="text-xl font-bold num text-red-600">{{ histReport.voidCount }}</div></div>
-      </div>
-      <div v-if="histSales.length === 0" class="text-center text-slate-400 py-12">วันนี้ยังไม่มีบิล</div>
-      <button v-for="s in histSales" :key="s.id" class="card w-full text-left p-3 mb-2" :class="s.status === 'void' ? 'row-void' : ''" @click="saleDetailId = s.id; voidReason = 'คีย์ผิด'">
-        <div class="flex justify-between items-center">
-          <div class="font-semibold">{{ s.no }} <span class="text-sm font-normal text-slate-500">{{ fmtTime(s.ts) }}</span></div>
-          <div class="font-bold num" :class="s.status === 'void' ? 'line-through' : ''">฿{{ money(s.total) }}</div>
-        </div>
-        <div class="text-sm text-slate-600 mt-1">{{ saleSummary(s) }}</div>
-        <div class="mt-1">
-          <span class="tag" :style="s.method === 'cash' ? 'background:#e2e8f0' : 'background:#ccfbf1;color:#0f766e'">{{ s.method === 'cash' ? 'เงินสด' : 'โอน' }}</span>
-          <span v-if="s.status === 'void'" class="tag ml-1" style="background:#fee2e2;color:#b91c1c">ยกเลิกแล้ว</span>
-          <span v-if="s.by" class="text-xs text-slate-500 ml-1">{{ s.by }}</span>
-          <span v-if="s.memberId" class="tag ml-1" style="background:#dbeafe;color:#1e40af">{{ memberName(s.memberId) }}</span>
-          <span v-if="s.backdated" class="tag ml-1" style="background:#fef3c7;color:#92400e">ย้อนหลัง</span>
-        </div>
-      </button>
     </section>
 
     <!-- ============ 3) คลังสินค้า ============ -->
@@ -1769,7 +1767,7 @@ createApp({
       stashAt: stash ? new Date(stash.at).toLocaleString('th-TH') : '',
       S: makeSeed(), storageOk: true, CATS, MOVE_LABEL,
       groups: [
-        { id: 'shop', name: 'หน้าร้าน', subs: [{ id: 'pos', name: 'ขาย' }, { id: 'history', name: 'บิล' }, { id: 'report', name: 'ปิดวัน' }] },
+        { id: 'shop', name: 'หน้าร้าน', subs: [{ id: 'pos', name: 'ขาย' }, { id: 'report', name: 'ปิดวัน' }] },
         { id: 'members', name: 'ระบบสมาชิก', subs: [{ id: 'members', name: 'สมาชิก' }] },
         { id: 'stock', name: 'คลังสินค้า / เบิกวัสดุ', subs: [{ id: 'stock', name: 'คลังสินค้า' }, { id: 'supplies', name: 'เบิกวัสดุ' }] },
         { id: 'receive', name: 'ระบบรับเข้า / ส่งคืนสินค้า', subs: [{ id: 'receive', name: 'รับเข้า / ส่งคืน' }] },
@@ -1778,7 +1776,7 @@ createApp({
       search: '', cat: 'ทั้งหมด', cart: [], discount: '', cartOpen: false,
       payModal: { open: false, method: 'cash', received: '' }, resultSale: null, editPriceKey: null,
       otherModal: { open: false, name: 'ทิป / รายรับอื่น', amount: '' },
-      histDay: today, saleDetailId: null, voidReason: 'คีย์ผิด',
+      histDay: today, billsOpen: window.innerHeight >= 900, saleDetailId: null, voidReason: 'คีย์ผิด',
       invSearch: '', invFilter: 'all', invLimit: 50, invSort: { key: '', dir: 1 },
       invView: (() => { try { return localStorage.getItem('knockdown_inv_view') === 'table' ? 'table' : 'card' } catch (e) { return 'card' } })(),
       invCols: [{ key: 'code', label: 'รหัส' }, { key: 'name', label: 'ชื่อสินค้า' }, { key: 'generic', label: 'ชื่อสามัญ' }, { key: 'category', label: 'หมวด' },
