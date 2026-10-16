@@ -22,10 +22,10 @@
            -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
     button { touch-action: manipulation; cursor: pointer; }
     .num { font-variant-numeric: tabular-nums; }
-    .hdr { background: #0f3f3a; color: #fff; }
+    .hdr { background: #0f3f3a; color: #fff; padding-top: calc(.75rem + env(safe-area-inset-top, 0px)); padding-left: max(1rem, env(safe-area-inset-left, 0px)); padding-right: max(1rem, env(safe-area-inset-right, 0px)); }
     .tab { padding: .65rem 1.1rem; font-size: 1rem; border-radius: .6rem; font-weight: 600; white-space: nowrap; color: #b9dcd7; position: relative; }
     .tab-on { background: #fff; color: #0f3f3a; }
-    .sub { padding: .35rem .9rem; font-size: .92rem; border-radius: 999px; font-weight: 600; white-space: nowrap; color: #b9dcd7; border: 1.5px solid #2f6b64; }
+    .sub { min-height: 40px; padding: .35rem .9rem; font-size: .92rem; border-radius: 999px; font-weight: 600; white-space: nowrap; color: #b9dcd7; border: 1.5px solid #2f6b64; }
     .sub-on { background: #b9dcd7; color: #0f3f3a; border-color: #b9dcd7; }
     .badge { position:absolute; top:-4px; right:-2px; background:#dc2626; color:#fff; font-size:11px; min-width:18px; height:18px;
              border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
@@ -48,13 +48,25 @@
     .tile:active:not(.tile-out) { transform: scale(.97); border-color: var(--pine); }
     .tile-out { background:#f1f5f4; color:#9aaba8; }
     .modal-bg { position:fixed; inset:0; background: rgba(16,48,44,.55); display:flex; align-items:flex-end; justify-content:center; z-index:60; }
-    .modal { background:#fff; width:100%; max-width:30rem; border-radius:1.1rem 1.1rem 0 0; max-height:92vh; overflow-y:auto; }
+    .modal { background:#fff; width:100%; max-width:30rem; border-radius:1.1rem 1.1rem 0 0; max-height:92vh; max-height:92dvh; overflow-y:auto; }
+    .modal::after { content:''; display:block; height:env(safe-area-inset-bottom, 0px); }
+    @media (max-height: 520px) {
+      .hdr { padding-top: calc(.25rem + env(safe-area-inset-top, 0px)); padding-bottom: .25rem; }
+      .hdr-top { margin-bottom: .25rem; }
+      .hdr-date { display: none; }
+      .hdr .tab { padding: .35rem .8rem; font-size: .92rem; }
+      .hdr .sub { min-height: 32px; padding: .15rem .7rem; }
+    }
+    .modal-lg { max-width:30rem; }
+    @media (min-width: 768px) { .modal-lg { max-width:40rem; } }
+    @media (max-height: 520px) { .modal { max-height:98dvh; } }
     @media (min-width: 640px) { .modal-bg { align-items:center; } .modal { border-radius:1.1rem; } }
     .row-void { opacity:.55; }
     .cart-panel { position:fixed; left:0; right:0; top:0; height:100vh; height:100dvh; z-index:40; }
     @media (min-width: 768px) {
-      .cart-panel { position:static; height:auto; width:24rem; z-index:auto; border:1px solid var(--line); border-radius:.9rem; overflow:hidden; }
+      .cart-panel { position:static; height:auto; width:20rem; z-index:auto; border:1px solid var(--line); border-radius:.9rem; overflow:hidden; }
     }
+    @media (min-width: 1024px) { .cart-panel { width:24rem; } }
     .tag { display:inline-block; font-size:.75rem; padding:.1rem .5rem; border-radius:999px; font-weight:600; }
     ::-webkit-scrollbar { width:6px; height:6px; }
     ::-webkit-scrollbar-thumb { background:#c5d3d0; border-radius:10px; }
@@ -89,11 +101,11 @@
   </div>
 
   <!-- ============ Header ============ -->
-  <header class="hdr px-4 pt-3 pb-2">
-    <div class="flex items-center justify-between mb-2 gap-2">
+  <header class="hdr pb-2">
+    <div class="hdr-top flex items-center justify-between mb-2 gap-2">
       <div>
         <div class="font-bold text-lg">{{ S.settings.shopName }}</div>
-        <div class="text-xs" style="color:#b9dcd7">{{ todayLabel }}</div>
+        <div class="hdr-date text-xs" style="color:#b9dcd7">{{ todayLabel }}</div>
       </div>
       <div class="flex items-center gap-3 text-sm" style="color:#b9dcd7">
         <button class="flex items-center gap-1" @click="onSyncTap">
@@ -105,7 +117,7 @@
     </div>
     <nav class="flex gap-1 overflow-x-auto pb-1">
       <button v-for="g in groups" :key="g.id" @click="goTab(g.subs[0].id)" class="tab" :class="curGroup.id === g.id ? 'tab-on' : ''">
-        {{ g.name }}
+        <span class="sm:hidden">{{ g.short }}</span><span class="hidden sm:inline">{{ g.name }}</span>
         <span v-if="g.id === 'stock' && alertCount > 0" class="badge">{{ alertCount }}</span>
         <span v-if="g.id === 'members' && dueCount > 0" class="badge">{{ dueCount }}</span>
       </button>
@@ -138,7 +150,7 @@
         </div>
         <div class="flex-1 overflow-y-auto p-3 pb-24 md:pb-3">
           <div v-if="posList.length === 0" class="text-center text-slate-400 py-10">ไม่พบรายการ ลองพิมพ์คำอื่น</div>
-          <div class="grid grid-cols-2 lg:grid-cols-3 gap-2">
+          <div class="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2">
             <button v-for="p in posList" :key="p.id" class="tile" :class="availFor(p) <= 0 ? 'tile-out' : ''" @click="addToCart(p)">
               <div>
                 <div class="text-xs text-slate-500">{{ p.code }}</div>
@@ -300,7 +312,8 @@
           </tbody>
         </table>
       </div>
-      <button v-if="invView !== 'table'" v-for="r in invShown" :key="r.p.id" class="card w-full text-left p-3 mb-2 flex items-center justify-between gap-3" @click="openProduct(r.p)">
+      <div v-if="invView !== 'table'" class="grid gap-2 md:grid-cols-2 xl:grid-cols-3 mb-2">
+      <button v-for="r in invShown" :key="r.p.id" class="card w-full text-left p-3 flex items-center justify-between gap-3" @click="openProduct(r.p)">
         <div class="min-w-0">
           <div class="font-semibold leading-normal">{{ r.p.name }}<span v-if="r.p.type === 'supply'" class="tag ml-1" style="background:#e0e7ff;color:#3730a3">วัสดุ</span><span v-if="r.p.danger" class="tag ml-1" style="background:#fee2e2;color:#b91c1c">อันตราย</span><span v-if="r.p.controlled" class="tag ml-1" style="background:#fef3c7;color:#92400e">ควบคุม</span></div>
           <div class="text-xs text-slate-500 truncate">{{ r.p.code }} &nbsp;{{ r.p.generic }}<span v-if="r.p.location"> &nbsp;📍{{ r.p.location }}</span></div>
@@ -316,6 +329,7 @@
           <div class="text-xs text-slate-500">{{ r.p.bundle ? 'ชุดที่ประกอบได้' : r.p.unit }}</div>
         </div>
       </button>
+      </div>
       <div v-if="invRows.length > invShown.length" class="text-center py-3">
         <button class="btn btn-ghost" @click="invLimit += 50">แสดงเพิ่ม ({{ invShown.length }} / {{ invRows.length }})</button>
       </div>
@@ -904,7 +918,7 @@
 
   <!-- ฟอร์มเพิ่ม/แก้สินค้า -->
   <div v-if="formModal" class="modal-bg" @click.self="formModal = null">
-    <div class="modal p-5">
+    <div class="modal modal-lg p-5">
       <div class="font-bold text-lg mb-3">{{ formModal.isNew ? 'เพิ่มยา / สินค้าใหม่' : 'แก้ไขข้อมูลสินค้า' }}</div>
       <div class="grid grid-cols-3 gap-3 mb-3">
         <div><label class="lbl">รหัส</label><input v-model="formModal.code" class="inp"></div>
@@ -1767,11 +1781,11 @@ createApp({
       stashAt: stash ? new Date(stash.at).toLocaleString('th-TH') : '',
       S: makeSeed(), storageOk: true, CATS, MOVE_LABEL,
       groups: [
-        { id: 'shop', name: 'หน้าร้าน', subs: [{ id: 'pos', name: 'ขาย' }, { id: 'report', name: 'ปิดวัน' }] },
-        { id: 'members', name: 'ระบบสมาชิก', subs: [{ id: 'members', name: 'สมาชิก' }] },
-        { id: 'stock', name: 'คลังสินค้า / เบิกวัสดุ', subs: [{ id: 'stock', name: 'คลังสินค้า' }, { id: 'supplies', name: 'เบิกวัสดุ' }] },
-        { id: 'receive', name: 'ระบบรับเข้า / ส่งคืนสินค้า', subs: [{ id: 'receive', name: 'รับเข้า / ส่งคืน' }] },
-        { id: 'settings', name: 'ตั้งค่า', subs: [{ id: 'settings', name: 'ตั้งค่า' }] }],
+        { id: 'shop', name: 'หน้าร้าน', short: 'หน้าร้าน', subs: [{ id: 'pos', name: 'ขาย' }, { id: 'report', name: 'ปิดวัน' }] },
+        { id: 'members', name: 'ระบบสมาชิก', short: 'สมาชิก', subs: [{ id: 'members', name: 'สมาชิก' }] },
+        { id: 'stock', name: 'คลังสินค้า / เบิกวัสดุ', short: 'คลังสินค้า', subs: [{ id: 'stock', name: 'คลังสินค้า' }, { id: 'supplies', name: 'เบิกวัสดุ' }] },
+        { id: 'receive', name: 'ระบบรับเข้า / ส่งคืนสินค้า', short: 'รับเข้า/คืน', subs: [{ id: 'receive', name: 'รับเข้า / ส่งคืน' }] },
+        { id: 'settings', name: 'ตั้งค่า', short: 'ตั้งค่า', subs: [{ id: 'settings', name: 'ตั้งค่า' }] }],
       tab: 'pos',
       search: '', cat: 'ทั้งหมด', cart: [], discount: '', cartOpen: false,
       payModal: { open: false, method: 'cash', received: '' }, resultSale: null, editPriceKey: null,
