@@ -1,0 +1,2492 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>POS ร้านยา V5</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- เพิ่มไลบรารี Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root { --ink:#10302c; --pine:#0f766e; --pine-d:#0b5a54; --paper:#f2f6f5; --line:#d8e2e0; --warn:#b45309; --bad:#b91c1c; }
+    html, body { height: 100%; }
+    /* ภาษาไทยมีสระ/วรรณยุกต์ซ้อนบน-ล่าง ต้องเว้นบรรทัดให้พอ ไม่งั้นตัวอักษรเหลื่อมกัน */
+    #app, #app * { line-height: 1.55 !important; }
+    #app .text-xs { font-size: .82rem !important; }
+    #app .text-sm { font-size: .95rem !important; }
+    body { font-family: 'IBM Plex Sans Thai','Sarabun','Noto Sans Thai','Thonburi',system-ui,sans-serif; font-size: 16px; background: var(--paper); color: var(--ink);
+           -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+    button { touch-action: manipulation; cursor: pointer; }
+    .num { font-variant-numeric: tabular-nums; }
+    .hdr { background: #0f3f3a; color: #fff; }
+    .tab { padding: .65rem 1.1rem; font-size: 1rem; border-radius: .6rem; font-weight: 600; white-space: nowrap; color: #b9dcd7; position: relative; }
+    .tab-on { background: #fff; color: #0f3f3a; }
+    .badge { position:absolute; top:-4px; right:-2px; background:#dc2626; color:#fff; font-size:11px; min-width:18px; height:18px;
+             border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+    .inp { width:100%; padding:.7rem .8rem; border:1.5px solid var(--line); border-radius:.6rem; font-size:16px; background:#fff; color: var(--ink); }
+    .inp:focus { outline:none; border-color: var(--pine); box-shadow: 0 0 0 3px rgba(15,118,110,.15); }
+    .lbl { display:block; font-size:.85rem; color:#5b6f6b; margin-bottom:.25rem; }
+    .btn { padding:.7rem 1rem; border-radius:.65rem; font-weight:600; font-size:1rem; min-height:48px; transition: transform .05s; }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity:.4; cursor:not-allowed; }
+    .btn-pri { background: var(--pine); color:#fff; }
+    .btn-dark { background:#1f2937; color:#fff; }
+    .btn-ghost { background:#fff; border:1.5px solid var(--line); color: var(--ink); }
+    .btn-bad { background: var(--bad); color:#fff; }
+    .btn-badline { background:#fff; border:1.5px solid #fecaca; color: var(--bad); }
+    .card { background:#fff; border:1px solid var(--line); border-radius:.9rem; }
+    .chip { padding:.45rem .9rem; border-radius:999px; border:1.5px solid var(--line); background:#fff; font-size:.9rem; font-weight:500; white-space:nowrap; }
+    .chip-on { background: var(--pine); color:#fff; border-color: var(--pine); }
+    .tile { text-align:left; padding:.9rem; border:1.5px solid var(--line); border-radius:.8rem; background:#fff; min-height:116px; font-size:1rem;
+            display:flex; flex-direction:column; justify-content:space-between; }
+    .tile:active:not(.tile-out) { transform: scale(.97); border-color: var(--pine); }
+    .tile-out { background:#f1f5f4; color:#9aaba8; }
+    .modal-bg { position:fixed; inset:0; background: rgba(16,48,44,.55); display:flex; align-items:flex-end; justify-content:center; z-index:60; }
+    .modal { background:#fff; width:100%; max-width:30rem; border-radius:1.1rem 1.1rem 0 0; max-height:92vh; overflow-y:auto; }
+    @media (min-width: 640px) { .modal-bg { align-items:center; } .modal { border-radius:1.1rem; } }
+    .row-void { opacity:.55; }
+    .cart-panel { position:fixed; left:0; right:0; top:0; height:100vh; height:100dvh; z-index:40; }
+    @media (min-width: 768px) {
+      .cart-panel { position:static; height:auto; width:24rem; z-index:auto; border:1px solid var(--line); border-radius:.9rem; overflow:hidden; }
+    }
+    .tag { display:inline-block; font-size:.75rem; padding:.1rem .5rem; border-radius:999px; font-weight:600; }
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-thumb { background:#c5d3d0; border-radius:10px; }
+  </style>
+</head>
+<body>
+<div id="app" style="height:100vh; height:100dvh;" class="flex flex-col max-w-7xl mx-auto relative">
+
+  <!-- หน้าจอโหลดข้อมูลจาก Supabase -->
+  <div v-if="isLoading" class="fixed inset-0 bg-white flex flex-col items-center justify-center" style="z-index:100">
+    <div class="text-2xl font-bold mb-4" style="color:var(--pine)">กำลังโหลดข้อมูล...</div>
+    <div class="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+  </div>
+
+  <!-- หน้าล็อกอิน -->
+  <div v-if="!authed && !isLoading" class="fixed inset-0 flex items-center justify-center p-5" style="z-index:100; background:#0f3f3a">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+      <div class="text-center mb-5">
+        <div class="text-2xl font-bold">{{ S.settings.shopName }}</div>
+        <div class="text-sm text-slate-500">เข้าสู่ระบบเพื่อใช้งาน</div>
+      </div>
+      <form @submit.prevent="doLogin($event)">
+        <label class="lbl">ชื่อผู้ใช้</label>
+        <input v-model="loginForm.user" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" class="inp mb-3" placeholder="เช่น earth">
+        <label class="lbl">รหัสผ่าน</label>
+        <input v-model="loginForm.pass" name="password" type="password" autocomplete="current-password" class="inp mb-3" placeholder="อย่างน้อย 6 ตัว">
+        <div v-if="loginForm.error" class="text-red-600 text-sm mb-3 text-center">{{ loginForm.error }}</div>
+        <button type="submit" class="btn btn-pri w-full text-lg" :disabled="loginForm.busy">{{ loginForm.busy ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ' }}</button>
+      </form>
+      <div class="text-xs text-slate-400 text-center mt-4">เครื่องนี้จะจำการเข้าสู่ระบบไว้ ไม่ต้องพิมพ์ทุกครั้ง</div>
+    </div>
+  </div>
+
+  <!-- ============ Header ============ -->
+  <header class="hdr px-4 pt-3 pb-2">
+    <div class="flex items-center justify-between mb-2 gap-2">
+      <div>
+        <div class="font-bold text-lg">{{ S.settings.shopName }}</div>
+        <div class="text-xs" style="color:#b9dcd7">{{ todayLabel }}</div>
+      </div>
+      <div class="flex items-center gap-3 text-sm" style="color:#b9dcd7">
+        <button class="flex items-center gap-1" @click="onSyncTap">
+          <span :style="'display:inline-block;width:10px;height:10px;border-radius:50%;background:' + syncColor"></span>{{ syncLabel }}
+        </button>
+        <span v-if="actor">{{ actor }}</span>
+        <button class="underline" @click="askLogout">ออก</button>
+      </div>
+    </div>
+    <nav class="flex gap-1 overflow-x-auto pb-1">
+      <button v-for="t in tabs" :key="t.id" @click="goTab(t.id)" class="tab" :class="tab === t.id ? 'tab-on' : ''">
+        {{ t.name }}
+        <span v-if="t.id === 'stock' && alertCount > 0" class="badge">{{ alertCount }}</span>
+        <span v-if="t.id === 'members' && dueCount > 0" class="badge">{{ dueCount }}</span>
+      </button>
+    </nav>
+  </header>
+  <div v-if="!storageOk" class="bg-amber-100 text-amber-900 text-sm px-4 py-2">
+    โหมดทดลอง: เบราว์เซอร์นี้ไม่ยอมให้บันทึกข้อมูลถาวร ข้อมูลจะหายเมื่อรีเฟรชหน้า
+  </div>
+
+  <main class="flex-1 min-h-0 relative">
+
+    <!-- ============ 1) ขาย ============ -->
+    <section v-if="tab === 'pos'" class="h-full flex flex-col md:flex-row gap-3 p-3">
+
+      <!-- ฝั่งเลือกยา -->
+      <div class="flex-1 min-h-0 flex flex-col card overflow-hidden">
+        <div v-if="backdate.on" class="p-3 text-sm flex items-center justify-between gap-2" style="background:#fef3c7;color:#92400e">
+          <span>โหมดคีย์ขายย้อนหลัง: {{ fmtDay(backdate.date) }} {{ backdate.time }} · {{ backdate.deduct ? 'ตัดสต็อก' : 'ไม่ตัดสต็อก' }}</span>
+          <button class="underline font-semibold whitespace-nowrap" @click="endBackdate">ออกจากโหมด</button>
+        </div>
+        <div class="p-3 border-b" style="border-color:var(--line)">
+          <input v-model="search" @keyup.enter="onSearchEnter" class="inp" placeholder="พิมพ์รหัส หรือชื่อยา แล้วกด Enter" autocomplete="off">
+          <div class="flex gap-2 overflow-x-auto pt-3 pb-1">
+            <button class="chip" :class="cat === 'ทั้งหมด' ? 'chip-on' : ''" @click="cat = 'ทั้งหมด'">ทั้งหมด</button>
+            <button v-for="c in CATS" :key="c" class="chip" :class="cat === c ? 'chip-on' : ''" @click="cat = c">{{ c }}</button>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 pb-24 md:pb-3">
+          <div v-if="posList.length === 0" class="text-center text-slate-400 py-10">ไม่พบรายการ ลองพิมพ์คำอื่น</div>
+          <div class="grid grid-cols-2 lg:grid-cols-3 gap-2">
+            <button v-for="p in posList" :key="p.id" class="tile" :class="availFor(p) <= 0 ? 'tile-out' : ''" @click="addToCart(p)">
+              <div>
+                <div class="text-xs text-slate-500">{{ p.code }}</div>
+                <div class="font-semibold leading-normal">{{ p.name }}</div>
+              </div>
+              <div class="flex items-end justify-between mt-2">
+                <div class="font-bold text-lg num" style="color:var(--pine)">฿{{ money(p.price) }}</div>
+                <div class="text-xs num" :class="(stockMap[p.id] || 0) <= 0 ? 'text-red-600 font-semibold' : (!p.bundle && stockMap[p.id] <= p.reorder ? 'text-amber-700 font-semibold' : 'text-slate-500')">
+                  {{ (stockMap[p.id] || 0) <= 0 ? 'หมด' : (p.bundle ? 'ประกอบได้ ' : 'เหลือ ') + stockMap[p.id] }}
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ตะกร้า -->
+      <aside :class="cartOpen ? 'flex' : 'hidden md:flex'" class="cart-panel flex-col bg-white">
+        <div class="p-4 flex items-center justify-between" style="background:#1f2937;color:#fff">
+          <div class="font-bold text-lg">ตะกร้า <span class="text-sm font-normal opacity-70">({{ cart.length }} รายการ)</span></div>
+          <div class="flex gap-2">
+            <button v-if="cart.length" class="tag" style="background:#dc2626;color:#fff;padding:.4rem .8rem" @click="clearCart">ล้างตะกร้า</button>
+            <button class="md:hidden tag" style="background:#374151;color:#fff;padding:.4rem .8rem" @click="cartOpen = false">กลับไปเลือกยา</button>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-3">
+          <div class="mb-3">
+            <button v-if="!cartMember" class="btn btn-ghost w-full !min-h-0 !py-2 text-sm" @click="openPicker">+ เลือกสมาชิก (ถ้ามี)</button>
+            <div v-else class="p-3 rounded-xl" style="background:#eff6ff;border:1px solid #bfdbfe">
+              <div class="flex justify-between items-center gap-2">
+                <div class="font-semibold">สมาชิก: {{ memberLabel(cartMember) }}</div>
+                <button class="text-sm underline whitespace-nowrap" @click="clearMember">เอาออก</button>
+              </div>
+              <div v-if="cartMember.allergies.length" class="text-sm mt-1" style="color:#b91c1c">แพ้ยา: {{ allergyText(cartMember) }}</div>
+              <div v-if="cartAllergyHits.length" class="mt-2 p-2 rounded-lg text-sm font-semibold" style="background:#fee2e2;color:#b91c1c">⚠ ในตะกร้ามียาที่ตรงกับประวัติแพ้ยา: {{ cartHitText }}</div>
+            </div>
+          </div>
+          <div v-if="cart.length === 0" class="text-center text-slate-400 mt-12">ยังไม่มีสินค้า แตะยาเพื่อเพิ่มลงตะกร้า</div>
+          <div v-for="(item, i) in cart" :key="item.key" class="p-3 mb-2 rounded-xl border" style="border-color:var(--line);background:#f8fbfa">
+            <div class="flex justify-between gap-2">
+              <div class="font-semibold">{{ item.name }}</div>
+              <button class="text-slate-400 text-2xl px-2" @click="removeItem(i)" aria-label="ลบรายการ">&times;</button>
+            </div>
+            <div class="flex items-center justify-between mt-2 gap-2">
+              <div class="flex items-center gap-2">
+                <button class="btn btn-ghost !min-h-0 w-11 h-11 !p-0 text-xl" @click="changeQty(i, -1)">−</button>
+                <input :value="item.qty" @change="setQty(i, $event.target.value)" @focus="$event.target.select()" type="number" inputmode="numeric" class="inp !w-14 !px-1 text-center font-bold">
+                <button class="btn btn-pri !min-h-0 w-11 h-11 !p-0 text-xl" @click="changeQty(i, 1)">+</button>
+              </div>
+              <div class="text-right">
+                <div v-if="editPriceKey !== item.key" class="text-sm text-slate-500">
+                  ฿{{ money(item.price) }} × {{ item.qty }}
+                  <button class="underline ml-1" style="color:var(--pine)" @click="startEditPrice(item)">แก้ราคา</button>
+                </div>
+                <div v-else class="flex items-center justify-end gap-1 text-sm">
+                  ฿<input :id="'price-' + item.key" v-model.number="item.price" @blur="editPriceKey = null" @keyup.enter="editPriceKey = null" type="number" inputmode="decimal" class="inp !w-24 !py-1 !px-2 text-right">
+                </div>
+                <div class="font-bold text-lg num">฿{{ money(lineTotal(item)) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 border-t bg-slate-50" style="border-color:var(--line); padding-bottom: calc(1rem + env(safe-area-inset-bottom))">
+          <div class="flex items-center justify-between mb-2 text-sm">
+            <span class="text-slate-600">ส่วนลดทั้งบิล (บาท)</span>
+            <input v-model.number="discount" type="number" inputmode="decimal" placeholder="0" class="inp !w-28 !py-1 text-right">
+          </div>
+          <div class="flex justify-between text-slate-500 text-sm mb-1"><span>รวมสินค้า</span><span class="num">฿{{ money(subtotal) }}</span></div>
+          <div class="flex justify-between items-end mb-3">
+            <span class="text-lg font-bold">ยอดรวม</span>
+            <span class="text-3xl font-bold num" style="color:var(--pine)">฿{{ money(total) }}</span>
+          </div>
+          <div v-if="backdate.on" class="text-xs text-center mb-2" style="color:#92400e">โหมดย้อนหลัง: {{ fmtDay(backdate.date) }} {{ backdate.time }} · {{ backdate.deduct ? 'ตัดสต็อก' : 'ไม่ตัดสต็อก' }}</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="btn btn-dark text-lg" :disabled="cart.length === 0" @click="openPay('cash')">เงินสด</button>
+            <button class="btn btn-pri text-lg" :disabled="cart.length === 0" @click="openPay('transfer')">รับโอน</button>
+          </div>
+          <button class="w-full mt-2 py-2 text-sm underline text-slate-500" @click="otherModal = { open: true, name: 'ทิป / รายรับอื่น', amount: '' }">+ เพิ่มรายรับอื่น (ทิป / ค่าบริการ)</button>
+          <button class="w-full py-1 text-sm underline text-slate-500" @click="openBackdate">+ คีย์ขายย้อนหลัง</button>
+        </div>
+      </aside>
+
+      <!-- แถบล่างบนมือถือ -->
+      <div v-if="!cartOpen" class="md:hidden fixed bottom-0 inset-x-0 p-3 z-30 bg-white border-t" style="border-color:var(--line)">
+        <button class="btn btn-pri w-full flex justify-between items-center" @click="cartOpen = true">
+          <span>ตะกร้า {{ cartCount }} ชิ้น</span><span class="num">฿{{ money(total) }} &rsaquo;</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ============ 2) บิล ============ -->
+    <section v-else-if="tab === 'history'" class="h-full overflow-y-auto p-3">
+      <div class="flex items-center gap-2 mb-3">
+        <input type="date" v-model="histDay" class="inp !w-auto">
+        <button class="btn btn-ghost !min-h-0 !py-2" @click="histDay = dayKey(new Date())">วันนี้</button>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mb-3 text-center">
+        <div class="card p-3"><div class="text-xs text-slate-500">จำนวนบิล</div><div class="text-xl font-bold num">{{ histReport.count }}</div></div>
+        <div class="card p-3"><div class="text-xs text-slate-500">ยอดขาย</div><div class="text-xl font-bold num" style="color:var(--pine)">฿{{ money(histReport.total) }}</div></div>
+        <div class="card p-3"><div class="text-xs text-slate-500">ยกเลิก</div><div class="text-xl font-bold num text-red-600">{{ histReport.voidCount }}</div></div>
+      </div>
+      <div v-if="histSales.length === 0" class="text-center text-slate-400 py-12">วันนี้ยังไม่มีบิล</div>
+      <button v-for="s in histSales" :key="s.id" class="card w-full text-left p-3 mb-2" :class="s.status === 'void' ? 'row-void' : ''" @click="saleDetailId = s.id; voidReason = 'คีย์ผิด'">
+        <div class="flex justify-between items-center">
+          <div class="font-semibold">{{ s.no }} <span class="text-sm font-normal text-slate-500">{{ fmtTime(s.ts) }}</span></div>
+          <div class="font-bold num" :class="s.status === 'void' ? 'line-through' : ''">฿{{ money(s.total) }}</div>
+        </div>
+        <div class="text-sm text-slate-600 mt-1">{{ saleSummary(s) }}</div>
+        <div class="mt-1">
+          <span class="tag" :style="s.method === 'cash' ? 'background:#e2e8f0' : 'background:#ccfbf1;color:#0f766e'">{{ s.method === 'cash' ? 'เงินสด' : 'โอน' }}</span>
+          <span v-if="s.status === 'void'" class="tag ml-1" style="background:#fee2e2;color:#b91c1c">ยกเลิกแล้ว</span>
+          <span v-if="s.by" class="text-xs text-slate-500 ml-1">{{ s.by }}</span>
+          <span v-if="s.memberId" class="tag ml-1" style="background:#dbeafe;color:#1e40af">{{ memberName(s.memberId) }}</span>
+          <span v-if="s.backdated" class="tag ml-1" style="background:#fef3c7;color:#92400e">ย้อนหลัง</span>
+        </div>
+      </button>
+    </section>
+
+    <!-- ============ 3) คลังสินค้า ============ -->
+    <section v-else-if="tab === 'stock'" class="h-full overflow-y-auto p-3">
+      <div class="flex gap-2 mb-3">
+        <input v-model="invSearch" class="inp" placeholder="ค้นหาชื่อ / ชื่อสามัญ / รหัส">
+        <button class="btn btn-pri whitespace-nowrap" @click="openForm(null)">+ เพิ่มสินค้า</button>
+      </div>
+      <div class="flex gap-2 overflow-x-auto pb-2 mb-1">
+        <button class="chip" :class="invFilter === 'all' ? 'chip-on' : ''" @click="invFilter = 'all'">ทั้งหมด {{ invAll.length }}</button>
+        <button class="chip" :class="invFilter === 'low' ? 'chip-on' : ''" @click="invFilter = 'low'">ใกล้หมด {{ invCount.low }}</button>
+        <button class="chip" :class="invFilter === 'out' ? 'chip-on' : ''" @click="invFilter = 'out'">หมด {{ invCount.out }}</button>
+        <button class="chip" :class="invFilter === 'near' ? 'chip-on' : ''" @click="invFilter = 'near'">ใกล้หมดอายุ {{ invCount.near }}</button>
+        <button class="chip" :class="invFilter === 'supply' ? 'chip-on' : ''" @click="invFilter = 'supply'">วัสดุ {{ invCount.supply }}</button>
+      </div>
+      <div v-if="invRows.length === 0" class="text-center text-slate-400 py-12">ไม่พบรายการ</div>
+      <button v-for="r in invRows" :key="r.p.id" class="card w-full text-left p-3 mb-2 flex items-center justify-between gap-3" @click="openProduct(r.p)">
+        <div class="min-w-0">
+          <div class="font-semibold leading-normal">{{ r.p.name }}<span v-if="r.p.type === 'supply'" class="tag ml-1" style="background:#e0e7ff;color:#3730a3">วัสดุ</span></div>
+          <div class="text-xs text-slate-500 truncate">{{ r.p.code }} &nbsp;{{ r.p.generic }}</div>
+          <div class="text-xs mt-1">
+            <span class="text-slate-500">ขาย ฿{{ money(r.p.price) }}</span>
+            <span v-if="r.exp" class="ml-2" :class="r.days < 0 ? 'text-red-600 font-semibold' : (r.near ? 'text-amber-700 font-semibold' : 'text-slate-500')">
+              {{ r.days < 0 ? 'หมดอายุแล้ว' : 'หมดอายุ ' + fmtExp(r.exp) }}
+            </span>
+          </div>
+        </div>
+        <div class="text-right shrink-0">
+          <div class="text-2xl font-bold num" :class="r.out ? 'text-red-600' : (r.low ? 'text-amber-700' : '')">{{ r.stock }}</div>
+          <div class="text-xs text-slate-500">{{ r.p.bundle ? 'ชุดที่ประกอบได้' : r.p.unit }}</div>
+        </div>
+      </button>
+    </section>
+
+    <!-- ============ 4) รับของเข้า ============ -->
+    <section v-else-if="tab === 'receive'" class="h-full overflow-y-auto p-3">
+      <div class="flex gap-2 mb-3">
+        <button class="chip" :class="rcvTab === 'in' ? 'chip-on' : ''" @click="rcvTab = 'in'">รับเข้า</button>
+        <button class="chip" :class="rcvTab === 'hist' ? 'chip-on' : ''" @click="rcvTab = 'hist'">ประวัติรับเข้า</button>
+        <button class="chip" :class="rcvTab === 'ret' ? 'chip-on' : ''" @click="rcvTab = 'ret'">คืนสินค้า</button>
+      </div>
+      <div v-if="rcvTab === 'in'">
+      <div class="card p-4 mb-3">
+        <div class="font-bold mb-3">1. ข้อมูลบิลรับเข้า</div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div><label class="lbl">เลขที่บิล / ใบส่งของ</label><input v-model="rcv.invoice" class="inp" placeholder="เช่น ORR-00-26-40076"></div>
+          <div><label class="lbl">ผู้จำหน่าย</label><input v-model="rcv.supplier" class="inp" placeholder="ไม่บังคับ"></div>
+          <div><label class="lbl">วันที่รับ</label><input type="date" v-model="rcv.day" class="inp"></div>
+        </div>
+      </div>
+
+      <div class="card p-4 mb-3">
+        <div class="font-bold mb-3">2. รายการยาที่รับเข้า</div>
+        <div class="relative mb-3">
+          <input v-model="rcvSearch" @focus="rcvOpen = true" @input="rcvOpen = true" class="inp" placeholder="ค้นหายาที่จะรับเข้า" autocomplete="off">
+          <div v-if="rcvOpen && rcvSearch" class="absolute left-0 right-0 bg-white border shadow-xl rounded-xl mt-1 z-20 max-h-64 overflow-y-auto" style="border-color:var(--line)">
+            <button v-for="p in rcvResults" :key="p.id" class="w-full text-left p-3 border-b hover:bg-teal-50" style="border-color:var(--line)" @click="addRcvItem(p)">
+              <span class="text-slate-500 mr-2">{{ p.code }}</span><span class="font-semibold">{{ p.name }}</span>
+            </button>
+            <div v-if="rcvResults.length === 0" class="p-3 text-slate-400">ไม่พบ ถ้าเป็นยาใหม่ให้ไปเพิ่มที่แท็บคลังสินค้าก่อน</div>
+          </div>
+        </div>
+
+        <div v-if="rcv.items.length === 0" class="text-center text-slate-400 py-8 rounded-xl border border-dashed" style="border-color:var(--line)">ยังไม่มีรายการ ค้นหายาแล้วเพิ่มลงบิล</div>
+        <div v-for="(it, i) in rcv.items" :key="i" class="p-3 mb-2 rounded-xl border" style="border-color:var(--line);background:#f8fbfa">
+          <div class="flex justify-between">
+            <div class="font-semibold">{{ it.name }}</div>
+            <button class="text-red-500 font-bold px-2" @click="rcv.items.splice(i, 1)">ลบ</button>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+            <div><label class="lbl">จำนวน ({{ it.unit }})</label><input v-model.number="it.qty" type="number" inputmode="numeric" class="inp"></div>
+            <div><label class="lbl">ราคารับ/{{ it.unit }}</label><input v-model.number="it.unitCost" type="number" inputmode="decimal" class="inp"></div>
+            <div><label class="lbl">เลขล็อต</label><input v-model="it.lotNo" class="inp" placeholder="ไม่บังคับ"></div>
+            <div><label class="lbl">วันหมดอายุ</label><input v-model="it.expiry" type="date" class="inp"></div>
+          </div>
+          <div class="text-sm text-slate-500 mt-2">
+            รวมทุน ฿{{ money((Number(it.qty) || 0) * (Number(it.unitCost) || 0)) }}
+            <span v-if="marginText(it)">, {{ marginText(it) }}</span>
+          </div>
+        </div>
+        <div v-if="rcv.items.length" class="flex items-center justify-between mt-3">
+          <div class="font-bold text-lg">มูลค่าบิลรวม ฿{{ money(rcvTotal) }}</div>
+          <button class="btn btn-pri" @click="saveReceive">บันทึกรับเข้า</button>
+        </div>
+      </div>
+
+      <div class="font-bold mb-2 mt-4">บิลรับเข้าล่าสุด (แตะเพื่อดูรายละเอียด)</div>
+      <div v-if="recentReceipts.length === 0" class="text-slate-400 text-sm">ยังไม่มีบิลรับเข้า</div>
+      <div v-for="r in recentReceipts" :key="r.id" role="button" class="card p-3 mb-2" :class="r.status === 'void' ? 'row-void' : ''" @click="openReceipt(r)">
+        <div class="flex justify-between"><div class="font-semibold">{{ r.invoice || 'ไม่ระบุเลขที่บิล' }} <span v-if="r.status === 'void'" class="tag" style="background:#fee2e2;color:#b91c1c">ยกเลิก</span></div><div class="font-bold num">฿{{ money(r.total) }}</div></div>
+        <div class="text-xs text-slate-500">{{ fmtDay(r.day) }} {{ r.supplier }} รวม {{ r.items.length }} รายการ<span v-if="r.by"> โดย {{ r.by }}</span></div>
+      </div>
+      </div>
+
+      <!-- ประวัติรับเข้า -->
+      <div v-if="rcvTab === 'hist'">
+        <div class="flex items-center justify-between mb-3">
+          <button class="btn btn-ghost !min-h-0 !py-2" @click="rcvMonth = shiftYM(rcvMonth, -1)">◀</button>
+          <div class="font-bold">{{ fmtMonth(rcvMonth) }}</div>
+          <button class="btn btn-ghost !min-h-0 !py-2" @click="rcvMonth = shiftYM(rcvMonth, 1)">▶</button>
+        </div>
+        <div class="card p-4 mb-3">
+          <div class="text-sm text-slate-500">รับเข้าทั้งเดือน ({{ rcvMonthStats.count }} บิล)</div>
+          <div class="text-3xl font-bold num" style="color:var(--pine)">฿{{ money(rcvMonthStats.total) }}</div>
+          <div class="text-xs text-slate-500 mt-1">ไม่รวมบิลที่ยกเลิก</div>
+        </div>
+        <div v-if="rcvMonthList.length === 0" class="text-center text-slate-400 py-8">เดือนนี้ยังไม่มีบิลรับเข้า</div>
+        <div v-for="r in rcvMonthList" :key="r.id" role="button" class="card p-3 mb-2" :class="r.status === 'void' ? 'row-void' : ''" @click="openReceipt(r)">
+          <div class="flex justify-between"><div class="font-semibold">{{ r.invoice || 'ไม่ระบุเลขที่บิล' }} <span v-if="r.status === 'void'" class="tag" style="background:#fee2e2;color:#b91c1c">ยกเลิก</span></div><div class="font-bold num">฿{{ money(r.total) }}</div></div>
+          <div class="text-xs text-slate-500">{{ fmtDay(r.day) }} {{ r.supplier }} รวม {{ r.items.length }} รายการ<span v-if="r.by"> โดย {{ r.by }}</span></div>
+        </div>
+      </div>
+
+      <!-- คืนสินค้า -->
+      <div v-if="rcvTab === 'ret'">
+        <div class="card p-4 mb-3">
+          <div class="font-bold mb-3">ใบคืนสินค้าให้ผู้จำหน่าย</div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+            <div><label class="lbl">ผู้จำหน่าย</label><input v-model="ret.supplier" class="inp" placeholder="ไม่บังคับ"></div>
+            <div><label class="lbl">วันที่คืน</label><input v-model="ret.day" type="date" class="inp"></div>
+            <div><label class="lbl">เหตุผล</label>
+              <select v-model="ret.reason" class="inp"><option>ขายไม่ออก</option><option>ใกล้หมดอายุ</option><option>หมดอายุ</option><option>ชำรุด / เสียหาย</option><option>อื่นๆ</option></select></div>
+          </div>
+          <div class="relative mb-3">
+            <input v-model="retSearch" @focus="retOpen = true" @input="retOpen = true" class="inp" placeholder="ค้นหายาที่จะคืน (ต้องมีสต็อก)" autocomplete="off">
+            <div v-if="retOpen && retSearch" class="absolute left-0 right-0 bg-white border shadow-xl rounded-xl mt-1 z-20 max-h-64 overflow-y-auto" style="border-color:var(--line)">
+              <button v-for="p in retResults" :key="p.id" class="w-full text-left p-3 border-b hover:bg-teal-50" style="border-color:var(--line)" @click="addRetItem(p)">
+                <span class="text-slate-500 mr-2">{{ p.code }}</span><span class="font-semibold">{{ p.name }}</span> <span class="text-xs text-slate-500">เหลือ {{ stockMap[p.id] }}</span>
+              </button>
+              <div v-if="retResults.length === 0" class="p-3 text-slate-400">ไม่พบยาที่มีสต็อก</div>
+            </div>
+          </div>
+          <div v-if="ret.items.length === 0" class="text-center text-slate-400 py-6 rounded-xl border border-dashed" style="border-color:var(--line)">ค้นหายาแล้วเพิ่มลงใบคืน</div>
+          <div v-for="(it, i) in ret.items" :key="i" class="p-3 mb-2 rounded-xl border" style="border-color:var(--line);background:#f8fbfa">
+            <div class="flex justify-between"><div class="font-semibold">{{ it.name }}</div><button class="text-red-500 font-bold px-2" @click="ret.items.splice(i, 1)">ลบ</button></div>
+            <div class="grid grid-cols-3 gap-2 mt-2">
+              <div class="col-span-2"><label class="lbl">ล็อตที่คืน</label>
+                <select v-model="it.lotId" class="inp"><option v-for="l in retLots(it.pid)" :key="l.id" :value="l.id">{{ lotLabel(l) }}</option></select></div>
+              <div><label class="lbl">จำนวน ({{ it.unit }})</label><input v-model.number="it.qty" type="number" inputmode="numeric" class="inp"></div>
+            </div>
+            <div class="text-sm text-slate-500 mt-2">มูลค่าตามราคาทุน ฿{{ money((Number(it.qty) || 0) * (retLotOf(it) ? retLotOf(it).cost : 0)) }}</div>
+          </div>
+          <div v-if="ret.items.length" class="mt-3">
+            <div class="flex justify-between font-bold text-lg mb-2"><span>มูลค่าที่คืนรวม</span><span class="num">฿{{ money(retValue) }}</span></div>
+            <label class="lbl">เงิน/เครดิตที่ได้คืนจริง (ไม่ใส่ = เท่ามูลค่าที่คืน)</label>
+            <input v-model="ret.refund" type="number" inputmode="decimal" class="inp mb-3" :placeholder="String(retValue)">
+            <button class="btn btn-pri w-full" @click="saveReturn">บันทึกใบคืน (ต้องใส่รหัสผ่าน)</button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-3">
+          <button class="btn btn-ghost !min-h-0 !py-2" @click="rcvMonth = shiftYM(rcvMonth, -1)">◀</button>
+          <div class="font-bold">{{ fmtMonth(rcvMonth) }}</div>
+          <button class="btn btn-ghost !min-h-0 !py-2" @click="rcvMonth = shiftYM(rcvMonth, 1)">▶</button>
+        </div>
+        <div class="card p-4 mb-3">
+          <div class="text-sm text-slate-500">คืนสินค้าทั้งเดือน ({{ retMonthStats.count }} ใบ)</div>
+          <div class="text-3xl font-bold num" style="color:var(--pine)">฿{{ money(retMonthStats.value) }}</div>
+          <div class="text-xs text-slate-500 mt-1">ได้คืนจริง ฿{{ money(retMonthStats.refund) }} · ไม่รวมใบที่ยกเลิก</div>
+        </div>
+        <div v-if="retMonthList.length === 0" class="text-center text-slate-400 py-6">เดือนนี้ยังไม่มีใบคืน</div>
+        <div v-for="r in retMonthList" :key="r.id" role="button" class="card p-3 mb-2" :class="r.status === 'void' ? 'row-void' : ''" @click="retDetailId = retDetailId === r.id ? null : r.id">
+          <div class="flex justify-between"><div class="font-semibold">{{ r.no }} <span class="text-sm font-normal text-slate-500">{{ fmtDay(r.day) }}</span> <span v-if="r.status === 'void'" class="tag" style="background:#fee2e2;color:#b91c1c">ยกเลิก</span></div><div class="font-bold num">฿{{ money(r.value) }}</div></div>
+          <div class="text-xs text-slate-500">{{ r.supplier }} {{ r.reason }} · ได้คืน ฿{{ money(r.refund) }}<span v-if="r.by"> · {{ r.by }}</span></div>
+          <div v-if="retDetailId === r.id" class="mt-2 pt-2 border-t text-sm" style="border-color:var(--line)" @click.stop>
+            <div v-for="(it, i) in r.items" :key="i" class="flex justify-between py-1"><span>{{ it.name }} ล็อต {{ it.lotNo || '-' }} × {{ it.qty }}</span><span class="num">฿{{ money(it.qty * it.unitCost) }}</span></div>
+            <button v-if="r.status !== 'void'" class="btn btn-badline w-full mt-2" @click="askVoidReturn(r)">ยกเลิกใบคืน (ต้องใส่รหัสผ่าน)</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ วัสดุ ============ -->
+    <section v-else-if="tab === 'supplies'" class="h-full overflow-y-auto p-3">
+      <div class="flex gap-2 mb-2">
+        <input v-model="supSearch" class="inp" placeholder="ค้นหาวัสดุ">
+        <button class="btn btn-pri whitespace-nowrap" @click="openForm(null, 'supply')">+ เพิ่มวัสดุ</button>
+      </div>
+      <div class="text-xs text-slate-500 mb-3">รับวัสดุเข้าที่แท็บ "รับของ/คืนของ" เหมือนยา ส่วนหน้านี้ใช้เบิกใช้</div>
+      <div v-if="supRows.length === 0" class="text-center text-slate-400 py-8">ยังไม่มีวัสดุ กด + เพิ่มวัสดุ</div>
+      <div v-for="r in supRows" :key="r.p.id" class="card p-3 mb-2 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <div class="font-semibold">{{ r.p.name }}</div>
+          <div class="text-sm" :class="r.stock <= 0 ? 'text-red-600 font-semibold' : (r.low ? 'text-amber-700 font-semibold' : 'text-slate-500')">{{ r.stock <= 0 ? 'หมด' : 'เหลือ ' + r.stock + ' ' + r.p.unit }}<span v-if="r.low && r.stock > 0"> (ใกล้หมด)</span></div>
+        </div>
+        <button class="btn btn-pri whitespace-nowrap" @click="openIssue(r.p)">เบิกใช้</button>
+      </div>
+
+      <div class="flex items-center justify-between mt-5 mb-3">
+        <button class="btn btn-ghost !min-h-0 !py-2" @click="supMonth = shiftYM(supMonth, -1)">◀</button>
+        <div class="font-bold">{{ fmtMonth(supMonth) }}</div>
+        <button class="btn btn-ghost !min-h-0 !py-2" @click="supMonth = shiftYM(supMonth, 1)">▶</button>
+      </div>
+      <div class="card p-4 mb-3">
+        <div class="text-sm text-slate-500">เบิกใช้ทั้งเดือน (มูลค่าตามราคาทุน)</div>
+        <div class="text-3xl font-bold num" style="color:var(--pine)">฿{{ money(supMonthStats.total) }}</div>
+        <div v-for="x in supMonthStats.list" :key="x.name" class="flex justify-between text-sm py-1"><span>{{ x.name }} × {{ x.qty }} {{ x.unit }}</span><span class="num">฿{{ money(x.cost) }}</span></div>
+      </div>
+      <div class="font-bold mb-2">ประวัติการเบิก</div>
+      <div v-if="supMonthIssues.length === 0" class="text-slate-400 text-sm">เดือนนี้ยังไม่มีการเบิก</div>
+      <div v-for="i in supMonthIssues" :key="i.id" class="card p-3 mb-2 flex items-center justify-between gap-2" :class="i.status === 'void' ? 'row-void' : ''">
+        <div class="text-sm"><div class="font-semibold">{{ i.name }} × {{ i.qty }} {{ i.unit }} <span v-if="i.status === 'void'" class="tag" style="background:#fee2e2;color:#b91c1c">ยกเลิก</span></div>
+          <div class="text-xs text-slate-500">{{ fmtDay(i.day) }} {{ fmtTime(i.ts) }}<span v-if="i.by"> · {{ i.by }}</span><span v-if="i.note"> · {{ i.note }}</span></div></div>
+        <button v-if="i.status !== 'void'" class="btn btn-ghost !min-h-0 !py-2 text-sm whitespace-nowrap" @click="undoIssue(i)">ยกเลิก</button>
+      </div>
+    </section>
+
+    <!-- ============ สมาชิก ============ -->
+    <section v-else-if="tab === 'members'" class="h-full overflow-y-auto p-3">
+      <div class="flex gap-2 mb-3">
+        <input v-model="memSearch" class="inp" placeholder="ค้นหาชื่อหรือเบอร์โทร">
+        <button class="btn btn-pri whitespace-nowrap" @click="openMemberForm(null)">+ เพิ่ม</button>
+      </div>
+      <div v-if="followupList.length" class="card p-3 mb-3">
+        <div class="font-bold mb-1">นัดติดตาม</div>
+        <button v-for="f in followupList" :key="f.id" class="w-full text-left py-2 border-b flex justify-between items-center gap-2" style="border-color:var(--line)" @click="openMember(memberById(f.mid))">
+          <span><span class="font-semibold">{{ memberName(f.mid) }}</span> <span class="text-sm text-slate-500">{{ f.reason }}</span></span>
+          <span class="tag whitespace-nowrap" :style="f.due < todayKey ? 'background:#fee2e2;color:#b91c1c' : (f.due === todayKey ? 'background:#fef3c7;color:#92400e' : 'background:#e2e8f0')">{{ f.due < todayKey ? 'เลยกำหนด ' : (f.due === todayKey ? 'วันนี้ ' : '') }}{{ fmtDay(f.due) }}</span>
+        </button>
+      </div>
+      <div v-if="memberList.length === 0" class="text-center text-slate-400 py-12">{{ S.members.length ? 'ไม่พบสมาชิก' : 'ยังไม่มีสมาชิก กด + เพิ่ม' }}</div>
+      <button v-for="m in memberList" :key="m.id" class="card w-full text-left p-3 mb-2" @click="openMember(m)">
+        <div class="flex justify-between gap-2"><div class="font-semibold">{{ memberLabel(m) }} <span v-if="m.name" class="text-xs text-slate-400">{{ m.code }}</span></div><div class="text-sm text-slate-500">{{ m.phone }}</div></div>
+        <div v-if="m.allergies.length" class="text-sm mt-1" style="color:#b91c1c">แพ้ยา: {{ allergyText(m) }}</div>
+        <div class="text-xs text-slate-500 mt-1">ซื้อล่าสุด: {{ lastBuy(m) }}</div>
+      </button>
+      <div class="text-xs text-slate-400 text-center mt-4">เก็บเท่าที่จำเป็น ตั้งชื่อเป็นชื่อเล่นหรือรหัสที่จำได้ก็ได้ ไม่ต้องใช้ชื่อจริง ไม่ต้องกรอกทุกช่อง</div>
+    </section>
+
+    <!-- ============ 5) ปิดวัน ============ -->
+    <section v-else-if="tab === 'report'" class="h-full overflow-y-auto p-3">
+      <div class="flex items-center gap-2 mb-3">
+        <input type="date" v-model="repDay" class="inp !w-auto">
+        <button class="btn btn-ghost !min-h-0 !py-2" @click="repDay = dayKey(new Date())">วันนี้</button>
+      </div>
+
+      <div class="card p-4 mb-3">
+        <div class="text-sm text-slate-500">ยอดขายสุทธิ ({{ rep.count }} บิล)</div>
+        <div class="text-4xl font-bold num" style="color:var(--pine)">฿{{ money(rep.total) }}</div>
+        <div class="grid grid-cols-3 gap-2 mt-3 text-center">
+          <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">เงินสด</div><div class="font-bold num">฿{{ money(rep.cash) }}</div></div>
+          <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">โอน</div><div class="font-bold num">฿{{ money(rep.transfer) }}</div></div>
+          <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">รายรับอื่น</div><div class="font-bold num">฿{{ money(rep.other) }}</div></div>
+        </div>
+        <div class="text-sm text-slate-600 mt-3">กำไรขั้นต้นโดยประมาณ ฿{{ money(rep.profit) }} <span v-if="rep.voidCount">, ยกเลิก {{ rep.voidCount }} บิล (฿{{ money(rep.voidTotal) }})</span></div>
+      </div>
+
+      <div v-if="closingStale" class="p-3 rounded-xl mb-3 text-sm" style="background:#fef3c7;color:#92400e">ยอดขายเงินสดของวันนี้เปลี่ยนหลังบันทึกปิดวัน (เช่น มีบิลย้อนหลังหรือยกเลิกบิล) ตอนปิดวันไว้ ฿{{ money(savedClosing.cashSales) }} ตอนนี้ ฿{{ money(rep.cash) }} ตรวจแล้วกดบันทึกปิดวันใหม่</div>
+      <div class="card p-4 mb-3">
+        <div class="font-bold mb-3">นับเงินสดในลิ้นชัก</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="lbl">เงินทอนตั้งต้น</label><input v-model.number="openFloat" type="number" inputmode="decimal" class="inp" placeholder="0"></div>
+          <div><label class="lbl">นับได้จริง</label><input v-model.number="cashCounted" type="number" inputmode="decimal" class="inp" placeholder="0"></div>
+        </div>
+        <div class="flex justify-between mt-3 text-sm"><span class="text-slate-500">เงินสดที่ควรมี (ตั้งต้น + ขายเงินสด)</span><span class="font-bold num">฿{{ money(cashExpected) }}</span></div>
+        <div v-if="cashCounted !== '' && cashCounted !== null" class="mt-2 p-3 rounded-lg text-center font-bold"
+             :style="cashDiff === 0 ? 'background:#dcfce7;color:#166534' : 'background:#fee2e2;color:#b91c1c'">
+          {{ cashDiff === 0 ? 'เงินตรง' : (cashDiff > 0 ? 'เงินเกิน ฿' + money(cashDiff) : 'เงินขาด ฿' + money(-cashDiff)) }}
+        </div>
+        <input v-model="closeNote" class="inp mt-3" placeholder="หมายเหตุ (ถ้ามี)">
+        <button class="btn btn-dark w-full mt-3" @click="saveClosing">บันทึกปิดวัน</button>
+        <div v-if="savedClosing" class="text-xs text-slate-500 mt-2 text-center">บันทึกไว้แล้วเมื่อ {{ fmtTime(savedClosing.ts) }}</div>
+      </div>
+
+      <div class="card p-4">
+        <div class="font-bold mb-2">ขายดีวันนี้</div>
+        <div v-if="rep.top.length === 0" class="text-slate-400 text-sm">ยังไม่มีข้อมูล</div>
+        <div v-for="t in rep.top" :key="t.name" class="flex justify-between py-1 text-sm"><span>{{ t.name }}</span><span class="num font-semibold">{{ t.qty }}</span></div>
+      </div>
+    </section>
+
+    <!-- ============ 6) ตั้งค่า ============ -->
+    <section v-else-if="tab === 'settings'" class="h-full overflow-y-auto p-3">
+      <div class="card p-4 mb-3">
+        <div class="font-bold mb-3">ข้อมูลร้าน</div>
+        <label class="lbl">ชื่อร้าน</label><input v-model="S.settings.shopName" class="inp mb-3">
+        <label class="lbl">เตือนก่อนยาหมดอายุ (วัน)</label><input v-model.number="S.settings.nearExpiryDays" type="number" inputmode="numeric" class="inp">
+      </div>
+
+      <div class="card p-4 mb-3">
+        <div class="font-bold mb-1">บัญชีผู้ใช้</div>
+        <div class="text-sm text-slate-600 mb-3">เข้าสู่ระบบเป็น <b>{{ actor }}</b> · สถานะ: {{ syncLabel }}</div>
+        <label class="lbl">ชื่อที่แสดงในบิล (เช่น earth)</label>
+        <div class="flex gap-2 mb-3">
+          <input v-model="nameForm.name" class="inp" placeholder="ชื่อผู้คีย์">
+          <button class="btn btn-ghost whitespace-nowrap" @click="saveDisplayName">บันทึกชื่อ</button>
+        </div>
+        <label class="lbl">เปลี่ยนรหัสผ่านเข้าระบบ (อย่างน้อย 6 ตัว)</label>
+        <div class="flex gap-2 mb-3">
+          <input v-model="pwForm.next" type="password" autocomplete="new-password" class="inp" placeholder="รหัสผ่านใหม่">
+          <button class="btn btn-ghost whitespace-nowrap" @click="changeLoginPassword">เปลี่ยน</button>
+        </div>
+        <button class="btn btn-badline w-full" @click="askLogout">ออกจากระบบ</button>
+      </div>
+
+      <div class="card p-4 mb-3">
+        <div class="font-bold mb-1">เปลี่ยนรหัสยืนยัน (PIN)</div>
+        <div class="text-xs text-slate-500 mb-3">ใช้ยืนยันตอนปรับสต็อก และตอนยกเลิกบิลย้อนหลัง</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="lbl">รหัสเดิม</label><input v-model="pinForm.old" type="password" inputmode="numeric" class="inp"></div>
+          <div><label class="lbl">รหัสใหม่ (4 ตัวขึ้นไป)</label><input v-model="pinForm.next" type="password" inputmode="numeric" class="inp"></div>
+        </div>
+        <button class="btn btn-ghost w-full mt-3" @click="changePin">เปลี่ยนรหัส</button>
+      </div>
+
+      <div class="card p-4 mb-3">
+        <div class="font-bold mb-1">สำรองและกู้คืนข้อมูล</div>
+        <div class="text-xs text-slate-500 mb-3">ข้อมูลหลักเก็บบนคลาวด์ (Supabase) ควรสำรองไว้เป็นระยะ เพราะแพ็กเกจฟรีไม่มีระบบสำรองอัตโนมัติ</div>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button class="btn btn-ghost" @click="makeBackup">สร้างข้อมูลสำรอง</button>
+          <button class="btn btn-ghost" @click="copyBackup">คัดลอกข้อความ</button>
+        </div>
+        <textarea v-model="backupText" rows="4" class="inp" placeholder="ข้อความสำรองจะแสดงที่นี่ หรือวางข้อความสำรองเพื่อกู้คืน"></textarea>
+        <button class="btn btn-badline w-full mt-3" @click="restoreBackup">กู้คืนจากข้อความนี้ (ทับข้อมูลปัจจุบัน)</button>
+        <button v-if="stashAt" class="btn btn-ghost w-full mt-2" @click="showStash">ดูข้อมูลที่ค้างจากเครื่องนี้ (ไม่ได้ซิงค์) · {{ stashAt }}</button>
+      </div>
+
+      <div class="card p-4 mb-3">
+        <div class="font-bold mb-1">ล้างประวัติ เริ่มนับสต็อกใหม่</div>
+        <div class="text-xs text-slate-500 mb-3">ลบบิล ประวัติ และตั้งสต็อกทุกรายการเป็น 0 แต่เก็บรายการยา ราคา ชุดยา การแกะแบ่งขาย ชื่อร้าน และรหัสผ่านไว้ เหมาะก่อนเริ่มใช้จริง</div>
+        <button class="btn btn-badline w-full" @click="askClearHistory">ล้างประวัติ เริ่มนับสต็อกใหม่</button>
+      </div>
+
+      <div class="card p-4">
+        <div class="font-bold mb-1">กลับไปค่าเริ่มต้นจาก Excel</div>
+        <div class="text-xs text-slate-500 mb-3">ล้างทั้งหมดรวมทั้งรายการยาที่เพิ่ม/แก้ไว้ แล้วกลับไปใช้รายการและสต็อกตั้งต้นจากไฟล์ Excel (ชื่อร้านและรหัสผ่านยังอยู่)</div>
+        <button class="btn btn-badline w-full" @click="resetAll">ล้างข้อมูลและกลับไปค่าเริ่มต้น</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= Modals ================= -->
+
+  <!-- ชำระเงิน -->
+  <div v-if="payModal.open" class="modal-bg" @click.self="payModal.open = false">
+    <div class="modal p-5">
+      <div class="flex justify-between items-start mb-3">
+        <div class="font-bold text-lg">รับเงิน</div>
+        <button class="text-slate-400 text-2xl leading-none" @click="payModal.open = false">&times;</button>
+      </div>
+      <div class="text-center mb-4">
+        <div class="text-sm text-slate-500">ยอดที่ต้องรับ</div>
+        <div class="text-4xl font-bold num" style="color:var(--pine)">฿{{ money(total) }}</div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        <button class="btn" :class="payModal.method === 'cash' ? 'btn-dark' : 'btn-ghost'" @click="payModal.method = 'cash'; payModal.received = total">เงินสด</button>
+        <button class="btn" :class="payModal.method === 'transfer' ? 'btn-pri' : 'btn-ghost'" @click="payModal.method = 'transfer'">รับโอน</button>
+      </div>
+      <div v-if="payModal.method === 'cash'">
+        <label class="lbl">รับเงินมา (บาท)</label>
+        <input v-model.number="payModal.received" @focus="$event.target.select()" type="number" inputmode="decimal" class="inp text-2xl font-bold text-right" placeholder="0">
+        <div class="flex gap-2 flex-wrap mt-3">
+          <button class="chip" @click="payModal.received = total">พอดี</button>
+          <button v-for="v in quickCash" :key="v" class="chip" @click="payModal.received = v">{{ v }}</button>
+        </div>
+        <div class="mt-4 p-3 rounded-xl text-center" :style="cashChange >= 0 && payModal.received !== '' ? 'background:#dcfce7;color:#166534' : 'background:#eef3f2;color:#5b6f6b'">
+          <div class="text-sm">{{ cashChange >= 0 || payModal.received === '' ? 'เงินทอน' : 'ยังขาดอีก' }}</div>
+          <div class="text-3xl font-bold num">฿{{ payModal.received === '' ? '0' : money(Math.abs(cashChange)) }}</div>
+        </div>
+      </div>
+      <div v-else class="p-4 rounded-xl text-center" style="background:#ccfbf1;color:#0f766e">ตรวจสอบยอดเงินเข้าบัญชีก่อนกดยืนยัน</div>
+      <div style="position:sticky; bottom:0; background:#fff; padding-top:.75rem; margin-top:.5rem; padding-bottom:env(safe-area-inset-bottom)">
+        <button class="btn btn-pri w-full text-lg" :disabled="!canPay" @click="confirmPay">ยืนยันรับเงินและตัดสต็อก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ผลลัพธ์หลังขาย -->
+  <div v-if="resultSale" class="modal-bg">
+    <div class="modal p-6 text-center">
+      <div class="w-14 h-14 mx-auto rounded-full flex items-center justify-center text-3xl mb-2" style="background:#dcfce7;color:#166534">&#10003;</div>
+      <div class="font-bold text-lg">บันทึกบิล {{ resultSale.no }} แล้ว</div>
+      <div class="text-slate-500">ยอด ฿{{ money(resultSale.total) }} ({{ resultSale.method === 'cash' ? 'เงินสด' : 'รับโอน' }})</div>
+      <div v-if="resultSale.memberId" class="text-sm" style="color:#1e40af">สมาชิก: {{ memberName(resultSale.memberId) }}</div>
+      <div v-if="resultSale.method === 'cash'" class="my-4 p-4 rounded-xl" style="background:#dcfce7;color:#166534">
+        <div class="text-sm">เงินทอน</div><div class="text-5xl font-bold num">฿{{ money(resultSale.change) }}</div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 mt-4">
+        <button class="btn btn-badline" @click="undoResult">ยกเลิกบิลนี้</button>
+        <button class="btn btn-pri" @click="resultSale = null">ขายรายการต่อไป</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- รายรับอื่น -->
+  <div v-if="otherModal.open" class="modal-bg" @click.self="otherModal.open = false">
+    <div class="modal p-5">
+      <div class="font-bold text-lg mb-1">รายรับอื่น</div>
+      <div class="text-xs text-slate-500 mb-3">สำหรับเงินที่ไม่ใช่ยา เช่น ทิป ค่าบริการ ไม่ตัดสต็อก</div>
+      <label class="lbl">รายการ</label><input v-model="otherModal.name" class="inp mb-3">
+      <label class="lbl">จำนวนเงิน (บาท)</label><input v-model.number="otherModal.amount" type="number" inputmode="decimal" class="inp mb-4">
+      <div class="grid grid-cols-2 gap-2">
+        <button class="btn btn-ghost" @click="otherModal.open = false">ยกเลิก</button>
+        <button class="btn btn-pri" @click="addOther">เพิ่มลงตะกร้า</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- เลือกสมาชิกตอนขาย -->
+  <div v-if="pickModal.open" class="modal-bg" @click.self="pickModal.open = false">
+    <div class="modal p-5">
+      <div class="font-bold text-lg mb-3">เลือกสมาชิก</div>
+      <input v-model="pickModal.search" class="inp mb-3" placeholder="ค้นหาชื่อหรือเบอร์โทร">
+      <div v-if="pickList.length === 0" class="text-center text-slate-400 py-4">{{ S.members.length ? 'ไม่พบสมาชิก' : 'ยังไม่มีสมาชิก' }}</div>
+      <button v-for="m in pickList" :key="m.id" class="card w-full text-left p-3 mb-2" @click="selectMember(m)">
+        <div class="flex justify-between"><span class="font-semibold">{{ memberLabel(m) }}</span><span class="text-sm text-slate-500">{{ m.phone }}</span></div>
+        <div v-if="m.allergies.length" class="text-sm" style="color:#b91c1c">แพ้ยา: {{ allergyText(m) }}</div>
+      </button>
+      <button class="btn btn-pri w-full mt-2" @click="openMemberForm(null, true)">+ สมาชิกใหม่</button>
+    </div>
+  </div>
+
+  <!-- ข้อมูลสมาชิก -->
+  <div v-if="curMember" class="modal-bg" @click.self="memberModalId = null">
+    <div class="modal">
+      <div class="sticky top-0 bg-white p-4 border-b flex justify-between items-start" style="border-color:var(--line)">
+        <div>
+          <div class="font-bold text-lg">{{ memberLabel(curMember) }}</div>
+          <div class="text-sm text-slate-500">{{ curMember.code }}<span v-if="curMember.phone"> · {{ curMember.phone }}</span></div>
+        </div>
+        <button class="btn btn-ghost !min-h-0 !py-1 !px-3" @click="memberModalId = null">ปิด</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <div v-if="curMember.allergies.length" class="p-3 rounded-xl" style="background:#fee2e2;color:#b91c1c">
+          <div class="font-bold mb-1">ประวัติแพ้ยา</div>
+          <div v-for="(a, i) in curMember.allergies" :key="i" class="text-sm">{{ a.drug }}<span v-if="a.reaction"> ({{ a.reaction }})</span></div>
+        </div>
+        <div v-else class="text-sm text-slate-500">ยังไม่มีบันทึกประวัติแพ้ยา</div>
+        <div v-if="curMember.note" class="text-sm p-3 rounded-lg" style="background:#f8fafc;border:1px solid var(--line)">{{ curMember.note }}</div>
+
+        <div>
+          <div class="font-bold mb-2">นัดติดตาม</div>
+          <div v-for="f in curMemberFollowups" :key="f.id" class="p-3 mb-2 rounded-xl border text-sm" :style="f.status === 'done' ? 'border-color:var(--line);background:#f8fafc;opacity:.7' : (f.due < todayKey ? 'border-color:#fecaca;background:#fef2f2' : 'border-color:var(--line);background:#fffbeb')">
+            <div class="flex justify-between gap-2"><div><b>{{ f.reason }}</b></div><div class="whitespace-nowrap">{{ fmtDay(f.due) }}</div></div>
+            <div v-if="f.status === 'done'" class="text-slate-500">ติดตามแล้ว {{ fmtDay(dayKey(new Date(f.doneAt))) }}<span v-if="f.result"> : {{ f.result }}</span></div>
+            <div v-else class="flex gap-2 mt-2">
+              <button class="btn btn-pri !min-h-0 !py-2 text-sm flex-1" @click="openFuDone(f)">ติดตามแล้ว</button>
+              <button class="btn btn-badline !min-h-0 !py-2 text-sm" @click="askDeleteFollowup(f)">ลบ</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-5 gap-2">
+            <input type="date" v-model="fuForm.date" :min="todayKey" class="inp col-span-2">
+            <input v-model="fuForm.reason" class="inp col-span-3" placeholder="เรื่องที่ติดตาม">
+          </div>
+          <button class="btn btn-ghost w-full mt-2" @click="addFollowupAction">+ เพิ่มนัดติดตาม</button>
+        </div>
+
+        <div>
+          <div class="font-bold mb-2">บันทึกของเภสัชกร</div>
+          <textarea v-model="noteText" rows="3" class="inp" placeholder="เช่น อาการ คำแนะนำ ยาที่จ่าย"></textarea>
+          <button class="btn btn-ghost w-full mt-2 mb-3" @click="addNoteAction">+ บันทึก</button>
+          <div v-if="curMemberNotes.length === 0" class="text-sm text-slate-400">ยังไม่มีบันทึก</div>
+          <div v-for="n in curMemberNotes" :key="n.id" class="py-2 border-b text-sm" style="border-color:var(--line)">
+            <div class="flex justify-between text-xs text-slate-500"><span>{{ fmtDay(dayKey(new Date(n.ts))) }} {{ fmtTime(n.ts) }}<span v-if="n.by"> โดย {{ n.by }}</span></span><button class="underline" @click="askDeleteNote(n)">ลบ</button></div>
+            <div style="white-space:pre-wrap">{{ n.text }}</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="font-bold mb-2">ประวัติการซื้อ <span class="text-sm font-normal text-slate-500">({{ curMemberSales.length }} บิล)</span></div>
+          <div v-if="curMemberSales.length === 0" class="text-sm text-slate-400">ยังไม่มีประวัติ (เลือกสมาชิกตอนขายเพื่อบันทึก)</div>
+          <button v-for="s in curMemberSales.slice(0, 30)" :key="s.id" class="w-full text-left py-2 border-b text-sm" style="border-color:var(--line)" @click="saleDetailId = s.id; voidReason = 'คีย์ผิด'">
+            <div class="flex justify-between"><span class="text-slate-500">{{ fmtDay(s.day) }} {{ s.no }}</span><span class="num font-semibold">฿{{ money(s.total) }}</span></div>
+            <div>{{ saleSummary(s) }}</div>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button class="btn btn-ghost" @click="openMemberForm(curMember)">แก้ไขข้อมูล</button>
+          <button class="btn btn-badline" @click="askDeleteMember">ลบสมาชิก</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ฟอร์มสมาชิก -->
+  <div v-if="memberForm" class="modal-bg" @click.self="memberForm = null">
+    <div class="modal p-5">
+      <div class="font-bold text-lg mb-1">{{ memberForm.id ? 'แก้ไขข้อมูลสมาชิก' : 'เพิ่มสมาชิก' }}</div>
+      <div class="text-xs text-slate-500 mb-3">ไม่ต้องกรอกทุกช่อง ถ้าไม่ใส่ชื่อ ระบบจะตั้งรหัสให้เอง</div>
+      <label class="lbl">ชื่อ (ตั้งเองได้ เช่น ชื่อเล่น)</label><input v-model="memberForm.name" class="inp mb-3" autocomplete="off">
+      <label class="lbl">เบอร์โทร</label><input v-model="memberForm.phone" type="tel" inputmode="tel" class="inp mb-3" autocomplete="off">
+      <div class="p-3 rounded-xl mb-3" style="background:#fef2f2;border:1px solid #fecaca">
+        <div class="font-semibold mb-2" style="color:#b91c1c">ประวัติแพ้ยา</div>
+        <div v-for="(a, i) in memberForm.allergies" :key="i" class="flex gap-2 mb-2 items-center">
+          <input v-model="a.drug" class="inp" placeholder="ชื่อยา / กลุ่มยา">
+          <input v-model="a.reaction" class="inp" placeholder="อาการ (ถ้ามี)">
+          <button class="text-red-500 font-bold px-2" @click="memberForm.allergies.splice(i, 1)">ลบ</button>
+        </div>
+        <button class="btn btn-ghost !min-h-0 !py-2 text-sm" @click="memberForm.allergies.push({ drug: '', reaction: '' })">+ เพิ่มยาที่แพ้</button>
+        <div class="text-xs text-slate-500 mt-2">ระบบเตือนตอนขายจากการเทียบชื่อยาและกลุ่มยาที่พบบ่อย (เช่น penicillin, NSAID, sulfa) เป็นตัวช่วยเตือนเบื้องต้นเท่านั้น</div>
+      </div>
+      <label class="lbl">หมายเหตุ (เช่น โรคประจำตัว ยาที่ใช้ประจำ)</label><textarea v-model="memberForm.note" rows="3" class="inp mb-4"></textarea>
+      <div class="grid grid-cols-2 gap-2"><button class="btn btn-ghost" @click="memberForm = null">ยกเลิก</button><button class="btn btn-pri" @click="saveMemberForm">บันทึก</button></div>
+    </div>
+  </div>
+
+  <!-- ติดตามแล้ว -->
+  <div v-if="fuDone.open" class="modal-bg" @click.self="fuDone.open = false">
+    <div class="modal p-5">
+      <div class="font-bold text-lg mb-3">บันทึกผลการติดตาม</div>
+      <textarea v-model="fuDone.result" rows="3" class="inp mb-3" placeholder="ผลการติดตาม (ไม่บังคับ)"></textarea>
+      <div class="grid grid-cols-2 gap-2"><button class="btn btn-ghost" @click="fuDone.open = false">ยกเลิก</button><button class="btn btn-pri" @click="saveFuDone">บันทึก</button></div>
+    </div>
+  </div>
+
+  <!-- รายละเอียดบิล -->
+  <div v-if="curSale" class="modal-bg" @click.self="saleDetailId = null">
+    <div class="modal p-5">
+      <div class="flex justify-between items-start mb-2">
+        <div><div class="font-bold text-lg">{{ curSale.no }}</div><div class="text-sm text-slate-500">{{ fmtDay(curSale.day) }} {{ fmtTime(curSale.ts) }}<span v-if="curSale.by"> โดย {{ curSale.by }}</span></div></div>
+        <button class="text-slate-400 text-2xl leading-none" @click="saleDetailId = null">&times;</button>
+      </div>
+      <div v-if="curSale.memberId" class="text-sm mb-2" style="color:#1e40af">สมาชิก: {{ memberName(curSale.memberId) }}</div>
+      <div v-if="curSale.status === 'void'" class="p-2 rounded-lg mb-2 text-sm" style="background:#fee2e2;color:#b91c1c">
+        ยกเลิกแล้ว เหตุผล: {{ curSale.voidReason }}<span v-if="curSale.voidBy"> (โดย {{ curSale.voidBy }})</span>
+      </div>
+      <div v-for="(it, i) in curSale.items" :key="i" class="flex justify-between py-2 border-b text-sm" style="border-color:var(--line)">
+        <div>{{ it.name }} <span class="text-slate-500">× {{ it.qty }} @ ฿{{ money(it.price) }}</span></div>
+        <div class="num font-semibold">฿{{ money(it.qty * it.price) }}</div>
+      </div>
+      <div v-if="curSale.discount" class="flex justify-between py-2 text-sm text-slate-500"><span>ส่วนลด</span><span class="num">−฿{{ money(curSale.discount) }}</span></div>
+      <div class="flex justify-between py-2 text-lg font-bold"><span>รวม</span><span class="num">฿{{ money(curSale.total) }}</span></div>
+      <div class="text-sm text-slate-500 mb-3">
+        {{ curSale.method === 'cash' ? 'เงินสด รับมา ฿' + money(curSale.received) + ' ทอน ฿' + money(curSale.change) : 'รับโอน' }}
+      </div>
+      <div v-if="curSale.backdated" class="text-xs p-2 rounded-lg mb-3" style="background:#fef3c7;color:#92400e">คีย์ย้อนหลังเมื่อ {{ fmtDay(dayKey(new Date(curSale.enteredAt))) }} {{ fmtTime(curSale.enteredAt) }}<span v-if="curSale.noStock"> · ไม่ได้ตัดสต็อก (บันทึกเป็นยอดขายอย่างเดียว)</span></div>
+      <div v-if="curSale.status === 'ok'">
+        <label class="lbl">เหตุผลที่ยกเลิก</label>
+        <select v-model="voidReason" class="inp mb-3">
+          <option>คีย์ผิด</option><option>ลูกค้าไม่เอา</option><option>ทอนเงินผิด</option><option>อื่นๆ</option>
+        </select>
+        <button class="btn btn-badline w-full" @click="voidFromHistory">ยกเลิกบิลนี้ (ต้องใส่รหัสผ่าน)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- รายละเอียดสินค้า + ปรับสต็อก -->
+  <div v-if="curProduct" class="modal-bg" @click.self="productModal = null">
+    <div class="modal">
+      <div class="sticky top-0 bg-white p-4 border-b flex justify-between items-start" style="border-color:var(--line)">
+        <div><div class="font-bold text-lg leading-normal">{{ curProduct.name }}</div><div class="text-sm text-slate-500">{{ curProduct.generic }}</div></div>
+        <button class="btn btn-ghost !min-h-0 !py-1 !px-3" @click="productModal = null">ปิด</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">คงเหลือ</div><div class="text-xl font-bold num">{{ stockMap[curProduct.id] || 0 }}</div></div>
+          <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ราคาขาย</div><div class="text-xl font-bold num">฿{{ money(curProduct.price) }}</div></div>
+          <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ทุนล่าสุด</div><div class="text-xl font-bold num">฿{{ money(costOf(curProduct)) }}</div></div>
+        </div>
+        <div v-if="curProduct.note" class="text-sm p-3 rounded-lg" style="background:#f8fafc;border:1px solid var(--line)">{{ curProduct.note }}</div>
+        <div v-if="curProduct.usage || curProduct.indication || curProduct.warning || curProduct.storage" class="text-sm p-3 rounded-lg" style="background:#f0fdf4;border:1px solid #bbf7d0">
+          <div class="font-bold mb-1">ข้อมูลสำหรับฉลาก</div>
+          <div v-if="curProduct.usage">วิธีใช้: {{ curProduct.usage }}</div>
+          <div v-if="curProduct.indication">ข้อบ่งใช้: {{ curProduct.indication }}</div>
+          <div v-if="curProduct.warning">คำเตือน: {{ curProduct.warning }}</div>
+          <div v-if="curProduct.storage">การเก็บรักษา: {{ curProduct.storage }}</div>
+        </div>
+        <div v-if="curProduct.unpack && unpackTarget" class="p-3 rounded-xl" style="background:#eff6ff;border:1px solid #bfdbfe">
+          <div class="font-bold mb-1">แกะแบ่งขาย</div>
+          <div class="text-sm text-slate-600 mb-2">1 {{ curProduct.unit }} = {{ curProduct.unpack.ratio }} {{ unpackTarget.unit }} (ไปเป็นรายการ "{{ unpackTarget.name }}")</div>
+          <button class="btn btn-pri w-full" :disabled="(stockMap[curProduct.id] || 0) <= 0" @click="openUnpack">แกะแบ่งขาย...</button>
+        </div>
+
+        <div v-if="curProduct.bundle">
+          <div class="font-bold mb-1">ตัวยาในชุด (ตัดสต็อกที่ยาแต่ละตัว)</div>
+          <button v-for="b in bundleParts" :key="b.c && b.c.id" class="card w-full text-left p-3 mb-2 flex justify-between items-center" @click="b.c && openProduct(b.c)">
+            <span>{{ b.c ? b.c.name : 'ไม่พบสินค้า' }} <span class="text-slate-500 text-sm">× {{ b.qty }} ต่อชุด</span></span>
+            <span class="num font-bold">{{ b.stock }}</span>
+          </button>
+          <div class="text-xs text-slate-500">ถ้าต้องรับของเข้าหรือปรับสต็อก ให้ทำที่ตัวยาแต่ละตัว</div>
+        </div>
+
+        <div v-if="!curProduct.bundle">
+          <div class="font-bold mb-1">ล็อตที่มีอยู่</div>
+          <div v-if="productLots.length === 0" class="text-sm text-slate-400">ไม่มีสินค้าในคลัง</div>
+          <div v-for="l in productLots" :key="l.id" class="flex justify-between text-sm py-1">
+            <span>{{ l.lotNo || (l.source === 'opening' ? 'ยอดยกมา' : (l.source === 'adjust' ? 'ปรับยอด' : 'ไม่ระบุล็อต')) }}
+              <span class="text-slate-500">{{ l.expiry ? 'หมดอายุ ' + fmtDay(l.expiry) : 'ไม่ระบุวันหมดอายุ' }}</span></span>
+            <span class="num font-semibold">{{ l.qtyLeft }}</span>
+          </div>
+        </div>
+
+        <div v-if="!curProduct.bundle" class="p-3 rounded-xl" style="background:#fffbeb;border:1px solid #fde68a">
+          <div class="font-bold mb-2">ปรับสต็อก (นับของจริงแล้วไม่ตรง)</div>
+          <label class="lbl">จำนวนที่นับได้จริง</label>
+          <div class="flex items-center gap-2 mb-2">
+            <button class="btn btn-ghost !min-h-0 w-11 h-11 !p-0 text-xl" @click="adj.counted = Math.max(0, (Number(adj.counted) || 0) - 1)">−</button>
+            <input v-model.number="adj.counted" type="number" inputmode="numeric" class="inp text-center text-xl font-bold">
+            <button class="btn btn-pri !min-h-0 w-11 h-11 !p-0 text-xl" @click="adj.counted = (Number(adj.counted) || 0) + 1">+</button>
+          </div>
+          <div class="text-sm mb-2" :class="adjDiff === 0 ? 'text-slate-500' : (adjDiff > 0 ? 'text-green-700' : 'text-red-600')">
+            {{ adjDiff === 0 ? 'ตรงกับในระบบ' : (adjDiff > 0 ? 'เพิ่มขึ้น ' + adjDiff : 'ลดลง ' + Math.abs(adjDiff)) }}
+          </div>
+          <select v-model="adj.reason" class="inp mb-2">
+            <option>นับสต็อกไม่ตรง</option><option>ยาหมดอายุ ทิ้ง</option><option>ยาเสียหาย</option><option>แจกตัวอย่าง / ใช้เอง</option><option>บันทึกรับเข้าผิด</option><option>อื่นๆ</option>
+          </select>
+          <input v-model="adj.note" class="inp mb-3" placeholder="หมายเหตุ (ถ้ามี)">
+          <button class="btn btn-dark w-full" :disabled="adjDiff === 0" @click="doAdjust">ยืนยันปรับสต็อก (ต้องใส่รหัสผ่าน)</button>
+        </div>
+
+        <div v-if="!curProduct.bundle">
+          <div class="font-bold mb-1">ประวัติเข้า-ออกล่าสุด</div>
+          <div v-if="productMoves.length === 0" class="text-sm text-slate-400">ยังไม่มีประวัติ</div>
+          <div v-for="m in productMoves" :key="m.id" class="flex justify-between text-sm py-1 border-b" style="border-color:#eef3f2">
+            <span><span class="text-slate-500">{{ fmtDay(dayKey(new Date(m.ts))) }} {{ fmtTime(m.ts) }}</span> {{ MOVE_LABEL[m.type] }} <span class="text-slate-500">{{ m.ref || m.note }}<span v-if="m.by"> ({{ m.by }})</span></span></span>
+            <span class="num font-semibold" :class="m.qty > 0 ? 'text-green-700' : 'text-red-600'">{{ m.qty > 0 ? '+' : '' }}{{ m.qty }}</span>
+          </div>
+        </div>
+        <button class="btn btn-ghost w-full" @click="openForm(curProduct)">แก้ไขชื่อ / ราคา / จุดสั่งซื้อ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ฟอร์มเพิ่ม/แก้สินค้า -->
+  <div v-if="formModal" class="modal-bg" @click.self="formModal = null">
+    <div class="modal p-5">
+      <div class="font-bold text-lg mb-3">{{ formModal.isNew ? 'เพิ่มยา / สินค้าใหม่' : 'แก้ไขข้อมูลสินค้า' }}</div>
+      <div class="grid grid-cols-3 gap-3 mb-3">
+        <div><label class="lbl">รหัส</label><input v-model="formModal.code" class="inp"></div>
+        <div class="col-span-2"><label class="lbl">ชื่อการค้า</label><input v-model="formModal.name" class="inp"></div>
+      </div>
+      <label class="lbl">ชื่อสามัญ</label><input v-model="formModal.generic" class="inp mb-3">
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div><label class="lbl">หมวด</label><select v-model="formModal.category" class="inp"><option v-for="c in CATS" :key="c">{{ c }}</option></select></div>
+        <div><label class="lbl">หน่วยขาย</label><input v-model="formModal.unit" class="inp" placeholder="แผง / ขวด / ซอง"></div>
+        <div><label class="lbl">ราคาขาย</label><input v-model.number="formModal.price" type="number" inputmode="decimal" class="inp"></div>
+        <div><label class="lbl">ราคาทุน</label><input v-model.number="formModal.cost" type="number" inputmode="decimal" class="inp"></div>
+        <div><label class="lbl">เตือนเมื่อเหลือไม่เกิน</label><input v-model.number="formModal.reorder" type="number" inputmode="numeric" class="inp"></div>
+      </div>
+      <label class="lbl">หมายเหตุ</label><input v-model="formModal.note" class="inp mb-3">
+      <label class="lbl">ประเภท</label>
+      <select v-model="formModal.type" class="inp mb-3"><option value="sell">สินค้าขาย</option><option value="supply">วัสดุ (ไม่ขาย ใช้เบิกใช้)</option></select>
+      <div class="mb-3 p-3 rounded-xl" style="background:#f0fdf4;border:1px solid #bbf7d0">
+        <div class="font-semibold mb-2">ข้อมูลสำหรับฉลากยา (ไม่บังคับ)</div>
+        <label class="lbl">วิธีใช้ / ขนาดยา</label><input v-model="formModal.usage" class="inp mb-2" placeholder="เช่น รับประทานครั้งละ 1 เม็ด หลังอาหารเช้า เย็น">
+        <label class="lbl">ข้อบ่งใช้</label><input v-model="formModal.indication" class="inp mb-2" placeholder="เช่น บรรเทาอาการปวด">
+        <label class="lbl">คำเตือน</label><input v-model="formModal.warning" class="inp mb-2" placeholder="เช่น ห้ามใช้ในผู้ที่แพ้ยากลุ่ม NSAIDs">
+        <label class="lbl">การเก็บรักษา</label><input v-model="formModal.storage" class="inp" placeholder="เช่น เก็บที่อุณหภูมิห้อง ไม่ให้โดนแสง">
+      </div>
+      <div v-if="formModal.type !== 'supply' && !formModal.isBundle" class="mb-3 p-3 rounded-xl" style="background:#eff6ff;border:1px solid #bfdbfe">
+        <div class="font-semibold mb-1">แกะแบ่งขาย (ไม่บังคับ)</div>
+        <div class="text-xs text-slate-500 mb-2">เช่น กระปุก → เม็ด ตั้งครั้งเดียว ตอนจะแกะกดปุ่ม "แกะแบ่งขาย" ที่หน้ารายละเอียดยา</div>
+        <label class="lbl">แบ่งขายเป็นรายการ</label>
+        <select v-model="formModal.unpackPid" class="inp mb-2"><option value="">ไม่แกะแบ่ง</option><option v-for="bp in bundleChoices" :key="bp.id" :value="bp.id">{{ bp.code }} {{ bp.name }}</option></select>
+        <div v-if="formModal.unpackPid"><label class="lbl">1 หน่วยนี้ = กี่หน่วยย่อย</label><input v-model.number="formModal.unpackRatio" type="number" inputmode="numeric" class="inp" placeholder="เช่น 10 หรือ 100"></div>
+      </div>
+      <div class="mb-4 p-3 rounded-xl" style="background:#f8fafc;border:1px solid var(--line)">
+        <label class="flex items-center gap-2 font-semibold"><input type="checkbox" v-model="formModal.isBundle" class="w-5 h-5"> เป็นยาชุด (ประกอบจากยาตัวอื่น)</label>
+        <div v-if="formModal.isBundle" class="mt-3">
+          <div class="text-xs text-slate-500 mb-2">เลือกยาที่อยู่ในชุด และจำนวนต่อ 1 ชุด เวลาขายชุดจะตัดสต็อกที่ยาแต่ละตัว</div>
+          <div v-for="(part, i) in formModal.parts" :key="i" class="flex gap-2 mb-2 items-center">
+            <select v-model="part.pid" class="inp"><option value="">เลือกยา</option><option v-for="bp in bundleChoices" :key="bp.id" :value="bp.id">{{ bp.code }} {{ bp.name }}</option></select>
+            <input v-model.number="part.qty" type="number" inputmode="numeric" class="inp !w-16 text-center">
+            <button class="text-red-500 font-bold px-2" @click="formModal.parts.splice(i, 1)">ลบ</button>
+          </div>
+          <button class="btn btn-ghost !min-h-0 !py-2 text-sm" @click="formModal.parts.push({ pid: '', qty: 1 })">+ เพิ่มตัวยาในชุด</button>
+        </div>
+      </div>
+      <div v-if="formModal.isNew && !formModal.isBundle" class="mb-4">
+        <label class="lbl">จำนวนที่มีอยู่ตอนนี้ (สต็อกตั้งต้น)</label>
+        <input v-model.number="formModal.openQty" type="number" inputmode="numeric" class="inp" placeholder="0">
+        <div class="text-xs text-slate-500 mt-1">ไม่ใส่ = เริ่มที่ 0 แล้วค่อยรับเข้าที่แท็บรับของเข้าได้</div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button class="btn btn-ghost" @click="formModal = null">ยกเลิก</button>
+        <button class="btn btn-pri" @click="saveForm">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- รหัสผ่าน -->
+  <div v-if="pin.open" class="modal-bg" style="z-index:70" @click.self="pin.open = false">
+    <div class="modal p-5">
+      <div class="font-bold text-lg">{{ pin.title }}</div>
+      <div class="text-sm text-slate-500 mb-3">ใส่รหัสผ่านเพื่อยืนยัน</div>
+      <input ref="pinInput" v-model="pin.value" @keyup.enter="submitPin" type="password" inputmode="numeric" class="inp text-center text-2xl tracking-widest" placeholder="••••">
+      <div v-if="pin.error" class="text-red-600 text-sm mt-2 text-center">{{ pin.error }}</div>
+      <div class="grid grid-cols-2 gap-2 mt-4">
+        <button class="btn btn-ghost" @click="pin.open = false">ยกเลิก</button>
+        <button class="btn btn-pri" @click="submitPin">ยืนยัน</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ยืนยันทั่วไป -->
+  <div v-if="confirmBox.open" class="modal-bg" style="z-index:70">
+    <div class="modal p-5">
+      <div class="font-bold text-lg mb-1">{{ confirmBox.title }}</div>
+      <div class="text-slate-600 mb-4">{{ confirmBox.message }}</div>
+      <div class="grid grid-cols-2 gap-2">
+        <button class="btn btn-ghost" @click="confirmBox.open = false">ไม่ใช่</button>
+        <button class="btn btn-bad" @click="runConfirm">{{ confirmBox.okText }}</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- รายละเอียดบิลรับเข้า -->
+  <div v-if="curReceipt" class="modal-bg" @click.self="closeReceipt">
+    <div class="modal p-5">
+      <div class="flex justify-between items-start mb-2">
+        <div>
+          <div class="font-bold text-lg">{{ curReceipt.invoice || 'ไม่ระบุเลขที่บิล' }}</div>
+          <div class="text-sm text-slate-500">{{ fmtDay(curReceipt.day) }} {{ curReceipt.supplier }}</div>
+          <div class="text-xs text-slate-500">คีย์เมื่อ {{ fmtDay(dayKey(new Date(curReceipt.ts))) }} {{ fmtTime(curReceipt.ts) }}<span v-if="curReceipt.by"> โดย {{ curReceipt.by }}</span></div>
+        </div>
+        <button class="text-slate-400 text-2xl leading-none" @click="closeReceipt">&times;</button>
+      </div>
+      <div v-if="curReceipt.status === 'void'" class="p-2 rounded-lg mb-2 text-sm" style="background:#fee2e2;color:#b91c1c">ยกเลิกแล้ว เหตุผล: {{ curReceipt.voidReason }}<span v-if="curReceipt.voidBy"> (โดย {{ curReceipt.voidBy }})</span></div>
+
+      <div v-if="!rcEdit">
+        <div v-for="(it, i) in curReceipt.items" :key="i" class="py-2 border-b text-sm" style="border-color:var(--line)">
+          <div class="flex justify-between"><div class="font-semibold">{{ it.name }}</div><div class="num font-semibold">฿{{ money(it.qty * it.unitCost) }}</div></div>
+          <div class="text-slate-500">{{ it.qty }} {{ it.unit }} × ฿{{ money(it.unitCost) }}</div>
+          <div class="text-xs text-slate-500">ล็อต {{ it.lotNo || '-' }} · {{ it.expiry ? 'หมดอายุ ' + fmtDay(it.expiry) : 'ไม่ระบุวันหมดอายุ' }}<span v-if="receiptLot(it)"> · เหลือในล็อต {{ receiptLot(it).qtyLeft }}/{{ receiptLot(it).qtyIn }}</span></div>
+        </div>
+        <div class="flex justify-between py-3 text-lg font-bold"><span>รับเข้ารวม</span><span class="num" style="color:var(--pine)">฿{{ money(curReceipt.total) }}</span></div>
+        <div v-if="curReceipt.history && curReceipt.history.length" class="text-xs text-slate-500 mb-3">
+          <div class="font-semibold mb-1">ประวัติการแก้ไข</div>
+          <div v-for="(h, i) in curReceipt.history" :key="i">{{ fmtDay(dayKey(new Date(h.ts))) }} {{ fmtTime(h.ts) }} {{ h.by }}: {{ h.text }}</div>
+        </div>
+        <div v-if="curReceipt.status !== 'void'">
+          <div class="grid grid-cols-2 gap-2">
+            <button class="btn btn-ghost" @click="startEditReceipt">แก้ไข (ใส่รหัสผ่าน)</button>
+            <button class="btn btn-badline" @click="rcVoidOpen = !rcVoidOpen">ยกเลิกบิลรับเข้า</button>
+          </div>
+          <div v-if="rcVoidOpen" class="mt-3 p-3 rounded-xl" style="background:#fef2f2">
+            <label class="lbl">เหตุผลที่ยกเลิก</label>
+            <select v-model="rcVoidReason" class="inp mb-2"><option>คีย์ผิด</option><option>คีย์ซ้ำ</option><option>ผู้จำหน่ายยกเลิก</option><option>อื่นๆ</option></select>
+            <div class="text-xs text-slate-500 mb-2">ยกเลิกได้เฉพาะเมื่อยาในบิลนี้ยังไม่ถูกขายหรือใช้ไป ถ้าขายไปบางส่วนแล้วให้ใช้ปรับสต็อกสำหรับส่วนต่าง</div>
+            <button class="btn btn-bad w-full" @click="doVoidReceipt">ยืนยันยกเลิกบิลรับเข้า (ต้องใส่รหัสผ่าน)</button>
+          </div>
+        </div>
+      </div>
+
+      <div v-else>
+        <div class="grid grid-cols-1 gap-3 mb-3">
+          <div><label class="lbl">เลขที่บิล</label><input v-model="rcEdit.invoice" class="inp"></div>
+          <div><label class="lbl">ผู้จำหน่าย</label><input v-model="rcEdit.supplier" class="inp"></div>
+          <div><label class="lbl">วันที่รับ</label><input v-model="rcEdit.day" type="date" class="inp"></div>
+        </div>
+        <div v-for="(it, i) in curReceipt.items" :key="i" class="p-3 mb-2 rounded-xl border" style="border-color:var(--line);background:#f8fbfa">
+          <div class="font-semibold mb-2">{{ it.name }} <span class="text-slate-500 font-normal text-sm">{{ it.qty }} {{ it.unit }}</span></div>
+          <div class="grid grid-cols-3 gap-2">
+            <div><label class="lbl">ล็อต</label><input v-model="rcEdit.items[i].lotNo" class="inp"></div>
+            <div><label class="lbl">หมดอายุ</label><input v-model="rcEdit.items[i].expiry" type="date" class="inp"></div>
+            <div><label class="lbl">ราคารับ/{{ it.unit }}</label><input v-model.number="rcEdit.items[i].unitCost" type="number" inputmode="decimal" class="inp" :disabled="rcEdit.items[i].lockCost"></div>
+          </div>
+          <div v-if="rcEdit.items[i].lockCost" class="text-xs text-slate-500 mt-1">แก้ราคารับไม่ได้ เพราะยานี้ถูกขายหรือใช้ไปบางส่วนแล้ว</div>
+        </div>
+        <div class="text-xs text-slate-500 mb-3">แก้จำนวนหรือเปลี่ยนตัวยาไม่ได้ ให้ยกเลิกบิลแล้วคีย์ใหม่ (ถ้ายังไม่ได้ขาย) หรือใช้ปรับสต็อก</div>
+        <div class="grid grid-cols-2 gap-2"><button class="btn btn-ghost" @click="rcEdit = null">ไม่แก้แล้ว</button><button class="btn btn-pri" @click="saveEditReceipt">บันทึกการแก้ไข</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- เบิกใช้วัสดุ -->
+  <div v-if="issueModal.open && issueProduct" class="modal-bg" @click.self="issueModal.open = false">
+    <div class="modal p-5">
+      <div class="font-bold text-lg">เบิกใช้ {{ issueProduct.name }}</div>
+      <div class="text-sm text-slate-500 mb-3">คงเหลือ {{ stockMap[issueProduct.id] || 0 }} {{ issueProduct.unit }}</div>
+      <label class="lbl">จำนวนที่เบิก</label>
+      <div class="flex items-center gap-2 mb-3">
+        <button class="btn btn-ghost !min-h-0 w-11 h-11 !p-0 text-xl" @click="issueModal.qty = Math.max(1, (Number(issueModal.qty) || 1) - 1)">−</button>
+        <input v-model.number="issueModal.qty" type="number" inputmode="numeric" class="inp text-center text-xl font-bold">
+        <button class="btn btn-pri !min-h-0 w-11 h-11 !p-0 text-xl" @click="issueModal.qty = (Number(issueModal.qty) || 0) + 1">+</button>
+      </div>
+      <input v-model="issueModal.note" class="inp mb-4" placeholder="หมายเหตุ (ไม่บังคับ)">
+      <div class="grid grid-cols-2 gap-2"><button class="btn btn-ghost" @click="issueModal.open = false">ยกเลิก</button><button class="btn btn-pri" @click="doIssue">ยืนยันเบิก</button></div>
+    </div>
+  </div>
+
+  <!-- แกะแบ่งขาย -->
+  <div v-if="unpackModal.open && curProduct && unpackTarget" class="modal-bg" @click.self="unpackModal.open = false">
+    <div class="modal p-5">
+      <div class="font-bold text-lg">แกะแบ่งขาย {{ curProduct.name }}</div>
+      <div class="text-sm text-slate-500 mb-3">คงเหลือ {{ stockMap[curProduct.id] || 0 }} {{ curProduct.unit }}</div>
+      <label class="lbl">แกะกี่ {{ curProduct.unit }}</label>
+      <div class="flex items-center gap-2 mb-3">
+        <button class="btn btn-ghost !min-h-0 w-11 h-11 !p-0 text-xl" @click="unpackModal.qty = Math.max(1, (Number(unpackModal.qty) || 1) - 1)">−</button>
+        <input v-model.number="unpackModal.qty" type="number" inputmode="numeric" class="inp text-center text-xl font-bold">
+        <button class="btn btn-pri !min-h-0 w-11 h-11 !p-0 text-xl" @click="unpackModal.qty = (Number(unpackModal.qty) || 0) + 1">+</button>
+      </div>
+      <div class="p-3 rounded-xl text-center mb-3" style="background:#eff6ff;color:#1e40af">
+        จะได้ <b class="text-xl num">{{ (Math.floor(Number(unpackModal.qty)) || 0) * curProduct.unpack.ratio }}</b> {{ unpackTarget.unit }}
+        <div class="text-xs">ไปอยู่ที่รายการ "{{ unpackTarget.name }}" (เลขล็อตและวันหมดอายุส่งต่อ ทุนต่อ{{ unpackTarget.unit }} = ทุนเดิม ÷ {{ curProduct.unpack.ratio }})</div>
+      </div>
+      <div class="grid grid-cols-2 gap-2"><button class="btn btn-ghost" @click="unpackModal.open = false">ยกเลิก</button><button class="btn btn-pri" @click="doUnpack">ยืนยันแกะ</button></div>
+    </div>
+  </div>
+
+  <!-- คีย์ขายย้อนหลัง -->
+  <div v-if="backModal.open" class="modal-bg" @click.self="backModal.open = false">
+    <div class="modal p-5">
+      <div class="font-bold text-lg mb-1">คีย์ขายย้อนหลัง</div>
+      <div class="text-xs text-slate-500 mb-3">เลือกวันเวลาที่ขายจริง บิลที่คีย์จากนี้จะใช้วันเวลานี้จนกว่าจะออกจากโหมด</div>
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div><label class="lbl">วันที่ขาย</label><input v-model="backModal.date" type="date" :max="dayKey(new Date())" class="inp"></div>
+        <div><label class="lbl">เวลา</label><input v-model="backModal.time" type="time" class="inp"></div>
+      </div>
+      <label class="flex items-start gap-3 p-3 rounded-xl mb-3" style="background:#f8fafc;border:1px solid var(--line)">
+        <input type="checkbox" v-model="backModal.deduct" class="w-6 h-6 mt-1">
+        <span><b>ตัดสต็อกด้วย</b><br><span class="text-xs text-slate-500">ติ๊กเมื่อสต็อกในระบบยังไม่ได้หักยานี้ ไม่ติ๊กเมื่อจำนวนสต็อกที่ตั้งไว้หักไปแล้ว (จะบันทึกเป็นยอดขายอย่างเดียว กันตัดซ้ำ)</span></span>
+      </label>
+      <div class="grid grid-cols-2 gap-2"><button class="btn btn-ghost" @click="backModal.open = false">ยกเลิก</button><button class="btn btn-pri" @click="applyBackdate">เริ่มคีย์ย้อนหลัง</button></div>
+    </div>
+  </div>
+
+  <!-- ล้างประวัติ -->
+  <div v-if="resetModal.open" class="modal-bg" style="z-index:66">
+    <div class="modal p-5">
+      <div class="font-bold text-lg mb-1">ล้างประวัติ เริ่มนับสต็อกใหม่</div>
+      <div class="text-sm text-slate-600 mb-3">จะลบ: บิลขาย บิลรับเข้า ใบคืนสินค้า การเบิกวัสดุ ประวัติเข้า-ออก ข้อมูลปิดวัน สต็อกทุกรายการเป็น 0 และเลขบิลเริ่มที่ B00001 ใหม่<br>จะเก็บไว้: รายการยาทั้งหมด (ชื่อ ราคา ชุดยา แกะแบ่งขาย) ข้อมูลสมาชิกและบันทึก ชื่อร้าน รหัสผ่าน</div>
+      <label class="flex items-center gap-2 text-sm mb-3"><input type="checkbox" v-model="resetModal.members" class="w-5 h-5"> ล้างข้อมูลสมาชิก บันทึก และนัดติดตามด้วย</label>
+      <button class="btn btn-ghost w-full mb-3" @click="makeBackup">สำรองข้อมูลก่อนล้าง (ไปคัดลอกที่ตั้งค่า)</button>
+      <label class="lbl">พิมพ์คำว่า "ล้าง" เพื่อยืนยัน</label>
+      <input v-model="resetModal.text" class="inp mb-3" placeholder="ล้าง">
+      <div class="grid grid-cols-2 gap-2"><button class="btn btn-ghost" @click="resetModal.open = false">ยกเลิก</button><button class="btn btn-bad" :disabled="resetModal.text.trim() !== 'ล้าง'" @click="doClearHistory">ล้างประวัติ</button></div>
+    </div>
+  </div>
+
+  <!-- ข้อมูลไม่ตรงกับคลาวด์ -->
+  <div v-if="syncConflict" class="modal-bg" style="z-index:65">
+    <div class="modal p-5">
+      <div class="font-bold text-lg mb-1">ข้อมูลไม่ตรงกับคลาวด์</div>
+      <div class="text-slate-600 text-sm mb-4">มีการบันทึกจากเครื่องหรือบัญชีอื่นที่ใหม่กว่าข้อมูลในหน้านี้ ระบบจึงหยุดบันทึกไว้ก่อนเพื่อไม่ให้ข้อมูลทับกัน เลือกวิธีจัดการ</div>
+      <button class="btn btn-pri w-full mb-2" @click="conflictUseCloud">โหลดข้อมูลล่าสุดจากคลาวด์ (แนะนำ)</button>
+      <button class="btn btn-ghost w-full mb-2" @click="conflictCopyLocal">คัดลอกข้อมูลของเครื่องนี้เก็บไว้ก่อน</button>
+      <button class="btn btn-badline w-full" @click="conflictForce">ใช้ข้อมูลเครื่องนี้ทับคลาวด์ (ต้องใส่รหัสผ่าน)</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div v-if="toastMsg.text" class="fixed left-1/2 -translate-x-1/2 top-4 z-[90] px-4 py-3 rounded-xl shadow-lg text-white font-semibold max-w-[90vw]"
+       :style="toastMsg.kind === 'bad' ? 'background:#b91c1c' : 'background:#0f3f3a'">{{ toastMsg.text }}</div>
+</div>
+
+<script>
+/* =====================================================================
+   ส่วนที่ 1: ข้อมูลตั้งต้น (จากไฟล์ Excel: ชีตสต๊อก)
+   ===================================================================== */
+const CATS = ['แก้ปวด', 'หวัด/แพ้/ไอ', 'ฆ่าเชื้อ', 'ยาตา', 'กระเพาะ/ท้อง', 'ผิวหนัง', 'อาหารเสริม', 'อื่นๆ']
+const MOVE_LABEL = { opening: 'ยอดยกมา', receive: 'รับเข้า', sale: 'ขาย', void: 'คืนจากบิลที่ยกเลิก', adjust: 'ปรับสต็อก',
+  unpack_out: 'แกะแบ่ง (ออก)', unpack_in: 'แกะแบ่ง (เข้า)', return: 'คืนผู้จำหน่าย', return_void: 'ยกเลิกใบคืน', issue: 'เบิกใช้', receipt_void: 'ยกเลิกบิลรับเข้า' }
+const SEED = [
+  ['01','ชุดคลายเส้น (3 เม็ด)','Diclofenac + piroxicam + norgesic','แก้ปวด','ชุด',1.6,5,0,0,'ยาชุด 1 ชุด = ยา 3 เม็ด (รหัส 46, 47, 48) ชุดละ 5 บาท ตัดสต็อกที่ยาแต่ละตัว'],
+  ['02','Buflex แผง','Ibuprofen 400 mg','แก้ปวด','แผง',12,30,4,1,''],
+  ['03','Volta แผง','Diclofenac 25 mg','แก้ปวด','แผง',5,30,4,1,''],
+  ['04','Nuosic แผง','Paracetamol + orphenadrine','แก้ปวด','แผง',12,20,4,1,''],
+  ['05','Celebrex 200 mg แผง','Celecoxib','แก้ปวด','แผง',240,285,2,1,''],
+  ['06','Mancoxib 90 mg แผง','Etoricoxib','แก้ปวด','แผง',80,120,2,1,''],
+  ['07','Loranox แผง','Loratadine','หวัด/แพ้/ไอ','แผง',20,30,3,1,''],
+  ['08','Nasotapp แผง','Brompheniramine + phenylephrine','หวัด/แพ้/ไอ','แผง',20,30,3,1,''],
+  ['09','Startussin แผง','Dextromethorphan + guaifenesin','หวัด/แพ้/ไอ','แผง',20,30,3,1,''],
+  ['10','Soproxen แผง','Naproxen','แก้ปวด','แผง',25,40,3,1,''],
+  ['11','Mysoven 600 mg ซอง','Acetylcysteine','หวัด/แพ้/ไอ','ซอง',10,20,3,1,''],
+  ['12','T.V.mox 500 mg แผง','Amoxicillin','ฆ่าเชื้อ','แผง',20,30,8,2,'เจ็บคอ'],
+  ['13','AMK แผง','Amoxicillin + clavulanate','ฆ่าเชื้อ','แผง',100,150,2,1,'เจ็บคอมากๆ'],
+  ['14','Atozin แผง 6 เม็ด','Azithromycin','ฆ่าเชื้อ','แผง',80,120,2,1,'เจ็บคอ'],
+  ['15','Cobay แผง','Ciprofloxacin','ฆ่าเชื้อ','แผง',30,50,2,1,'ฉี่แสบ'],
+  ['16','Metronidazole แผง','Metronidazole','ฆ่าเชื้อ','แผง',15,30,2,1,'ปวดฟัน'],
+  ['17','Opthazoline ขวด','Antazoline','ยาตา','ขวด',45,55,1,1,''],
+  ['18','Poly-oph ขวด','Neomycin + polymyxin B','ยาตา','ขวด',30,45,2,1,''],
+  ['19','Dex-oph ขวด','Dexamethasone','ยาตา','ขวด',30,45,2,1,''],
+  ['20','Terramycin ป้ายตา หลอด','Oxytetracycline','ยาตา','หลอด',30,45,1,1,''],
+  ['21','Miltear ขวด','Hypromellose','ยาตา','ขวด',80,100,1,1,''],
+  ['22','Opplin ขวด','น้ำยาล้างตา','ยาตา','ขวด',40,55,2,1,''],
+  ['23','Miracid แผง','Omeprazole','กระเพาะ/ท้อง','แผง',20,30,5,1,''],
+  ['24','Gaviscon เขียว ซอง','Gaviscon','กระเพาะ/ท้อง','ซอง',20,26,12,3,''],
+  ['25','Amogin gel ขวด','Aluminium + magnesium','กระเพาะ/ท้อง','ขวด',45,55,1,1,''],
+  ['26','M-flox แผง','Norfloxacin','ฆ่าเชื้อ','แผง',25,40,3,1,''],
+  ['27','Fotagel ซอง','Smectite','กระเพาะ/ท้อง','ซอง',27,40,3,1,''],
+  ['28','Mirax-m แผง','Domperidone','กระเพาะ/ท้อง','แผง',10,30,5,1,''],
+  ['29','Hyoscine star แผง','Hyoscine','กระเพาะ/ท้อง','แผง',20,35,5,1,''],
+  ['30','Diarene แผง','Loperamide','กระเพาะ/ท้อง','แผง',8,20,2,1,''],
+  ['31','U-spa แผง','Flavoxate','อื่นๆ','แผง',45,60,2,1,''],
+  ['32','Gabapentin GPO แผง','Gabapentin','อื่นๆ','แผง',25,45,3,1,''],
+  ['33','MOM CB ขวด','Magnesium','กระเพาะ/ท้อง','ขวด',35,50,1,1,''],
+  ['34','Maxxlife Mag-cal ซอง','บำรุงกระดูก ป้องกันไมเกรน','อาหารเสริม','ซอง',20,30,3,1,''],
+  ['35','Maxxlife Ginkgo กระปุก','เสริมความจำ บำรุงสมอง','อาหารเสริม','กระปุก',320,380,1,1,''],
+  ['37','Ninazol cream หลอด','Ketoconazole','ผิวหนัง','หลอด',40,55,0,1,''],
+  ['38','Ninazol shampoo ขวด','Ketoconazole','ผิวหนัง','ขวด',65,85,0,1,''],
+  ['39','Acnetin cream 0.025%','Tretinoin','ผิวหนัง','หลอด',45,60,0,1,''],
+  ['40','Rest spray ขวด','Indomethacin','แก้ปวด','ขวด',140,180,1,1,''],
+  ['41','Fluoxetine 20 mg แผง','Fluoxetine','อื่นๆ','แผง',15,40,2,1,''],
+  ['42','Amitriptyline 25 mg แผง','Amitriptyline','อื่นๆ','แผง',12,30,2,1,''],
+  ['43','Maxxlife Hap-pe กล่อง 10 เม็ด','ปรับอารมณ์ ช่วยนอนหลับ','อาหารเสริม','กล่อง',310,360,1,1,''],
+  ['44','GD-1 สาหร่ายเกลียวทอง กระปุก','เสริมโปรตีน','อาหารเสริม','กระปุก',320,380,1,1,''],
+  ['45','Maxxlife Glucosamine ซอง','ข้อเข่าเสื่อม ลดปวด','อาหารเสริม','ซอง',11,15,30,5,''],
+  ['46','Diclofenac เม็ด (ยาชุดคลายเส้น)','Diclofenac','แก้ปวด','เม็ด',0.53,2,100,20,'ตัวยาในชุดคลายเส้น ขายแยกเม็ดละ 2 บาท'],
+  ['47','Piroxicam เม็ด (ยาชุดคลายเส้น)','Piroxicam','แก้ปวด','เม็ด',0.53,2,100,20,'ตัวยาในชุดคลายเส้น ขายแยกเม็ดละ 2 บาท'],
+  ['48','Norgesic เม็ด (ยาชุดคลายเส้น)','Orphenadrine + paracetamol','แก้ปวด','เม็ด',0.54,2,100,20,'ตัวยาในชุดคลายเส้น ขายแยกเม็ดละ 2 บาท']
+]
+
+/* =====================================================================
+   ส่วนที่ 2: ตัวช่วยเล็กๆ
+   ===================================================================== */
+const pad = n => String(n).padStart(2, '0')
+const R2 = n => Math.round((Number(n) || 0) * 100) / 100
+const R4 = n => Math.round((Number(n) || 0) * 10000) / 10000
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+const dayKey = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+const daysUntil = e => {
+  const t = new Date(); t.setHours(0, 0, 0, 0)
+  return Math.round((new Date(e + 'T00:00:00') - t) / 86400000)
+}
+
+const ymOf = d => d.getFullYear() + '-' + pad(d.getMonth() + 1)
+const shiftYM = (ym, d) => { const a = ym.split('-').map(Number); return ymOf(new Date(a[0], a[1] - 1 + d, 1)) }
+
+// รายการที่เพิ่มเข้าไปในรอบนี้ (ใส่ให้อัตโนมัติถ้ายังไม่มี ไม่ทับของที่แก้ไว้แล้ว)
+const EXTRA_PRODUCTS = [
+  { id: 'p49', code: '49', name: 'Celebrex 200 mg เม็ด', generic: 'Celecoxib', category: 'แก้ปวด', unit: 'เม็ด', cost: 24, price: 35, reorder: 5,
+    note: 'แบ่งขายจากแผง (1 แผง = 10 เม็ด) ราคาเป็นค่าตั้งต้น ปรับได้' },
+  { id: 'p50', code: '50', name: 'GD-1 สาหร่ายเกลียวทอง เม็ด', generic: 'เสริมโปรตีน', category: 'อาหารเสริม', unit: 'เม็ด', cost: 3.2, price: 5, reorder: 10,
+    note: 'แบ่งขายจากกระปุก (1 กระปุก = 100 เม็ด) ราคาเป็นค่าตั้งต้น ปรับได้' },
+  { id: 'ps01', code: 'S01', name: 'ซองยา', unit: 'ซอง', type: 'supply' }, { id: 'ps02', code: 'S02', name: 'ถุงใส่ยา', unit: 'ใบ', type: 'supply' },
+  { id: 'ps03', code: 'S03', name: 'กรรไกร', unit: 'อัน', type: 'supply' }, { id: 'ps04', code: 'S04', name: 'ปากกา', unit: 'ด้าม', type: 'supply' },
+  { id: 'ps05', code: 'S05', name: 'เทปกาว', unit: 'ม้วน', type: 'supply' }
+]
+// คืน true ถ้ามีการเพิ่ม/แก้โครงข้อมูล (เพื่อให้บันทึกขึ้นคลาวด์)
+function migrate(S) {
+  let changed = false
+  if (!Array.isArray(S.returns)) { S.returns = []; changed = true }
+  if (!Array.isArray(S.issues)) { S.issues = []; changed = true }
+  if (!S.seq) { S.seq = { sale: 0 }; changed = true }
+  if (S.seq.ret === undefined) { S.seq.ret = 0; changed = true }
+  if (S.seq.mem === undefined) { S.seq.mem = 0; changed = true }
+  if (!Array.isArray(S.members)) { S.members = []; changed = true }
+  if (!Array.isArray(S.memberNotes)) { S.memberNotes = []; changed = true }
+  if (!Array.isArray(S.followups)) { S.followups = []; changed = true }
+  for (const e of EXTRA_PRODUCTS) {
+    if (S.products.some(p => p.id === e.id || p.code === e.code)) continue
+    S.products.push({ generic: '', category: 'อื่นๆ', cost: 0, price: 0, reorder: 1, note: '', active: true, ...e })
+    changed = true
+  }
+  const ub = [['p05', 'p49', 10], ['p44', 'p50', 100]]
+  for (const u of ub) {
+    const c = S.products.find(p => p.id === u[0])
+    if (c && c.unpack === undefined && S.products.some(p => p.id === u[1])) { c.unpack = { pid: u[1], ratio: u[2] }; changed = true }
+  }
+  return changed
+}
+
+function makeSeed() {
+  const ts = new Date().toISOString()
+  const S = { products: [], lots: [], movements: [], sales: [], receipts: [], closings: [],
+              seq: { sale: 0 }, settings: { pin: '1234', shopName: 'บ้านยาต้นปู๋', nearExpiryDays: 90 } }
+  for (const r of SEED) {
+    const p = { id: 'p' + r[0], code: r[0], name: r[1], generic: r[2], category: r[3], unit: r[4],
+                cost: r[5], price: r[6], reorder: r[8], note: r[9], active: true }
+    S.products.push(p)
+    if (r[7] > 0) {
+      const lot = { id: uid(), pid: p.id, lotNo: '', expiry: '', qtyIn: r[7], qtyLeft: r[7], cost: p.cost, receivedAt: ts, source: 'opening' }
+      S.lots.push(lot)
+      S.movements.push({ id: uid(), ts, pid: p.id, type: 'opening', qty: r[7], lotId: lot.id, ref: '', note: 'ยอดยกมาจาก Excel' })
+    }
+  }
+  const kit = S.products.find(p => p.id === 'p01')
+  kit.bundle = [{ pid: 'p46', qty: 1 }, { pid: 'p47', qty: 1 }, { pid: 'p48', qty: 1 }]
+  migrate(S)
+  return S
+}
+
+/* =====================================================================
+   ส่วนที่ 3: ที่เก็บข้อมูล (เชื่อมต่อ Supabase)
+   ===================================================================== */
+const supabaseUrl = 'https://snzhaqfffsueowqznqmm.supabase.co'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNuemhhcWZmZnN1ZW93cXpucW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3ODQ0MTEsImV4cCI6MjEwNTM2MDQxMX0.fnpvOwJntI5x1Ss5sA8MG5ZR8wLq1TBu7b8t-qbcBDI'
+const _supabase = supabase.createClient(supabaseUrl, supabaseKey)
+
+// ชื่อผู้ใช้ที่พิมพ์สั้นๆ (เช่น earth) จะถูกต่อท้ายด้วยโดเมนนี้ให้กลายเป็นอีเมลตอนล็อกอิน
+// ต้องตรงกับโดเมนของอีเมลที่สร้างไว้ในหน้า Authentication > Users ของ Supabase
+// (ถ้าพิมพ์อีเมลเต็มที่มี @ ระบบจะใช้ตามที่พิมพ์)
+const LOGIN_DOMAIN = 'knockdown-shop.com'
+const toEmail = u => { u = String(u || '').trim().toLowerCase(); return u.indexOf('@') >= 0 ? u : u + '@' + LOGIN_DOMAIN }
+const userNameOf = email => String(email || '').split('@')[0]
+let ACTOR = ''   // ชื่อผู้ใช้ที่ล็อกอินอยู่ ใช้บันทึกว่าใครเป็นคนทำรายการ
+
+const LOCAL_KEY = 'knockdown_pos_v6'
+const OLD_LOCAL_KEY = 'knockdown_pos_v5'
+const STASH_KEY = 'knockdown_pos_unsynced'
+const Storage = {
+  ok: true,
+  loadLocal() {
+    try {
+      const t = localStorage.getItem(LOCAL_KEY)
+      if (t) { const o = JSON.parse(t); if (o && o.state && o.state.products) return o }
+      const old = localStorage.getItem(OLD_LOCAL_KEY)
+      if (old) { const st = JSON.parse(old); if (st && st.products) return { state: st, baseRev: 0, dirty: false } }
+    } catch (e) { /* ignore */ }
+    return null
+  },
+  saveLocal(state, baseRev, dirty) {
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ state, baseRev, dirty })); this.ok = true }
+    catch (e) { this.ok = false }
+  },
+  clearLocal() { try { localStorage.removeItem(LOCAL_KEY); localStorage.removeItem(OLD_LOCAL_KEY) } catch (e) { /* ignore */ } },
+  stash(state) { try { localStorage.setItem(STASH_KEY, JSON.stringify({ at: new Date().toISOString(), state })) } catch (e) { /* ignore */ } },
+  loadStash() { try { const t = localStorage.getItem(STASH_KEY); return t ? JSON.parse(t) : null } catch (e) { return null } },
+
+  // อ่านข้อมูลทั้งก้อนจากคลาวด์ พร้อมเลขเวอร์ชัน (rev)
+  async loadFromCloud() {
+    try {
+      const { data, error } = await _supabase.from('app_state').select('data, rev, updated_by, updated_at').eq('id', 1).maybeSingle()
+      if (error) return { error: error.message || 'โหลดข้อมูลไม่สำเร็จ' }
+      if (!data) return { data: null, rev: 0 }
+      return { data: data.data, rev: data.rev || 0, by: data.updated_by, at: data.updated_at }
+    } catch (e) { return { error: (e && e.message) || 'เชื่อมต่อไม่ได้' } }
+  },
+  // อ่านเฉพาะเลขเวอร์ชัน ไว้เช็กว่าเครื่องอื่นบันทึกไปหรือยัง
+  async loadRev() {
+    try {
+      const { data, error } = await _supabase.from('app_state').select('rev, updated_by').eq('id', 1).maybeSingle()
+      if (error || !data) return null
+      return { rev: data.rev || 0, by: data.updated_by }
+    } catch (e) { return null }
+  },
+  // บันทึกแบบมีเงื่อนไข: สำเร็จเฉพาะเมื่อเลขเวอร์ชันบนคลาวด์ยังตรงกับที่เครื่องนี้โหลดมา
+  async saveToCloud(state, expectedRev, who) {
+    try {
+      const { data, error } = await _supabase.rpc('save_state', { expected_rev: expectedRev, new_data: state, who })
+      if (error) return { error: error.message || 'บันทึกไม่สำเร็จ' }
+      if (data === -1) return { conflict: true }
+      return { ok: true, rev: data }
+    } catch (e) { return { error: (e && e.message) || 'เชื่อมต่อไม่ได้' } }
+  }
+}
+
+/* =====================================================================
+   ส่วนที่ 4: กฎของสต็อกและเงิน 
+   ===================================================================== */
+const Logic = {
+  stockOf(S, pid) {
+    const p = S.products.find(x => x.id === pid)
+    if (p && p.bundle && p.bundle.length) return Math.min(...p.bundle.map(b => Math.floor(this.stockOf(S, b.pid) / b.qty)))
+    return S.lots.reduce((s, l) => l.pid === pid ? s + l.qtyLeft : s, 0)
+  },
+  isBundle(S, pid) { const p = S.products.find(x => x.id === pid); return !!(p && p.bundle && p.bundle.length) },
+  lotsFEFO(S, pid) {
+    return S.lots.filter(l => l.pid === pid && l.qtyLeft > 0).sort((a, b) =>
+      (a.expiry || '9999-99-99').localeCompare(b.expiry || '9999-99-99') || a.receivedAt.localeCompare(b.receivedAt))
+  },
+  take(S, pid, qty, ctx) {
+    if (this.isBundle(S, pid)) throw new Error('ยาชุดตัดสต็อกโดยตรงไม่ได้')
+    if (this.stockOf(S, pid) < qty) throw new Error('สต็อกไม่พอ')
+    let need = qty, costTotal = 0
+    const allocs = []
+    for (const lot of this.lotsFEFO(S, pid)) {
+      if (need <= 0) break
+      const q = Math.min(lot.qtyLeft, need)
+      lot.qtyLeft -= q; need -= q
+      allocs.push({ lotId: lot.id, qty: q, cost: lot.cost, pid })
+      costTotal += q * lot.cost
+      S.movements.push({ id: uid(), ts: ctx.ts, pid, type: ctx.type, qty: -q, lotId: lot.id, ref: ctx.ref || '', note: ctx.note || '', by: ACTOR })
+    }
+    return { allocs, costTotal: R2(costTotal) }
+  },
+  unitCostOf(S, p) {
+    if (!p) return 0
+    if (p.bundle && p.bundle.length) return p.bundle.reduce((t, b) => { const c = S.products.find(x => x.id === b.pid); return t + (c ? c.cost * b.qty : 0) }, 0)
+    return Number(p.cost) || 0
+  },
+  // at = เวลาขายย้อนหลัง (ISO) / deduct=false ใช้บันทึกยอดขายอย่างเดียว ไม่ตัดสต็อก
+  commitSale(S, { items, discount, method, received, at, deduct, memberId }) {
+    if (!items.length) throw new Error('ตะกร้าว่าง')
+    const stockOn = deduct !== false
+    if (at && new Date(at).getTime() > Date.now() + 60000) throw new Error('เลือกวันที่ในอนาคตไม่ได้')
+    if (stockOn) {
+      const need = {}
+      for (const i of items) {
+        if (!i.pid) continue
+        const p = S.products.find(x => x.id === i.pid)
+        if (p && p.bundle && p.bundle.length) for (const b of p.bundle) need[b.pid] = (need[b.pid] || 0) + b.qty * i.qty
+        else need[i.pid] = (need[i.pid] || 0) + i.qty
+      }
+      for (const pid in need) {
+        const have = this.stockOf(S, pid)
+        if (have < need[pid]) {
+          const p = S.products.find(x => x.id === pid)
+          throw new Error('สต็อก ' + (p ? p.name : '') + ' ไม่พอ (เหลือ ' + have + ')')
+        }
+      }
+    }
+    const subtotal = R2(items.reduce((s, i) => s + i.qty * i.price, 0))
+    const disc = Math.min(Math.max(Number(discount) || 0, 0), subtotal)
+    const total = R2(subtotal - disc)
+    if (method === 'cash' && (Number(received) || 0) < total) throw new Error('รับเงินไม่พอ')
+
+    const ts = at || new Date().toISOString()
+    S.seq.sale += 1
+    const no = 'B' + String(S.seq.sale).padStart(5, '0')
+    const lines = items.map(i => {
+      if (i.pid) {
+        const p = S.products.find(x => x.id === i.pid)
+        if (!stockOn) return { pid: i.pid, name: i.name, unit: i.unit, qty: i.qty, price: i.price, costTotal: R2(this.unitCostOf(S, p) * i.qty), allocs: [] }
+        const parts = p && p.bundle && p.bundle.length ? p.bundle : [{ pid: i.pid, qty: 1 }]
+        let allocs = [], costTotal = 0
+        for (const c of parts) {
+          const t = this.take(S, c.pid, c.qty * i.qty, { ts, type: 'sale', ref: no, note: (p && p.bundle ? 'ในชุด ' + i.name : '') + (at ? ' (คีย์ย้อนหลัง)' : '') })
+          allocs = allocs.concat(t.allocs); costTotal += t.costTotal
+        }
+        return { pid: i.pid, name: i.name, unit: i.unit, qty: i.qty, price: i.price, costTotal: R2(costTotal), allocs }
+      }
+      return { pid: null, name: i.name, unit: '', qty: i.qty, price: i.price, costTotal: 0, allocs: [], other: true }
+    })
+    const recv = method === 'cash' ? R2(received) : total
+    const sale = { id: uid(), no, ts, day: dayKey(new Date(ts)), items: lines, subtotal, discount: disc, total,
+                   method, received: recv, change: R2(recv - total), status: 'ok', by: ACTOR,
+                   backdated: !!at, enteredAt: new Date().toISOString(), noStock: !stockOn,
+                   memberId: (memberId && S.members && S.members.some(m => m.id === memberId)) ? memberId : '' }
+    S.sales.push(sale)
+    return sale
+  },
+  voidSale(S, saleId, reason) {
+    const sale = S.sales.find(s => s.id === saleId)
+    if (!sale) throw new Error('ไม่พบบิล')
+    if (sale.status !== 'ok') throw new Error('บิลนี้ถูกยกเลิกไปแล้ว')
+    const ts = new Date().toISOString()
+    for (const line of sale.items) {
+      for (const a of line.allocs) {
+        const lot = S.lots.find(l => l.id === a.lotId)
+        if (lot) lot.qtyLeft += a.qty
+        S.movements.push({ id: uid(), ts, pid: a.pid || line.pid, type: 'void', qty: a.qty, lotId: a.lotId, ref: sale.no, note: reason || '', by: ACTOR })
+      }
+    }
+    sale.status = 'void'; sale.voidTs = ts; sale.voidReason = reason || ''; sale.voidBy = ACTOR
+    return sale
+  },
+  receive(S, { invoice, supplier, day, items }) {
+    if (!items.length) throw new Error('ยังไม่มีรายการ')
+    for (const it of items) {
+      const p = S.products.find(x => x.id === it.pid)
+      if (!p) throw new Error('ไม่พบสินค้า')
+      if (p.bundle && p.bundle.length) throw new Error(p.name + ' เป็นยาชุด ให้รับเข้าที่ตัวยาแต่ละตัว')
+      if (Math.floor(Number(it.qty) || 0) <= 0) throw new Error('จำนวนของ ' + p.name + ' ต้องมากกว่า 0')
+      if ((Number(it.unitCost) || 0) < 0) throw new Error('ราคารับของ ' + p.name + ' ไม่ถูกต้อง')
+    }
+    const ts = new Date().toISOString()
+    const rows = []
+    for (const it of items) {
+      const p = S.products.find(x => x.id === it.pid)
+      const qty = Math.floor(Number(it.qty))
+      const unitCost = R4(it.unitCost)
+      const lot = { id: uid(), pid: p.id, lotNo: (it.lotNo || '').trim(), expiry: it.expiry || '', qtyIn: qty, qtyLeft: qty, cost: unitCost, receivedAt: ts, source: 'receive' }
+      S.lots.push(lot)
+      S.movements.push({ id: uid(), ts, pid: p.id, type: 'receive', qty, lotId: lot.id, ref: invoice || '', note: supplier || '', by: ACTOR })
+      p.cost = unitCost
+      rows.push({ pid: p.id, name: p.name, unit: p.unit, qty, unitCost, lotNo: lot.lotNo, expiry: lot.expiry, lotId: lot.id })
+    }
+    const rc = { id: uid(), ts, day: day || dayKey(new Date()), invoice: invoice || '', supplier: supplier || '',
+                 items: rows, total: R2(rows.reduce((s, r) => s + r.qty * r.unitCost, 0)), by: ACTOR }
+    S.receipts.push(rc)
+    return rc
+  },
+  openStock(S, pid, qty, cost) {
+    const ts = new Date().toISOString()
+    const lot = { id: uid(), pid, lotNo: '', expiry: '', qtyIn: qty, qtyLeft: qty, cost: R4(cost), receivedAt: ts, source: 'opening' }
+    S.lots.push(lot)
+    S.movements.push({ id: uid(), ts, pid, type: 'opening', qty, lotId: lot.id, ref: '', note: 'สต็อกตั้งต้นตอนเพิ่มสินค้า', by: ACTOR })
+  },
+  adjust(S, pid, counted, reason, note) {
+    const p = S.products.find(x => x.id === pid)
+    if (!p) throw new Error('ไม่พบสินค้า')
+    if (p.bundle && p.bundle.length) throw new Error('ยาชุดปรับสต็อกที่ตัวยาแต่ละตัว')
+    counted = Math.floor(Number(counted))
+    if (!(counted >= 0)) throw new Error('จำนวนไม่ถูกต้อง')
+    const diff = counted - this.stockOf(S, pid)
+    if (diff === 0) throw new Error('จำนวนเท่าเดิม')
+    const ts = new Date().toISOString()
+    const label = reason + (note ? ' - ' + note : '')
+    if (diff > 0) {
+      const lot = { id: uid(), pid, lotNo: '', expiry: '', qtyIn: diff, qtyLeft: diff, cost: p.cost, receivedAt: ts, source: 'adjust' }
+      S.lots.push(lot)
+      S.movements.push({ id: uid(), ts, pid, type: 'adjust', qty: diff, lotId: lot.id, ref: '', note: label, by: ACTOR })
+    } else {
+      this.take(S, pid, -diff, { ts, type: 'adjust', note: label })
+    }
+    return diff
+  },
+  lotOfRow(S, rc, row) {
+    return S.lots.find(l => l.id === row.lotId) || S.lots.find(l => l.pid === row.pid && l.source === 'receive' && l.receivedAt === rc.ts) || null
+  },
+  editReceipt(S, id, patch) {
+    const rc = S.receipts.find(r => r.id === id)
+    if (!rc) throw new Error('ไม่พบบิลรับเข้า')
+    if (rc.status === 'void') throw new Error('บิลนี้ถูกยกเลิกแล้ว')
+    const items = patch.items || []
+    items.forEach((pi, idx) => {
+      const row = rc.items[idx]
+      if (row && pi.unitCost !== undefined && R4(pi.unitCost) !== row.unitCost) {
+        const lot = this.lotOfRow(S, rc, row)
+        if (!lot || lot.qtyLeft !== lot.qtyIn) throw new Error('แก้ราคารับของ ' + row.name + ' ไม่ได้ เพราะขายหรือใช้ไปบางส่วนแล้ว')
+        if ((Number(pi.unitCost) || 0) < 0) throw new Error('ราคารับไม่ถูกต้อง')
+      }
+    })
+    const changes = []
+    const set = (label, oldV, newV, apply) => { if (newV !== undefined && newV !== oldV) { changes.push(label + ' ' + (oldV || '-') + ' → ' + (newV || '-')); apply() } }
+    set('เลขที่บิล', rc.invoice, patch.invoice, () => { rc.invoice = patch.invoice })
+    set('ผู้จำหน่าย', rc.supplier, patch.supplier, () => { rc.supplier = patch.supplier })
+    set('วันที่', rc.day, patch.day, () => { rc.day = patch.day })
+    items.forEach((pi, idx) => {
+      const row = rc.items[idx]; if (!row) return
+      const lot = this.lotOfRow(S, rc, row)
+      set(row.name + ' ล็อต', row.lotNo, pi.lotNo, () => { row.lotNo = pi.lotNo; if (lot) lot.lotNo = pi.lotNo })
+      set(row.name + ' วันหมดอายุ', row.expiry, pi.expiry, () => { row.expiry = pi.expiry; if (lot) lot.expiry = pi.expiry })
+      if (pi.unitCost !== undefined && R4(pi.unitCost) !== row.unitCost) {
+        const old = row.unitCost, nv = R4(pi.unitCost)
+        changes.push(row.name + ' ราคารับ ' + old + ' → ' + nv)
+        row.unitCost = nv; if (lot) lot.cost = nv
+        const p = S.products.find(x => x.id === row.pid); if (p && p.cost === old) p.cost = nv
+      }
+    })
+    if (!changes.length) throw new Error('ไม่มีอะไรเปลี่ยน')
+    rc.total = R2(rc.items.reduce((t, r) => t + r.qty * r.unitCost, 0))
+    if (!rc.history) rc.history = []
+    rc.history.push({ ts: new Date().toISOString(), by: ACTOR, text: changes.join('; ') })
+  },
+  voidReceipt(S, id, reason) {
+    const rc = S.receipts.find(r => r.id === id)
+    if (!rc) throw new Error('ไม่พบบิลรับเข้า')
+    if (rc.status === 'void') throw new Error('บิลนี้ถูกยกเลิกไปแล้ว')
+    const pairs = rc.items.map(row => ({ row, lot: this.lotOfRow(S, rc, row) }))
+    for (const x of pairs) {
+      if (!x.lot) throw new Error('ไม่พบล็อตของ ' + x.row.name + ' ใช้ปรับสต็อกแทน')
+      if (x.lot.qtyLeft !== x.lot.qtyIn) throw new Error(x.row.name + ' ในบิลนี้ถูกขายหรือใช้ไปบางส่วนแล้ว ยกเลิกบิลไม่ได้ ให้ใช้ปรับสต็อกสำหรับส่วนต่าง')
+    }
+    const ts = new Date().toISOString()
+    for (const x of pairs) {
+      x.lot.qtyLeft = 0
+      S.movements.push({ id: uid(), ts, pid: x.row.pid, type: 'receipt_void', qty: -x.row.qty, lotId: x.lot.id, ref: rc.invoice || '', note: reason || '', by: ACTOR })
+    }
+    rc.status = 'void'; rc.voidReason = reason || ''; rc.voidBy = ACTOR; rc.voidTs = ts
+  },
+  returnGoods(S, { supplier, day, reason, items, refund }) {
+    if (!items.length) throw new Error('ยังไม่มีรายการที่จะคืน')
+    const used = {}
+    for (const it of items) {
+      const lot = S.lots.find(l => l.id === it.lotId)
+      const qty = Math.floor(Number(it.qty) || 0)
+      if (!lot) throw new Error('เลือกล็อตที่จะคืนก่อน')
+      if (!(qty > 0)) throw new Error('จำนวนที่คืนต้องมากกว่า 0')
+      used[lot.id] = (used[lot.id] || 0) + qty
+      if (used[lot.id] > lot.qtyLeft) { const p = S.products.find(x => x.id === lot.pid); throw new Error((p ? p.name : 'ล็อตนี้') + ' เหลือในล็อตแค่ ' + lot.qtyLeft) }
+    }
+    const ts = new Date().toISOString()
+    S.seq.ret = (S.seq.ret || 0) + 1
+    const no = 'R' + String(S.seq.ret).padStart(5, '0')
+    const rows = []; let value = 0
+    for (const it of items) {
+      const lot = S.lots.find(l => l.id === it.lotId), p = S.products.find(x => x.id === lot.pid)
+      const qty = Math.floor(Number(it.qty))
+      lot.qtyLeft -= qty
+      S.movements.push({ id: uid(), ts, pid: lot.pid, type: 'return', qty: -qty, lotId: lot.id, ref: no, note: (reason || '') + (supplier ? ' - ' + supplier : ''), by: ACTOR })
+      rows.push({ pid: lot.pid, name: p ? p.name : '', unit: p ? p.unit : '', lotId: lot.id, lotNo: lot.lotNo, expiry: lot.expiry, qty, unitCost: lot.cost })
+      value += qty * lot.cost
+    }
+    const rec = { id: uid(), no, ts, day: day || dayKey(new Date()), supplier: supplier || '', reason: reason || '', items: rows, value: R2(value),
+                  refund: refund === '' || refund === null || refund === undefined ? R2(value) : R2(refund), by: ACTOR, status: 'ok' }
+    S.returns.push(rec)
+    return rec
+  },
+  voidReturn(S, id) {
+    const r = S.returns.find(x => x.id === id)
+    if (!r) throw new Error('ไม่พบใบคืน')
+    if (r.status === 'void') throw new Error('ใบคืนนี้ถูกยกเลิกแล้ว')
+    const ts = new Date().toISOString()
+    for (const it of r.items) {
+      const lot = S.lots.find(l => l.id === it.lotId)
+      if (lot) lot.qtyLeft += it.qty
+      S.movements.push({ id: uid(), ts, pid: it.pid, type: 'return_void', qty: it.qty, lotId: it.lotId, ref: r.no, note: 'ยกเลิกใบคืน', by: ACTOR })
+    }
+    r.status = 'void'; r.voidBy = ACTOR; r.voidTs = ts
+  },
+  issueSupply(S, pid, qty, note) {
+    const p = S.products.find(x => x.id === pid)
+    if (!p) throw new Error('ไม่พบวัสดุ')
+    if (p.type !== 'supply') throw new Error('เบิกใช้ได้เฉพาะวัสดุ')
+    qty = Math.floor(Number(qty) || 0)
+    if (!(qty > 0)) throw new Error('จำนวนต้องมากกว่า 0')
+    const have = this.stockOf(S, pid)
+    if (have < qty) throw new Error('สต็อกไม่พอ (เหลือ ' + have + ')')
+    const ts = new Date().toISOString()
+    const t = this.take(S, pid, qty, { ts, type: 'issue', ref: 'เบิกใช้', note: note || '' })
+    const rec = { id: uid(), ts, day: dayKey(new Date(ts)), pid, name: p.name, unit: p.unit, qty, costTotal: t.costTotal, allocs: t.allocs, note: note || '', by: ACTOR, status: 'ok' }
+    S.issues.push(rec)
+    return rec
+  },
+  voidIssue(S, id) {
+    const r = S.issues.find(x => x.id === id)
+    if (!r) throw new Error('ไม่พบรายการเบิก')
+    if (r.status === 'void') throw new Error('รายการนี้ถูกยกเลิกแล้ว')
+    const ts = new Date().toISOString()
+    for (const a of r.allocs) {
+      const lot = S.lots.find(l => l.id === a.lotId)
+      if (lot) lot.qtyLeft += a.qty
+      S.movements.push({ id: uid(), ts, pid: r.pid, type: 'void', qty: a.qty, lotId: a.lotId, ref: 'เบิกใช้', note: 'ยกเลิกการเบิก', by: ACTOR })
+    }
+    r.status = 'void'; r.voidBy = ACTOR
+  },
+  // แกะแบ่งขาย: ตัดสต็อกหน่วยใหญ่ แล้วเพิ่มหน่วยย่อยตามอัตราส่วน (ส่งต่อเลขล็อต/วันหมดอายุ และหารทุน)
+  unpack(S, pid, qty) {
+    const p = S.products.find(x => x.id === pid)
+    if (!p || !p.unpack) throw new Error('ยานี้ยังไม่ได้ตั้งค่าแกะแบ่งขาย')
+    const t = S.products.find(x => x.id === p.unpack.pid)
+    const ratio = Math.floor(Number(p.unpack.ratio))
+    if (!t) throw new Error('ไม่พบรายการปลายทาง')
+    if (!(ratio >= 2)) throw new Error('อัตราส่วนแกะแบ่งไม่ถูกต้อง')
+    qty = Math.floor(Number(qty) || 0)
+    if (!(qty > 0)) throw new Error('จำนวนต้องมากกว่า 0')
+    if (this.stockOf(S, pid) < qty) throw new Error('สต็อกไม่พอ (เหลือ ' + this.stockOf(S, pid) + ')')
+    const ts = new Date().toISOString()
+    const taken = this.take(S, pid, qty, { ts, type: 'unpack_out', ref: 'แกะแบ่งขาย', note: '→ ' + t.name })
+    let gained = 0
+    for (const a of taken.allocs) {
+      const src = S.lots.find(l => l.id === a.lotId)
+      const n = a.qty * ratio
+      const lot = { id: uid(), pid: t.id, lotNo: src.lotNo, expiry: src.expiry, qtyIn: n, qtyLeft: n, cost: R4(src.cost / ratio), receivedAt: src.receivedAt, source: 'unpack', from: src.id }
+      S.lots.push(lot)
+      S.movements.push({ id: uid(), ts, pid: t.id, type: 'unpack_in', qty: n, lotId: lot.id, ref: 'แกะแบ่งขาย', note: 'จาก ' + p.name, by: ACTOR })
+      gained += n
+    }
+    return { gained, qty }
+  },
+  clearHistory(S, opt) {
+    S.lots = []; S.movements = []; S.sales = []; S.receipts = []; S.closings = []; S.returns = []; S.issues = []
+    const keepMem = (S.seq && S.seq.mem) || 0
+    S.seq = { sale: 0, ret: 0, mem: keepMem }
+    if (opt && opt.members) { S.members = []; S.memberNotes = []; S.followups = []; S.seq.mem = 0 }
+  },
+
+  // ---------- สมาชิก / ประวัติการจ่ายยา (เก็บเท่าที่จำเป็น: ชื่อที่ตั้งเอง เบอร์โทร ประวัติแพ้ยา หมายเหตุ) ----------
+  cleanAllergies(list) {
+    return (list || []).map(a => ({ drug: String(a.drug || '').trim(), reaction: String(a.reaction || '').trim() })).filter(a => a.drug)
+  },
+  addMember(S, { name, phone, allergies, note }) {
+    S.seq.mem = (S.seq.mem || 0) + 1
+    const m = { id: uid(), code: 'M' + String(S.seq.mem).padStart(4, '0'), name: String(name || '').trim(), phone: String(phone || '').trim(),
+                allergies: this.cleanAllergies(allergies), note: String(note || '').trim(), createdAt: new Date().toISOString(), by: ACTOR }
+    S.members.push(m)
+    return m
+  },
+  updateMember(S, id, { name, phone, allergies, note }) {
+    const m = S.members.find(x => x.id === id)
+    if (!m) throw new Error('ไม่พบสมาชิก')
+    m.name = String(name || '').trim(); m.phone = String(phone || '').trim()
+    m.allergies = this.cleanAllergies(allergies); m.note = String(note || '').trim()
+    return m
+  },
+  deleteMember(S, id) {
+    S.members = S.members.filter(m => m.id !== id)
+    S.memberNotes = S.memberNotes.filter(n => n.mid !== id)
+    S.followups = S.followups.filter(f => f.mid !== id)
+  },
+  memberSales(S, mid) { return S.sales.filter(s => s.memberId === mid && s.status === 'ok').sort((a, b) => b.ts.localeCompare(a.ts)) },
+  addMemberNote(S, mid, text) {
+    text = String(text || '').trim()
+    if (!text) throw new Error('พิมพ์บันทึกก่อน')
+    if (!S.members.some(m => m.id === mid)) throw new Error('ไม่พบสมาชิก')
+    const n = { id: uid(), mid, ts: new Date().toISOString(), text, by: ACTOR }
+    S.memberNotes.push(n)
+    return n
+  },
+  deleteMemberNote(S, id) { S.memberNotes = S.memberNotes.filter(n => n.id !== id) },
+  addFollowup(S, { mid, due, reason }) {
+    if (!S.members.some(m => m.id === mid)) throw new Error('ไม่พบสมาชิก')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(due || ''))) throw new Error('เลือกวันนัดก่อน')
+    const f = { id: uid(), mid, due, reason: String(reason || '').trim() || 'ติดตามอาการ', status: 'open', createdAt: new Date().toISOString(), by: ACTOR }
+    S.followups.push(f)
+    return f
+  },
+  doneFollowup(S, id, result) {
+    const f = S.followups.find(x => x.id === id)
+    if (!f || f.status !== 'open') throw new Error('ไม่พบนัดที่ยังค้างอยู่')
+    f.status = 'done'; f.doneAt = new Date().toISOString(); f.result = String(result || '').trim(); f.doneBy = ACTOR
+    return f
+  },
+  deleteFollowup(S, id) { S.followups = S.followups.filter(f => f.id !== id) },
+
+  // ---------- เตือนแพ้ยา (ตัวช่วยเตือนเบื้องต้นจากการเทียบข้อความ ไม่ใช่การตรวจสอบครบถ้วน ต้องใช้ดุลยพินิจเภสัชกรเสมอ) ----------
+  ALLERGY_GROUPS: [
+    { keys: ['penicillin', 'เพนิซิลลิน', 'เพนนิซิลลิน', 'เพนิซิลิน', 'เพนนิซิลิน'], hits: ['penicillin', 'amoxicillin', 'ampicillin', 'cloxacillin', 'clavulan', 'amoxy'] },
+    { keys: ['nsaid', 'เอ็นเสด', 'แก้ปวดอักเสบ', 'ยาแก้อักเสบ'], hits: ['ibuprofen', 'diclofenac', 'naproxen', 'piroxicam', 'celecoxib', 'etoricoxib', 'indomethacin', 'mefenamic', 'ketorolac', 'meloxicam'] },
+    { keys: ['sulfa', 'ซัลฟา'], hits: ['sulfa', 'sulfamethoxazole', 'cotrimoxazole', 'trimethoprim'] },
+    { keys: ['cephalosporin', 'เซฟ'], hits: ['cef', 'ceph'] },
+    { keys: ['quinolone', 'ควิโนโลน', 'floxacin'], hits: ['floxacin'] },
+    { keys: ['paracetamol', 'พาราเซตามอล', 'acetaminophen', 'พารา'], hits: ['paracetamol', 'acetaminophen'] },
+    { keys: ['aspirin', 'แอสไพริน'], hits: ['aspirin', 'acetylsalicylic'] }
+  ],
+  allergyTokens(m) {
+    const out = []
+    for (const a of (m && m.allergies) || []) {
+      const d = String(a.drug || '').toLowerCase()
+      for (const t of d.split(/[\s+,\/()]+/).filter(x => x.length >= 3)) out.push({ token: t, drug: a.drug })
+      for (const g of this.ALLERGY_GROUPS) {
+        if (g.keys.some(k => d.includes(k))) for (const h of g.hits) out.push({ token: h, drug: a.drug })
+      }
+    }
+    return out
+  },
+  productText(S, p, depth) {
+    const own = (String(p.name || '') + ' ' + String(p.generic || '')).toLowerCase()
+    if (p.bundle && p.bundle.length && (depth || 0) < 3) {
+      return own + ' ' + p.bundle.map(b => { const c = S.products.find(x => x.id === b.pid); return c ? this.productText(S, c, (depth || 0) + 1) : '' }).join(' ')
+    }
+    return own
+  },
+  allergyHits(S, m, items) {
+    if (!m || !(m.allergies || []).length) return []
+    const toks = this.allergyTokens(m), hits = []
+    for (const it of items) {
+      if (!it.pid) continue
+      const p = S.products.find(x => x.id === it.pid)
+      if (!p) continue
+      const text = this.productText(S, p)
+      for (const t of toks) {
+        if (text.includes(t.token) && !hits.some(h => h.product === p.name && h.drug === t.drug)) hits.push({ product: p.name, drug: t.drug })
+      }
+    }
+    return hits
+  },
+  dayReport(S, day) {
+    const list = S.sales.filter(s => s.day === day)
+    const ok = list.filter(s => s.status === 'ok')
+    const voided = list.filter(s => s.status === 'void')
+    const sum = (arr, f) => R2(arr.reduce((t, x) => t + f(x), 0))
+    const top = {}
+    let costs = 0, other = 0
+    for (const s of ok) {
+      for (const l of s.items) {
+        costs += l.costTotal
+        if (l.other) other += l.qty * l.price
+        else top[l.name] = (top[l.name] || 0) + l.qty
+      }
+    }
+    const total = sum(ok, s => s.total)
+    return {
+      count: ok.length, total,
+      cash: sum(ok.filter(s => s.method === 'cash'), s => s.total),
+      transfer: sum(ok.filter(s => s.method === 'transfer'), s => s.total),
+      other: R2(other), profit: R2(total - costs),
+      voidCount: voided.length, voidTotal: sum(voided, s => s.total),
+      top: Object.keys(top).map(name => ({ name, qty: top[name] })).sort((a, b) => b.qty - a.qty).slice(0, 5)
+    }
+  }
+}
+
+/* =====================================================================
+   ส่วนที่ 5: หน้าจอ (Vue)
+   ===================================================================== */
+const { createApp } = Vue
+createApp({
+  data() {
+    const today = dayKey(new Date())
+    let lastUser = ''
+    try { lastUser = localStorage.getItem('knockdown_last_user') || '' } catch (e) { /* ignore */ }
+    const stash = Storage.loadStash()
+    return {
+      isLoading: true, saveTimer: null, retryTimer: null, remoteTimer: null,
+      authed: false, actor: '', loginForm: { user: lastUser, pass: '', busy: false, error: '' },
+      syncState: 'saved', cloudRev: 0, dirty: false, saving: false, pendingSave: false, suppressWatch: false,
+      changeSeq: 0, syncConflict: false, errShown: false, pwForm: { next: '' }, nameForm: { name: '' },
+      rcvTab: 'in', rcvMonth: ymOf(new Date()), receiptModalId: null, rcEdit: null, rcVoidOpen: false, rcVoidReason: 'คีย์ผิด',
+      ret: { supplier: '', day: today, reason: 'ขายไม่ออก', items: [], refund: '' }, retSearch: '', retOpen: false, retDetailId: null,
+      backdate: { on: false, date: '', time: '', deduct: true }, backModal: { open: false, date: '', time: '', deduct: true },
+      supSearch: '', supMonth: ymOf(new Date()), issueModal: { open: false, pid: null, qty: 1, note: '' },
+      unpackModal: { open: false, qty: 1 }, resetModal: { open: false, text: '', members: false },
+      memSearch: '', memberModalId: null, memberForm: null, pickModal: { open: false, search: '' },
+      cartMemberId: '', allergyAck: false, noteText: '', fuForm: { date: '', reason: '' }, fuDone: { open: false, id: null, result: '' },
+      stashAt: stash ? new Date(stash.at).toLocaleString('th-TH') : '',
+      S: makeSeed(), storageOk: true, CATS, MOVE_LABEL,
+      tabs: [{ id: 'pos', name: 'ขาย' }, { id: 'history', name: 'บิล' }, { id: 'members', name: 'สมาชิก' }, { id: 'stock', name: 'คลังสินค้า' },
+             { id: 'receive', name: 'รับของ/คืนของ' }, { id: 'supplies', name: 'วัสดุ' }, { id: 'report', name: 'ปิดวัน' }, { id: 'settings', name: 'ตั้งค่า' }],
+      tab: 'pos',
+      search: '', cat: 'ทั้งหมด', cart: [], discount: '', cartOpen: false,
+      payModal: { open: false, method: 'cash', received: '' }, resultSale: null, editPriceKey: null,
+      otherModal: { open: false, name: 'ทิป / รายรับอื่น', amount: '' },
+      histDay: today, saleDetailId: null, voidReason: 'คีย์ผิด',
+      invSearch: '', invFilter: 'all', productModal: null, adj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, formModal: null,
+      rcv: { invoice: '', supplier: '', day: today, items: [] }, rcvSearch: '', rcvOpen: false,
+      repDay: today, openFloat: '', cashCounted: '', closeNote: '',
+      pinForm: { old: '', next: '' }, backupText: '',
+      pin: { open: false, title: '', value: '', error: '', cb: null },
+      confirmBox: { open: false, title: '', message: '', okText: 'ยืนยัน', cb: null },
+      toastMsg: { text: '', kind: 'ok' }, toastTimer: null
+    }
+  },
+
+  computed: {
+    todayLabel() { return new Date().toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) },
+    syncLabel() { return { saved: 'บันทึกแล้ว', saving: 'กำลังบันทึก...', dirty: 'รอบันทึก...', error: 'ยังไม่ได้บันทึก (ลองใหม่)', conflict: 'ข้อมูลไม่ตรงกับคลาวด์' }[this.syncState] || '' },
+    syncColor() { return { saved: '#4ade80', saving: '#fbbf24', dirty: '#fbbf24', error: '#f87171', conflict: '#f87171' }[this.syncState] || '#4ade80' },
+    activeProducts() { return this.S.products.filter(p => p.active !== false) },
+    stockMap() {
+      const m = {}
+      for (const l of this.S.lots) m[l.pid] = (m[l.pid] || 0) + l.qtyLeft
+      for (const p of this.S.products) if (p.bundle && p.bundle.length) m[p.id] = Math.min(...p.bundle.map(b => Math.floor((m[b.pid] || 0) / b.qty)))
+      return m
+    },
+    cartUse() {
+      const u = {}
+      for (const i of this.cart) {
+        if (!i.pid) continue
+        const p = this.S.products.find(x => x.id === i.pid)
+        if (p && p.bundle && p.bundle.length) for (const b of p.bundle) u[b.pid] = (u[b.pid] || 0) + b.qty * i.qty
+        else u[i.pid] = (u[i.pid] || 0) + i.qty
+      }
+      return u
+    },
+    bundleChoices() { return this.activeProducts.filter(p => p.type !== 'supply' && !(p.bundle && p.bundle.length) && (!this.formModal || p.id !== this.formModal.id)) },
+    bundleParts() {
+      const p = this.curProduct
+      if (!p || !p.bundle) return []
+      return p.bundle.map(b => { const c = this.S.products.find(x => x.id === b.pid); return { c, qty: b.qty, stock: c ? (this.stockMap[c.id] || 0) : 0 } })
+    },
+    expiryMap() {
+      const m = {}
+      for (const l of this.S.lots) if (l.qtyLeft > 0 && l.expiry && (!m[l.pid] || l.expiry < m[l.pid])) m[l.pid] = l.expiry
+      return m
+    },
+
+    posList() {
+      const q = this.search.trim().toLowerCase()
+      return this.sellProducts.filter(p =>
+        (this.cat === 'ทั้งหมด' || p.category === this.cat) &&
+        (!q || p.name.toLowerCase().includes(q) || p.generic.toLowerCase().includes(q) || p.code.includes(q)))
+    },
+    cartCount() { return this.cart.reduce((s, i) => s + i.qty, 0) },
+    subtotal() { return R2(this.cart.reduce((s, i) => s + (Number(i.price) || 0) * i.qty, 0)) },
+    discountAmt() { return Math.min(Math.max(Number(this.discount) || 0, 0), this.subtotal) },
+    total() { return R2(this.subtotal - this.discountAmt) },
+    quickCash() { return [20, 50, 100, 500, 1000].filter(v => v >= this.total && v !== this.total) },
+    cashChange() { return R2((Number(this.payModal.received) || 0) - this.total) },
+    canPay() { return this.payModal.method === 'transfer' || (this.payModal.received !== '' && this.cashChange >= 0) },
+
+    histSales() { return this.S.sales.filter(s => s.day === this.histDay).sort((a, b) => b.ts.localeCompare(a.ts)) },
+    histReport() { return Logic.dayReport(this.S, this.histDay) },
+    curSale() { return this.S.sales.find(s => s.id === this.saleDetailId) || null },
+
+    invAll() {
+      const nd = Number(this.S.settings.nearExpiryDays) || 90
+      return this.activeProducts.map(p => {
+        const stock = this.stockMap[p.id] || 0, exp = this.expiryMap[p.id] || ''
+        const days = exp ? daysUntil(exp) : null
+        const kit = !!(p.bundle && p.bundle.length)
+        return { p, stock, exp, days, out: !kit && stock <= 0, low: !kit && stock > 0 && stock <= (Number(p.reorder) || 0), near: days !== null && days <= nd }
+      })
+    },
+    invCount() { return { low: this.invAll.filter(r => r.low).length, out: this.invAll.filter(r => r.out).length, near: this.invAll.filter(r => r.near).length, supply: this.invAll.filter(r => r.p.type === 'supply').length } },
+    alertCount() { return this.invCount.low + this.invCount.out + this.invAll.filter(r => r.near).length },
+    todayKey() { return dayKey(new Date()) },
+    cartMember() { return this.S.members.find(m => m.id === this.cartMemberId) || null },
+    cartAllergyHits() {
+      if (!this.cartMember) return []
+      return Logic.allergyHits(this.S, this.cartMember, this.cart)
+    },
+    cartHitText() { return this.cartAllergyHits.map(h => h.product + ' (แพ้ ' + h.drug + ')').join(', ') },
+    memberList() {
+      const q = this.memSearch.trim().toLowerCase()
+      return this.S.members.filter(m => !q || (m.name || '').toLowerCase().includes(q) || (m.phone || '').includes(q) || m.code.toLowerCase().includes(q))
+        .slice().sort((a, b) => (a.name || a.code).localeCompare(b.name || b.code, 'th'))
+    },
+    pickList() {
+      const q = this.pickModal.search.trim().toLowerCase()
+      return this.S.members.filter(m => !q || (m.name || '').toLowerCase().includes(q) || (m.phone || '').includes(q) || m.code.toLowerCase().includes(q))
+        .slice().sort((a, b) => (a.name || a.code).localeCompare(b.name || b.code, 'th')).slice(0, 30)
+    },
+    curMember() { return this.S.members.find(m => m.id === this.memberModalId) || null },
+    curMemberSales() { return this.curMember ? Logic.memberSales(this.S, this.curMember.id) : [] },
+    curMemberNotes() { return this.curMember ? this.S.memberNotes.filter(n => n.mid === this.curMember.id).slice().sort((a, b) => b.ts.localeCompare(a.ts)) : [] },
+    curMemberFollowups() {
+      return this.curMember ? this.S.followups.filter(f => f.mid === this.curMember.id).slice().sort((a, b) => (a.status === b.status ? a.due.localeCompare(b.due) : (a.status === 'open' ? -1 : 1))) : []
+    },
+    followupList() {
+      const lim = dayKey(new Date(Date.now() + 14 * 86400000))
+      return this.S.followups.filter(f => f.status === 'open' && f.due <= lim && this.S.members.some(m => m.id === f.mid)).slice().sort((a, b) => a.due.localeCompare(b.due))
+    },
+    dueCount() { return this.S.followups.filter(f => f.status === 'open' && f.due <= this.todayKey && this.S.members.some(m => m.id === f.mid)).length },
+    invRows() {
+      const q = this.invSearch.trim().toLowerCase()
+      return this.invAll.filter(r =>
+        (this.invFilter === 'all' || (this.invFilter === 'low' && r.low) || (this.invFilter === 'out' && r.out) || (this.invFilter === 'near' && r.near) || (this.invFilter === 'supply' && r.p.type === 'supply')) &&
+        (!q || r.p.name.toLowerCase().includes(q) || r.p.generic.toLowerCase().includes(q) || r.p.code.includes(q)))
+    },
+    curProduct() { return this.S.products.find(p => p.id === this.productModal) || null },
+    productLots() { return this.S.lots.filter(l => l.pid === this.productModal && l.qtyLeft > 0).sort((a, b) => (a.expiry || '9999').localeCompare(b.expiry || '9999')) },
+    productMoves() { return this.S.movements.filter(m => m.pid === this.productModal).slice(-12).reverse() },
+    adjDiff() { return this.curProduct ? (Math.floor(Number(this.adj.counted)) || 0) - (this.stockMap[this.curProduct.id] || 0) : 0 },
+
+    rcvResults() {
+      const q = this.rcvSearch.trim().toLowerCase()
+      return this.activeProducts.filter(p => !(p.bundle && p.bundle.length) && (p.name.toLowerCase().includes(q) || p.generic.toLowerCase().includes(q) || p.code.includes(q))).slice(0, 20)
+    },
+    rcvTotal() { return R2(this.rcv.items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.unitCost) || 0), 0)) },
+    recentReceipts() { return this.S.receipts.slice(-4).reverse() },
+    thisMonth() { return ymOf(new Date()) },
+    sellProducts() { return this.activeProducts.filter(p => p.type !== 'supply') },
+    curReceipt() { return this.S.receipts.find(r => r.id === this.receiptModalId) || null },
+    rcvMonthList() { return this.S.receipts.filter(r => (r.day || '').indexOf(this.rcvMonth) === 0).sort((a, b) => (b.day || '').localeCompare(a.day || '') || b.ts.localeCompare(a.ts)) },
+    rcvMonthStats() { const ok = this.rcvMonthList.filter(r => r.status !== 'void'); return { count: ok.length, total: R2(ok.reduce((t, r) => t + r.total, 0)) } },
+    retMonthList() { return this.S.returns.filter(r => (r.day || '').indexOf(this.rcvMonth) === 0).sort((a, b) => (b.day || '').localeCompare(a.day || '') || b.ts.localeCompare(a.ts)) },
+    retMonthStats() { const ok = this.retMonthList.filter(r => r.status !== 'void'); return { count: ok.length, value: R2(ok.reduce((t, r) => t + r.value, 0)), refund: R2(ok.reduce((t, r) => t + r.refund, 0)) } },
+    retResults() {
+      const q = this.retSearch.trim().toLowerCase()
+      return this.activeProducts.filter(p => !(p.bundle && p.bundle.length) && (this.stockMap[p.id] || 0) > 0 && (p.name.toLowerCase().indexOf(q) >= 0 || p.code.indexOf(q) >= 0)).slice(0, 20)
+    },
+    retValue() { return R2(this.ret.items.reduce((t, it) => { const l = this.S.lots.find(x => x.id === it.lotId); return t + (Number(it.qty) || 0) * (l ? l.cost : 0) }, 0)) },
+    supRows() {
+      const q = this.supSearch.trim().toLowerCase()
+      return this.activeProducts.filter(p => p.type === 'supply' && (!q || p.name.toLowerCase().indexOf(q) >= 0 || p.code.toLowerCase().indexOf(q) >= 0))
+        .map(p => { const stock = this.stockMap[p.id] || 0; return { p, stock, low: stock <= (Number(p.reorder) || 0) } })
+    },
+    supMonthIssues() { return this.S.issues.filter(i => (i.day || '').indexOf(this.supMonth) === 0).sort((a, b) => b.ts.localeCompare(a.ts)) },
+    supMonthStats() {
+      const ok = this.supMonthIssues.filter(i => i.status !== 'void'), by = {}
+      for (const i of ok) { const k = by[i.name] || (by[i.name] = { name: i.name, unit: i.unit, qty: 0, cost: 0 }); k.qty += i.qty; k.cost += i.costTotal }
+      const list = Object.keys(by).map(k => ({ ...by[k], cost: R2(by[k].cost) })).sort((a, b) => b.cost - a.cost)
+      return { total: R2(list.reduce((t, x) => t + x.cost, 0)), list }
+    },
+    issueProduct() { return this.S.products.find(p => p.id === this.issueModal.pid) || null },
+    unpackTarget() { const p = this.curProduct; return p && p.unpack ? (this.S.products.find(x => x.id === p.unpack.pid) || null) : null },
+    closingStale() { return !!this.savedClosing && Math.abs((this.savedClosing.cashSales || 0) - this.rep.cash) > 0.001 },
+
+    rep() { return Logic.dayReport(this.S, this.repDay) },
+    cashExpected() { return R2((Number(this.openFloat) || 0) + this.rep.cash) },
+    cashDiff() { return R2((Number(this.cashCounted) || 0) - this.cashExpected) },
+    savedClosing() { return this.S.closings.find(c => c.day === this.repDay) || null }
+  },
+
+  watch: {
+    S: {
+      deep: true,
+      handler() {
+        if (this.isLoading || this.suppressWatch || !this.authed) return
+        this.changeSeq++
+        this.dirty = true
+        Storage.saveLocal(this.S, this.cloudRev, true)   // เก็บสำเนาในเครื่องทันที พร้อมธงว่ายังไม่ขึ้นคลาวด์
+        this.storageOk = Storage.ok
+        if (this.syncConflict) return
+        this.syncState = 'dirty'
+        clearTimeout(this.saveTimer)
+        this.saveTimer = setTimeout(() => this.saveNow(), 600)
+      }
+    },
+    repDay() { this.loadClosing() },
+    'pin.open'(v) { if (v) this.$nextTick(() => this.$refs.pinInput && this.$refs.pinInput.focus()) }
+  },
+
+  async mounted() {
+    document.addEventListener('visibilitychange', () => {
+      if (!this.authed) return
+      if (document.hidden) { if (this.dirty) this.saveNow() } else this.checkRemote()
+    })
+    window.addEventListener('online', () => { if (this.authed) { if (this.dirty) this.saveNow(); else this.checkRemote() } })
+    window.addEventListener('pagehide', () => { if (this.authed && this.dirty) this.saveNow() })
+    this.remoteTimer = setInterval(() => { if (this.authed && !document.hidden) this.checkRemote() }, 45000)
+    _supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT' && this.authed) { this.authed = false; this.loginForm.error = 'หมดเวลาการเข้าสู่ระบบ กรุณาเข้าใหม่' }
+    })
+    try {
+      const { data } = await _supabase.auth.getSession()
+      if (data && data.session) await this.startApp(data.session.user)
+    } catch (e) { console.error(e) }
+    this.isLoading = false
+  },
+
+  methods: {
+    dayKey,
+
+    // ===== ล็อกอิน / ซิงค์คลาวด์ =====
+    setState(next) {
+      this.suppressWatch = true
+      this.S = next
+      this.$nextTick(() => { this.suppressWatch = false })
+    },
+    refreshStash() { const st = Storage.loadStash(); this.stashAt = st ? new Date(st.at).toLocaleString('th-TH') : '' },
+    async startApp(user) {
+      this.isLoading = true
+      const dn = user.user_metadata && user.user_metadata.display_name
+      this.actor = dn || userNameOf(user.email); ACTOR = this.actor; this.nameForm.name = dn || ''
+      const local = Storage.loadLocal()
+      const cloud = await Storage.loadFromCloud()
+      const hasCloud = !!(cloud.data && cloud.data.products)
+      let next, dirty = false, rev = 0
+      this.syncState = 'saved'; this.errShown = false
+      if (cloud.error) {
+        // ต่อคลาวด์ไม่ได้ (ออฟไลน์ หรือฐานข้อมูลยังไม่ได้ตั้งค่า) ใช้ข้อมูลในเครื่องไปก่อน
+        next = local ? local.state : makeSeed(); rev = local ? (local.baseRev || 0) : 0; dirty = local ? !!local.dirty : true
+        this.syncState = 'error'
+        this.toast('เชื่อมต่อคลาวด์ไม่ได้: ' + cloud.error, 'bad')
+      } else {
+        rev = cloud.rev
+        if (local && local.dirty && local.baseRev === cloud.rev) { next = local.state; dirty = true }
+        else if (local && local.dirty) {
+          Storage.stash(local.state); this.refreshStash()
+          next = hasCloud ? cloud.data : local.state; dirty = !hasCloud
+          this.toast('พบข้อมูลค้างในเครื่องที่ไม่ตรงกับคลาวด์ เก็บสำรองไว้ที่ตั้งค่าแล้ว', 'bad')
+        }
+        else if (hasCloud) { next = cloud.data }
+        else { next = local ? local.state : makeSeed(); dirty = true }   // คลาวด์ยังว่าง
+      }
+      if (migrate(next)) dirty = true
+      this.setState(next); this.cloudRev = rev; this.dirty = dirty
+      this.authed = true; this.isLoading = false
+      Storage.saveLocal(this.S, this.cloudRev, this.dirty); this.storageOk = Storage.ok
+      this.loadClosing()
+      if (this.dirty) this.saveNow()
+    },
+    async doLogin(ev) {
+      const f = ev && ev.target && ev.target.elements
+      const user = String((f && f.username && f.username.value) || this.loginForm.user || '').trim()
+      const pass = String((f && f.password && f.password.value) || this.loginForm.pass || '')
+      if (!user || !pass) { this.loginForm.error = 'กรอกชื่อผู้ใช้และรหัสผ่านก่อน'; return }
+      this.loginForm.busy = true; this.loginForm.error = ''
+      try {
+        const { data, error } = await _supabase.auth.signInWithPassword({ email: toEmail(user), password: pass })
+        if (error) {
+          const m = String(error.message || '').toLowerCase()
+          this.loginForm.error = m.indexOf('invalid login') >= 0 ? 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'
+            : (error.status === 429 || m.indexOf('rate') >= 0) ? 'ลองบ่อยเกินไป รอสักครู่แล้วลองใหม่'
+            : 'เข้าสู่ระบบไม่สำเร็จ: ' + error.message
+        } else {
+          this.loginForm.pass = ''
+          try { localStorage.setItem('knockdown_last_user', user) } catch (e) { /* ignore */ }
+          await this.startApp(data.user)
+        }
+      } catch (e) { this.loginForm.error = 'เชื่อมต่อไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่' }
+      this.loginForm.busy = false
+    },
+    askLogout() {
+      this.askConfirm('ออกจากระบบ?', this.dirty ? 'ยังมีข้อมูลที่ไม่ได้บันทึกขึ้นคลาวด์ ระบบจะลองบันทึกก่อนออก' : 'ครั้งหน้าต้องพิมพ์ชื่อผู้ใช้และรหัสผ่านใหม่', 'ออกจากระบบ', () => this.doLogout())
+    },
+    async doLogout() {
+      if (this.dirty) {
+        await this.saveNow()
+        if (this.dirty) return this.toast('บันทึกขึ้นคลาวด์ไม่สำเร็จ ยังไม่ออกจากระบบ', 'bad')
+      }
+      Storage.clearLocal()
+      try { await _supabase.auth.signOut() } catch (e) { /* ignore */ }
+      this.authed = false; this.actor = ''; ACTOR = ''; this.cart = []; this.syncConflict = false; this.tab = 'pos'
+      this.setState(makeSeed())
+    },
+    async changeLoginPassword() {
+      const pw = this.pwForm.next || ''
+      if (pw.length < 6) return this.toast('รหัสผ่านเข้าระบบต้องมีอย่างน้อย 6 ตัว', 'bad')
+      try {
+        const { error } = await _supabase.auth.updateUser({ password: pw })
+        if (error) return this.toast('เปลี่ยนรหัสไม่สำเร็จ: ' + error.message, 'bad')
+        this.pwForm.next = ''; this.toast('เปลี่ยนรหัสผ่านเข้าระบบแล้ว')
+      } catch (e) { this.toast('เชื่อมต่อไม่ได้', 'bad') }
+    },
+    onSyncTap() { if (this.syncState === 'error' || this.syncState === 'dirty') this.saveNow() },
+    async saveNow() {
+      clearTimeout(this.saveTimer)
+      if (!this.authed || this.syncConflict) return
+      if (this.saving) { this.pendingSave = true; return }
+      if (!this.dirty) { this.syncState = 'saved'; return }
+      this.saving = true; this.syncState = 'saving'
+      const seq = this.changeSeq
+      const snapshot = JSON.parse(JSON.stringify(this.S))
+      const res = await Storage.saveToCloud(snapshot, this.cloudRev, this.actor)
+      this.saving = false
+      if (res.ok) {
+        this.cloudRev = res.rev; this.errShown = false
+        if (this.changeSeq === seq) { this.dirty = false; this.syncState = 'saved' } else this.syncState = 'dirty'
+        Storage.saveLocal(this.S, this.cloudRev, this.dirty)
+        if (this.dirty || this.pendingSave) { this.pendingSave = false; this.saveTimer = setTimeout(() => this.saveNow(), 300) }
+      } else if (res.conflict) {
+        this.syncConflict = true; this.syncState = 'conflict'
+      } else {
+        this.syncState = 'error'
+        clearTimeout(this.retryTimer)
+        this.retryTimer = setTimeout(() => this.saveNow(), 15000)
+        if (!this.errShown) { this.errShown = true; this.toast('ยังบันทึกขึ้นคลาวด์ไม่ได้ ระบบจะลองใหม่เอง (ข้อมูลยังอยู่ในเครื่อง)', 'bad') }
+      }
+    },
+    async pullCloud(msg) {
+      const cloud = await Storage.loadFromCloud()
+      if (cloud.error || !cloud.data || !cloud.data.products) return false
+      this.setState(cloud.data); this.cloudRev = cloud.rev; this.dirty = false; this.syncState = 'saved'
+      Storage.saveLocal(this.S, this.cloudRev, false)
+      this.loadClosing()
+      if (msg) this.toast(msg)
+      return true
+    },
+    async checkRemote() {
+      if (!this.authed || this.saving || this.syncConflict) return
+      const r = await Storage.loadRev()
+      if (!r || r.rev <= this.cloudRev) return
+      if (this.dirty) { this.syncConflict = true; this.syncState = 'conflict'; return }
+      await this.pullCloud('อัปเดตข้อมูลล่าสุดจาก ' + (r.by || 'เครื่องอื่น') + ' แล้ว')
+    },
+    async conflictUseCloud() {
+      Storage.stash(this.S); this.refreshStash()
+      clearTimeout(this.saveTimer)
+      const ok = await this.pullCloud('โหลดข้อมูลล่าสุดแล้ว (ข้อมูลเดิมของเครื่องนี้เก็บสำรองไว้ที่ตั้งค่า)')
+      if (ok) this.syncConflict = false
+      else this.toast('โหลดจากคลาวด์ไม่สำเร็จ ลองใหม่อีกครั้ง', 'bad')
+    },
+    conflictCopyLocal() {
+      this.backupText = JSON.stringify(this.S)
+      try { navigator.clipboard.writeText(this.backupText).then(() => this.toast('คัดลอกแล้ว ไปวางเก็บไว้ในโน้ตได้')).catch(() => this.toast('ข้อความอยู่ที่ตั้งค่า > สำรองข้อมูล คัดลอกเองได้')) }
+      catch (e) { this.toast('ข้อความอยู่ที่ตั้งค่า > สำรองข้อมูล คัดลอกเองได้') }
+    },
+    conflictForce() {
+      this.askPin('ใช้ข้อมูลเครื่องนี้ทับคลาวด์', async () => {
+        const r = await Storage.loadRev()
+        if (!r) return this.toast('เชื่อมต่อคลาวด์ไม่ได้', 'bad')
+        this.cloudRev = r.rev; this.syncConflict = false; this.dirty = true; this.saveNow()
+      })
+    },
+    showStash() {
+      const st = Storage.loadStash()
+      if (!st) return this.toast('ไม่มีข้อมูลค้าง', 'bad')
+      this.backupText = JSON.stringify(st.state)
+      this.toast('แสดงข้อมูลที่ค้างในช่องข้อความแล้ว')
+    },
+    money(n) { return (Number(n) || 0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) },
+    fmtTime(iso) { return new Date(iso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) },
+    fmtDay(d) { return new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) },
+    fmtExp(d) { return new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { month: 'short', year: '2-digit' }) },
+    saleSummary(s) { return s.items.map(i => i.name + ' ×' + i.qty).join(', ') },
+    toast(text, kind) {
+      this.toastMsg = { text, kind: kind || 'ok' }
+      clearTimeout(this.toastTimer)
+      this.toastTimer = setTimeout(() => { this.toastMsg.text = '' }, 2600)
+    },
+    goTab(id) { this.tab = id; this.cartOpen = false; if (id === 'report') this.loadClosing() },
+    askPin(title, cb) { this.pin = { open: true, title, value: '', error: '', cb } },
+    submitPin() {
+      if (this.pin.value === this.S.settings.pin) { const cb = this.pin.cb; this.pin.open = false; cb && cb() }
+      else this.pin.error = 'รหัสผ่านไม่ถูกต้อง'
+    },
+    askConfirm(title, message, okText, cb) { this.confirmBox = { open: true, title, message, okText: okText || 'ยืนยัน', cb } },
+    runConfirm() { const cb = this.confirmBox.cb; this.confirmBox.open = false; cb && cb() },
+
+    // ===== ขาย =====
+    availFor(p) {
+      if (p.bundle && p.bundle.length) return Math.min(...p.bundle.map(b => Math.floor(((this.stockMap[b.pid] || 0) - (this.cartUse[b.pid] || 0)) / b.qty)))
+      return (this.stockMap[p.id] || 0) - (this.cartUse[p.id] || 0)
+    },
+    costOf(p) { return p.bundle && p.bundle.length ? R2(p.bundle.reduce((s, b) => { const c = this.S.products.find(x => x.id === b.pid); return s + (c ? c.cost * b.qty : 0) }, 0)) : p.cost },
+    lineTotal(i) { return R2((Number(i.price) || 0) * i.qty) },
+    addToCart(p) {
+      if (this.availFor(p) <= 0) {
+        const parent = this.S.products.find(x => x.unpack && x.unpack.pid === p.id && (this.stockMap[x.id] || 0) > 0)
+        return this.toast(parent ? 'หมดแล้ว แต่ยังมี ' + parent.name + ' อยู่ ' + this.stockMap[parent.id] + ' ' + parent.unit + ' ไปแกะแบ่งขายที่คลังสินค้าได้' : 'สต็อกหมดแล้ว ถ้าของจริงยังมี ให้ปรับสต็อกก่อน', 'bad')
+      }
+      const it = this.cart.find(i => i.pid === p.id)
+      if (it) it.qty++
+      else this.cart.push({ key: uid(), pid: p.id, name: p.name, unit: p.unit, qty: 1, price: p.price })
+      this.allergyAck = false
+      if (this.cartMember) {
+        const h = Logic.allergyHits(this.S, this.cartMember, [{ pid: p.id }])
+        if (h.length) this.toast('⚠ ' + this.memberLabel(this.cartMember) + ' มีประวัติแพ้ ' + h[0].drug + ' ตรงกับ ' + p.name, 'bad')
+      }
+    },
+    onSearchEnter() {
+      const q = this.search.trim().toLowerCase()
+      if (!q) return
+      const exact = this.sellProducts.find(p => p.code === q || (/^\d+$/.test(q) && Number(p.code) === Number(q)))
+      const hit = exact || (this.posList.length === 1 ? this.posList[0] : null)
+      if (hit) { this.addToCart(hit); this.search = '' }
+      else if (this.posList.length > 1) this.toast('พบหลายรายการ เลือกจากรายการด้านล่าง')
+    },
+    changeQty(i, d) { this.setQty(i, this.cart[i].qty + d) },
+    setQty(i, v) {
+      const it = this.cart[i]
+      let q = Math.floor(Number(v)) || 0
+      if (q <= 0) { this.cart.splice(i, 1); return }
+      if (it.pid) {
+        const prod = this.S.products.find(x => x.id === it.pid)
+        const max = it.qty + (prod ? this.availFor(prod) : 0)
+        if (q > max) { q = max; this.toast('สต็อกมีแค่ ' + max, 'bad') }
+      }
+      it.qty = q
+    },
+    removeItem(i) { this.cart.splice(i, 1) },
+    clearCart() { this.askConfirm('ล้างตะกร้า?', 'รายการในตะกร้าทั้งหมดจะถูกลบ (ยังไม่ตัดสต็อก)', 'ล้างตะกร้า', () => { this.cart = []; this.discount = '' }) },
+    addOther() {
+      const amt = Number(this.otherModal.amount) || 0
+      if (amt <= 0) return this.toast('ใส่จำนวนเงินก่อน', 'bad')
+      this.cart.push({ key: uid(), pid: null, name: this.otherModal.name || 'รายรับอื่น', unit: '', qty: 1, price: amt })
+      this.otherModal.open = false
+    },
+    openPay(method) {
+      if (!this.cart.length) return
+      if (this.cart.some(i => (Number(i.price) || 0) < 0)) return this.toast('มีรายการที่ราคาติดลบ', 'bad')
+      this.editPriceKey = null
+      this.payModal = { open: true, method: method || 'cash', received: this.total }
+    },
+    startEditPrice(item) {
+      this.editPriceKey = item.key
+      this.$nextTick(() => { const el = document.getElementById('price-' + item.key); if (el) { el.focus(); el.select() } })
+    },
+    confirmPay() {
+      if (this.cartAllergyHits.length && !this.allergyAck) {
+        return this.askConfirm('⚠ ตรวจสอบประวัติแพ้ยา', this.memberLabel(this.cartMember) + ' มีประวัติแพ้ยา ตะกร้ามี: ' + this.cartHitText + ' ยืนยันขายต่อหรือไม่', 'ยืนยันขายต่อ', () => { this.allergyAck = true; this.confirmPay() })
+      }
+      if (this.backdate.on && this.S.closings.some(c => c.day === this.backdate.date)) {
+        return this.askPin('เพิ่มบิลย้อนหลังในวันที่ปิดวันไปแล้ว', () => this.finishPay())
+      }
+      this.finishPay()
+    },
+    finishPay() {
+      try {
+        const items = this.cart.map(i => ({ pid: i.pid, name: i.name, unit: i.unit, qty: i.qty, price: Number(i.price) || 0 }))
+        const bd = this.backdate.on
+        const sale = Logic.commitSale(this.S, { items, discount: this.discountAmt, method: this.payModal.method, received: Number(this.payModal.received) || 0,
+          at: bd ? new Date(this.backdate.date + 'T' + (this.backdate.time || '12:00')).toISOString() : undefined, deduct: bd ? this.backdate.deduct : true, memberId: this.cartMemberId })
+        this.resultSale = sale
+        this.$nextTick(() => this.saveNow())
+        this.payModal.open = false
+        this.cart = []; this.discount = ''; this.cartOpen = false; this.cartMemberId = ''; this.allergyAck = false
+      } catch (e) { this.toast(e.message, 'bad') }
+    },
+    undoResult() {
+      const s = this.resultSale
+      this.askConfirm('ยกเลิกบิล ' + s.no + '?', 'สต็อกจะถูกคืนเข้าคลัง และบิลนี้จะไม่นับเป็นยอดขาย', 'ยกเลิกบิล', () => {
+        try { Logic.voidSale(this.S, s.id, 'ยกเลิกทันทีหลังขาย'); this.resultSale = null; this.toast('ยกเลิกบิล ' + s.no + ' แล้ว') }
+        catch (e) { this.toast(e.message, 'bad') }
+      })
+    },
+
+    // ===== บิลย้อนหลัง =====
+    voidFromHistory() {
+      const s = this.curSale
+      if (!s) return
+      this.askPin('ยกเลิกบิล ' + s.no, () => {
+        try { Logic.voidSale(this.S, s.id, this.voidReason); this.toast('ยกเลิกบิล ' + s.no + ' และคืนสต็อกแล้ว') }
+        catch (e) { this.toast(e.message, 'bad') }
+      })
+    },
+
+    // ===== คลังสินค้า =====
+    openProduct(p) { this.productModal = p.id; this.adj = { counted: this.stockMap[p.id] || 0, reason: 'นับสต็อกไม่ตรง', note: '' } },
+    doAdjust() {
+      const p = this.curProduct
+      if (!p || this.adjDiff === 0) return
+      const counted = Math.floor(Number(this.adj.counted))
+      if (!(counted >= 0)) return this.toast('จำนวนไม่ถูกต้อง', 'bad')
+      this.askPin('ปรับสต็อก ' + p.name, () => {
+        try {
+          const d = Logic.adjust(this.S, p.id, counted, this.adj.reason, this.adj.note)
+          this.toast('ปรับสต็อกแล้ว (' + (d > 0 ? '+' : '') + d + ')')
+          this.adj = { counted, reason: 'นับสต็อกไม่ตรง', note: '' }
+        } catch (e) { this.toast(e.message, 'bad') }
+      })
+    },
+    openForm(p, presetType) {
+      if (p) this.formModal = { isNew: false, id: p.id, code: p.code, name: p.name, generic: p.generic, category: p.category, unit: p.unit, price: p.price, cost: p.cost, reorder: p.reorder, note: p.note,
+                                isBundle: !!(p.bundle && p.bundle.length), parts: (p.bundle || []).map(b => ({ ...b })),
+                                type: p.type || 'sell', usage: p.usage || '', indication: p.indication || '', warning: p.warning || '', storage: p.storage || '',
+                                unpackPid: p.unpack ? p.unpack.pid : '', unpackRatio: p.unpack ? p.unpack.ratio : '' }
+      else {
+        const max = this.S.products.reduce((m, x) => Math.max(m, parseInt(x.code, 10) || 0), 0)
+        this.formModal = { isNew: true, id: '', code: pad(max + 1), name: '', generic: '', category: CATS[0], unit: 'แผง', price: '', cost: '', reorder: 1, note: '', isBundle: false, parts: [], openQty: '',
+                          type: presetType || 'sell', usage: '', indication: '', warning: '', storage: '', unpackPid: '', unpackRatio: '' }
+        if (presetType === 'supply') { this.formModal.unit = 'ชิ้น'; this.formModal.category = 'อื่นๆ' }
+      }
+    },
+    saveForm() {
+      const f = this.formModal
+      if (!f.name.trim()) return this.toast('ใส่ชื่อสินค้าก่อน', 'bad')
+      if (!f.code.trim()) return this.toast('ใส่รหัสสินค้าก่อน', 'bad')
+      if (this.S.products.some(x => x.code === f.code.trim() && x.id !== f.id)) return this.toast('รหัสนี้ถูกใช้แล้ว', 'bad')
+      if (f.type !== 'supply' && ((Number(f.price) || 0) < 0 || f.price === '')) return this.toast('ใส่ราคาขายก่อน', 'bad')
+      const data = { code: f.code.trim(), name: f.name.trim(), generic: f.generic.trim(), category: f.category, unit: f.unit.trim() || 'ชิ้น',
+                     price: Number(f.price) || 0, cost: Number(f.cost) || 0, reorder: Number(f.reorder) || 0, note: f.note.trim() }
+      data.type = f.type || 'sell'
+      data.usage = (f.usage || '').trim(); data.indication = (f.indication || '').trim(); data.warning = (f.warning || '').trim(); data.storage = (f.storage || '').trim()
+      if (data.type === 'supply' && f.isBundle) return this.toast('วัสดุทำเป็นยาชุดไม่ได้', 'bad')
+      let unpack = null
+      if (f.unpackPid && !f.isBundle) {
+        const ratio = Math.floor(Number(f.unpackRatio))
+        if (!(ratio >= 2)) return this.toast('ใส่จำนวนหน่วยย่อยต่อ 1 หน่วย (ตั้งแต่ 2 ขึ้นไป) ให้ถูกต้อง', 'bad')
+        if (f.unpackPid === f.id) return this.toast('เลือกรายการปลายทางเป็นตัวเองไม่ได้', 'bad')
+        unpack = { pid: f.unpackPid, ratio }
+      }
+      data.unpack = unpack
+      let parts = []
+      if (f.isBundle) {
+        parts = f.parts.filter(x => x.pid && Math.floor(Number(x.qty)) > 0).map(x => ({ pid: x.pid, qty: Math.floor(Number(x.qty)) }))
+        if (!parts.length) return this.toast('เลือกยาในชุดอย่างน้อย 1 ตัว', 'bad')
+        if (new Set(parts.map(x => x.pid)).size !== parts.length) return this.toast('มียาซ้ำในชุด', 'bad')
+        if (!f.isNew && (this.stockMap[f.id] || 0) > 0 && !this.S.products.find(x => x.id === f.id).bundle)
+          return this.toast('ยานี้ยังมีสต็อก ให้ปรับสต็อกเป็น 0 ก่อนแปลงเป็นยาชุด', 'bad')
+        data.cost = R2(parts.reduce((t, x) => { const c = this.S.products.find(y => y.id === x.pid); return t + (c ? c.cost * x.qty : 0) }, 0))
+      }
+      if (f.isNew) {
+        const id = 'p' + uid()
+        this.S.products.push({ id, active: true, ...data, ...(f.isBundle ? { bundle: parts } : {}) })
+        const oq = Math.floor(Number(f.openQty)) || 0
+        if (!f.isBundle && oq > 0) Logic.openStock(this.S, id, oq, data.cost)
+        this.formModal = null
+        return this.toast(oq > 0 && !f.isBundle ? 'เพิ่มสินค้าแล้ว สต็อก ' + oq : 'เพิ่มสินค้าแล้ว สต็อกเป็น 0 ไปรับของเข้าเพื่อเพิ่มจำนวน')
+      }
+      {
+        const target = this.S.products.find(x => x.id === f.id)
+        Object.assign(target, data)
+        if (f.isBundle) target.bundle = parts; else delete target.bundle
+      }
+      this.formModal = null
+      this.toast('บันทึกข้อมูลสินค้าแล้ว')
+    },
+
+    // ===== รับของเข้า =====
+    addRcvItem(p) {
+      this.rcv.items.push({ pid: p.id, name: p.name, unit: p.unit, qty: 1, unitCost: p.cost, lotNo: '', expiry: '' })
+      this.rcvSearch = ''; this.rcvOpen = false
+    },
+    marginText(it) {
+      const p = this.S.products.find(x => x.id === it.pid)
+      const c = Number(it.unitCost) || 0
+      if (!p || !p.price || !c) return ''
+      return 'ขาย ฿' + this.money(p.price) + ' กำไร ' + Math.round((p.price - c) / p.price * 100) + '%'
+    },
+    saveReceive() {
+      try {
+        const rc = Logic.receive(this.S, this.rcv)
+        this.toast('รับเข้าแล้ว ' + rc.items.length + ' รายการ ฿' + this.money(rc.total))
+        this.rcv = { invoice: '', supplier: '', day: dayKey(new Date()), items: [] }
+      } catch (e) { this.toast(e.message, 'bad') }
+    },
+
+    // ===== ปิดวัน =====
+    loadClosing() {
+      const c = this.S.closings.find(x => x.day === this.repDay)
+      if (c) { this.openFloat = c.openFloat; this.cashCounted = c.counted; this.closeNote = c.note || ''; return }
+      const prev = this.S.closings.filter(x => x.day < this.repDay).sort((a, b) => b.day.localeCompare(a.day))[0]
+      this.openFloat = prev ? prev.counted : ''
+      this.cashCounted = ''; this.closeNote = ''
+    },
+    saveClosing() {
+      if (this.cashCounted === '' || this.cashCounted === null) return this.toast('ใส่ยอดเงินสดที่นับได้ก่อน', 'bad')
+      const rec = { day: this.repDay, ts: new Date().toISOString(), openFloat: Number(this.openFloat) || 0, cashSales: this.rep.cash,
+                    expected: this.cashExpected, counted: Number(this.cashCounted) || 0, diff: this.cashDiff, note: this.closeNote, by: this.actor }
+      const i = this.S.closings.findIndex(x => x.day === this.repDay)
+      if (i >= 0) this.S.closings.splice(i, 1, rec); else this.S.closings.push(rec)
+      this.toast('บันทึกปิดวันแล้ว')
+    },
+
+    // ===== ตั้งค่า =====
+    changePin() {
+      if (this.pinForm.old !== this.S.settings.pin) return this.toast('รหัสเดิมไม่ถูกต้อง', 'bad')
+      if ((this.pinForm.next || '').length < 4) return this.toast('รหัสใหม่ต้องมีอย่างน้อย 4 ตัว', 'bad')
+      this.S.settings.pin = this.pinForm.next
+      this.pinForm = { old: '', next: '' }
+      this.toast('เปลี่ยนรหัสผ่านแล้ว')
+    },
+    makeBackup() {
+      this.backupText = JSON.stringify(this.S)
+      try {
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(new Blob([this.backupText], { type: 'application/json' }))
+        a.download = 'backup-' + dayKey(new Date()) + '.json'
+        a.click()
+      } catch (e) { /* บางโปรแกรมแก้ HTML ไม่ยอมให้ดาวน์โหลด ใช้การคัดลอกข้อความแทน */ }
+      this.toast('สร้างข้อมูลสำรองแล้ว ก๊อปข้อความไปเก็บได้')
+    },
+    copyBackup() {
+      if (!this.backupText) this.backupText = JSON.stringify(this.S)
+      try { navigator.clipboard.writeText(this.backupText).then(() => this.toast('คัดลอกแล้ว')).catch(() => this.toast('คัดลอกเองจากช่องข้อความได้เลย')) }
+      catch (e) { this.toast('คัดลอกเองจากช่องข้อความได้เลย') }
+    },
+    async saveDisplayName() {
+      const n = (this.nameForm.name || '').trim()
+      if (!n) return this.toast('ใส่ชื่อที่จะแสดงก่อน', 'bad')
+      try {
+        const { error } = await _supabase.auth.updateUser({ data: { display_name: n } })
+        if (error) return this.toast('เปลี่ยนชื่อไม่สำเร็จ: ' + error.message, 'bad')
+        this.actor = n; ACTOR = n; this.toast('เปลี่ยนชื่อที่แสดงแล้ว')
+      } catch (e) { this.toast('เชื่อมต่อไม่ได้', 'bad') }
+    },
+    // ===== สมาชิก =====
+    memberById(id) { return this.S.members.find(m => m.id === id) || null },
+    memberLabel(m) { return m ? (m.name || m.code) : 'สมาชิกที่ถูกลบ' },
+    memberName(id) { return this.memberLabel(this.memberById(id)) },
+    allergyText(m) { return (m.allergies || []).map(a => a.drug + (a.reaction ? ' (' + a.reaction + ')' : '')).join(', ') },
+    lastBuy(m) { const l = Logic.memberSales(this.S, m.id)[0]; return l ? this.fmtDay(l.day) + ' (' + this.saleSummary(l).slice(0, 40) + ')' : 'ยังไม่เคยซื้อ' },
+    openPicker() { this.pickModal = { open: true, search: '' } },
+    selectMember(m) { this.cartMemberId = m.id; this.allergyAck = false; this.pickModal.open = false
+      if ((m.allergies || []).length) this.toast('⚠ ' + this.memberLabel(m) + ' แพ้ยา: ' + this.allergyText(m), 'bad') },
+    clearMember() { this.cartMemberId = ''; this.allergyAck = false },
+    openMember(m) { if (!m) return; this.memberModalId = m.id; this.noteText = ''; this.fuForm = { date: '', reason: '' } },
+    openMemberForm(m, fromPicker) {
+      this.memberForm = m
+        ? { id: m.id, name: m.name, phone: m.phone, note: m.note, allergies: (m.allergies || []).map(a => ({ ...a })), fromPicker: false }
+        : { id: '', name: '', phone: '', note: '', allergies: [], fromPicker: !!fromPicker }
+    },
+    saveMemberForm() {
+      const f = this.memberForm
+      try {
+        if (f.id) { Logic.updateMember(this.S, f.id, f); this.toast('บันทึกข้อมูลสมาชิกแล้ว') }
+        else {
+          const m = Logic.addMember(this.S, f)
+          this.toast('เพิ่มสมาชิกแล้ว: ' + this.memberLabel(m))
+          if (f.fromPicker) this.selectMember(m)
+        }
+        this.memberForm = null
+      } catch (e) { this.toast(e.message, 'bad') }
+    },
+    askDeleteMember() {
+      const m = this.curMember; if (!m) return
+      this.askPin('ลบสมาชิก ' + this.memberLabel(m), () => {
+        this.askConfirm('ลบสมาชิกนี้?', 'จะลบข้อมูลสมาชิก บันทึก และนัดติดตามทั้งหมดของคนนี้ บิลขายเดิมยังอยู่ แต่จะไม่แสดงชื่อ', 'ลบสมาชิก', () => {
+          if (this.cartMemberId === m.id) this.cartMemberId = ''
+          Logic.deleteMember(this.S, m.id); this.memberModalId = null; this.toast('ลบสมาชิกแล้ว')
+        })
+      })
+    },
+    addNoteAction() {
+      try { Logic.addMemberNote(this.S, this.curMember.id, this.noteText); this.noteText = ''; this.toast('บันทึกแล้ว') } catch (e) { this.toast(e.message, 'bad') }
+    },
+    askDeleteNote(n) { this.askConfirm('ลบบันทึกนี้?', n.text.slice(0, 60), 'ลบ', () => Logic.deleteMemberNote(this.S, n.id)) },
+    addFollowupAction() {
+      try { Logic.addFollowup(this.S, { mid: this.curMember.id, due: this.fuForm.date, reason: this.fuForm.reason }); this.fuForm = { date: '', reason: '' }; this.toast('เพิ่มนัดติดตามแล้ว') } catch (e) { this.toast(e.message, 'bad') }
+    },
+    openFuDone(f) { this.fuDone = { open: true, id: f.id, result: '' } },
+    saveFuDone() {
+      try { Logic.doneFollowup(this.S, this.fuDone.id, this.fuDone.result); this.fuDone.open = false; this.toast('บันทึกว่าติดตามแล้ว') } catch (e) { this.toast(e.message, 'bad') }
+    },
+    askDeleteFollowup(f) { this.askConfirm('ลบนัดนี้?', f.reason + ' วันที่ ' + this.fmtDay(f.due), 'ลบนัด', () => Logic.deleteFollowup(this.S, f.id)) },
+    askClearHistory() { this.askPin('ล้างประวัติทั้งหมด', () => { this.resetModal = { open: true, text: '', members: false } }) },
+    doClearHistory() {
+      if (this.resetModal.text.trim() !== 'ล้าง') return
+      Storage.stash(this.S); this.refreshStash()
+      Logic.clearHistory(this.S, { members: this.resetModal.members })
+      this.cart = []; this.discount = ''; this.backdate.on = false; this.resetModal.open = false
+      this.toast('ล้างประวัติแล้ว สต็อกทุกรายการเป็น 0 (ข้อมูลเดิมเก็บสำรองไว้ในเครื่องนี้)')
+    },
+    // ===== บิลรับเข้า =====
+    shiftYM, fmtMonth(ym) { const a = ym.split('-').map(Number); return new Date(a[0], a[1] - 1, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }) },
+    openReceipt(r) { this.receiptModalId = r.id; this.rcEdit = null; this.rcVoidOpen = false; this.rcVoidReason = 'คีย์ผิด' },
+    closeReceipt() { this.receiptModalId = null; this.rcEdit = null; this.rcVoidOpen = false },
+    receiptLot(row) { const rc = this.curReceipt; return rc ? Logic.lotOfRow(this.S, rc, row) : null },
+    startEditReceipt() {
+      this.askPin('แก้ไขบิลรับเข้า', () => {
+        const rc = this.curReceipt; if (!rc) return
+        this.rcEdit = { invoice: rc.invoice || '', supplier: rc.supplier || '', day: rc.day,
+          items: rc.items.map(row => { const lot = Logic.lotOfRow(this.S, rc, row); return { lotNo: row.lotNo || '', expiry: row.expiry || '', unitCost: row.unitCost, lockCost: !lot || lot.qtyLeft !== lot.qtyIn } }) }
+      })
+    },
+    saveEditReceipt() {
+      try {
+        const e = this.rcEdit
+        Logic.editReceipt(this.S, this.receiptModalId, { invoice: e.invoice.trim(), supplier: e.supplier.trim(), day: e.day,
+          items: e.items.map(x => ({ lotNo: x.lotNo.trim(), expiry: x.expiry, unitCost: x.lockCost ? undefined : (Number(x.unitCost) || 0) })) })
+        this.rcEdit = null; this.toast('บันทึกการแก้ไขแล้ว')
+      } catch (err) { this.toast(err.message, 'bad') }
+    },
+    doVoidReceipt() {
+      this.askPin('ยกเลิกบิลรับเข้า', () => {
+        try { Logic.voidReceipt(this.S, this.receiptModalId, this.rcVoidReason); this.rcVoidOpen = false; this.toast('ยกเลิกบิลรับเข้าแล้ว') }
+        catch (err) { this.toast(err.message, 'bad') }
+      })
+    },
+    // ===== คืนสินค้า =====
+    retLots(pid) { return this.S.lots.filter(l => l.pid === pid && l.qtyLeft > 0).sort((a, b) => (a.expiry || '9999').localeCompare(b.expiry || '9999')) },
+    retLotOf(it) { return this.S.lots.find(l => l.id === it.lotId) || null },
+    lotLabel(l) { return (l.lotNo || 'ไม่ระบุล็อต') + ' · ' + (l.expiry ? 'หมดอายุ ' + this.fmtExp(l.expiry) : 'ไม่ระบุวันหมดอายุ') + ' · เหลือ ' + l.qtyLeft },
+    addRetItem(p) {
+      const lots = this.retLots(p.id)
+      this.ret.items.push({ pid: p.id, name: p.name, unit: p.unit, lotId: lots[0] ? lots[0].id : '', qty: 1 })
+      this.retSearch = ''; this.retOpen = false
+    },
+    saveReturn() {
+      if (!this.ret.items.length) return this.toast('ยังไม่มีรายการที่จะคืน', 'bad')
+      this.askPin('บันทึกใบคืนสินค้า', () => {
+        try {
+          const rec = Logic.returnGoods(this.S, { supplier: this.ret.supplier.trim(), day: this.ret.day, reason: this.ret.reason,
+            items: this.ret.items.map(i => ({ lotId: i.lotId, qty: i.qty })), refund: this.ret.refund === '' ? '' : Number(this.ret.refund) || 0 })
+          this.toast('บันทึกใบคืน ' + rec.no + ' มูลค่า ฿' + this.money(rec.value))
+          this.ret = { supplier: '', day: dayKey(new Date()), reason: 'ขายไม่ออก', items: [], refund: '' }
+        } catch (err) { this.toast(err.message, 'bad') }
+      })
+    },
+    askVoidReturn(r) {
+      this.askPin('ยกเลิกใบคืน ' + r.no, () => {
+        try { Logic.voidReturn(this.S, r.id); this.toast('ยกเลิกใบคืนและคืนสต็อกแล้ว') } catch (err) { this.toast(err.message, 'bad') }
+      })
+    },
+    // ===== วัสดุ =====
+    openIssue(p) { this.issueModal = { open: true, pid: p.id, qty: 1, note: '' } },
+    doIssue() {
+      try {
+        const rec = Logic.issueSupply(this.S, this.issueModal.pid, this.issueModal.qty, this.issueModal.note.trim())
+        this.toast('เบิก ' + rec.name + ' × ' + rec.qty + ' แล้ว'); this.issueModal.open = false
+      } catch (err) { this.toast(err.message, 'bad') }
+    },
+    undoIssue(i) {
+      this.askConfirm('ยกเลิกการเบิก?', i.name + ' × ' + i.qty + ' จะถูกคืนเข้าสต็อก', 'ยกเลิกการเบิก', () => {
+        try { Logic.voidIssue(this.S, i.id); this.toast('ยกเลิกการเบิกแล้ว') } catch (err) { this.toast(err.message, 'bad') }
+      })
+    },
+    // ===== แกะแบ่งขาย =====
+    openUnpack() { this.unpackModal = { open: true, qty: 1 } },
+    doUnpack() {
+      try {
+        const t = this.unpackTarget
+        const r = Logic.unpack(this.S, this.curProduct.id, this.unpackModal.qty)
+        this.toast('แกะแล้ว ได้ ' + r.gained + ' ' + (t ? t.unit : '') + ' ไปขายได้ที่รายการ "' + (t ? t.name : '') + '"'); this.unpackModal.open = false
+      } catch (err) { this.toast(err.message, 'bad') }
+    },
+    // ===== ขายย้อนหลัง =====
+    openBackdate() {
+      const d = new Date(), on = this.backdate.on
+      this.backModal = { open: true, date: on ? this.backdate.date : dayKey(d), time: on ? this.backdate.time : pad(d.getHours()) + ':' + pad(d.getMinutes()), deduct: on ? this.backdate.deduct : true }
+    },
+    applyBackdate() {
+      const m = this.backModal
+      if (!m.date) return this.toast('เลือกวันที่ก่อน', 'bad')
+      if (m.date > dayKey(new Date())) return this.toast('เลือกวันที่ในอนาคตไม่ได้', 'bad')
+      this.backdate = { on: true, date: m.date, time: m.time || '12:00', deduct: !!m.deduct }
+      this.backModal.open = false
+      this.toast('เข้าโหมดคีย์ขายย้อนหลังแล้ว')
+    },
+    endBackdate() { this.backdate.on = false; this.toast('ออกจากโหมดย้อนหลังแล้ว') },
+    restoreBackup() {
+      let d
+      try { d = JSON.parse(this.backupText) } catch (e) { return this.toast('ข้อความสำรองไม่ถูกต้อง', 'bad') }
+      if (!d || !Array.isArray(d.products) || !Array.isArray(d.lots) || !Array.isArray(d.sales) || !d.settings) return this.toast('ข้อมูลสำรองไม่ครบ', 'bad')
+      this.askPin('กู้คืนข้อมูลสำรอง', () => { migrate(d); Object.assign(this.S, d); this.toast('กู้คืนข้อมูลแล้ว') })
+    },
+    resetAll() {
+      this.askPin('ล้างข้อมูลทั้งหมด', () => {
+        this.askConfirm('ล้างข้อมูลทั้งหมด?', 'บิล ประวัติ และข้อมูลสมาชิกจะหายทั้งหมด ย้อนกลับไม่ได้', 'ล้างและเริ่มใหม่', () => {
+          const keep = JSON.parse(JSON.stringify(this.S.settings))
+          Storage.stash(this.S); this.refreshStash()
+          Object.assign(this.S, makeSeed()); this.S.settings = keep; this.cart = []; this.toast('เริ่มใหม่แล้ว (ข้อมูลเดิมเก็บสำรองไว้ในเครื่องนี้)')
+        })
+      })
+    }
+  }
+}).mount('#app')
+</script>
+</body>
+</html>

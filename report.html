@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>รายงานยอดขาย</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --ink:#10302c; --pine:#0f766e; --pine-d:#0b5a54; --paper:#f2f6f5; --line:#d8e2e0; --mute:#5b6f6b; --bad:#b91c1c; --soft:#99d5cf; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; }
+  body { font-family:'IBM Plex Sans Thai','Sarabun','Noto Sans Thai','Thonburi',system-ui,sans-serif; font-size:16px; line-height:1.6;
+         background:var(--paper); color:var(--ink); -webkit-tap-highlight-color:transparent;
+         padding-bottom:calc(2rem + env(safe-area-inset-bottom)); }
+  .hdr { background:#0f3f3a; color:#fff; padding:calc(.75rem + env(safe-area-inset-top)) 1rem .75rem; display:flex; justify-content:space-between; align-items:center; gap:.5rem; }
+  .hdr b { font-size:1.1rem; }
+  .hdr small { display:block; color:#b9dcd7; font-size:.8rem; }
+  .hdr a, .hdr button { color:#b9dcd7; font:inherit; font-size:.9rem; background:none; border:0; text-decoration:underline; cursor:pointer; padding:.4rem; }
+  .wrap { max-width:960px; margin:0 auto; padding:.75rem; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:.9rem; padding:1rem; margin-bottom:.75rem; }
+  .card h2 { font-size:1rem; margin:0 0 .6rem; }
+  .chips { display:flex; gap:.5rem; overflow-x:auto; padding-bottom:.25rem; }
+  .chip { padding:.45rem .95rem; border-radius:999px; border:1.5px solid var(--line); background:#fff; font:inherit; font-size:.92rem; font-weight:500; white-space:nowrap; color:var(--ink); cursor:pointer; }
+  .chip.on { background:var(--pine); color:#fff; border-color:var(--pine); }
+  .inp { padding:.6rem .7rem; border:1.5px solid var(--line); border-radius:.6rem; font:inherit; font-size:16px; background:#fff; color:var(--ink); width:100%; }
+  .inp:focus { outline:none; border-color:var(--pine); box-shadow:0 0 0 3px rgba(15,118,110,.15); }
+  .btn { padding:.7rem 1rem; border-radius:.65rem; font:inherit; font-weight:600; min-height:46px; border:1.5px solid var(--line); background:#fff; color:var(--ink); cursor:pointer; }
+  .btn.pri { background:var(--pine); border-color:var(--pine); color:#fff; }
+  .btn:disabled { opacity:.5; }
+  .range { display:none; gap:.5rem; align-items:center; margin-top:.6rem; }
+  .range.show { display:flex; }
+  .range span { color:var(--mute); }
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:.6rem; }
+  @media (min-width:640px){ .grid { grid-template-columns:repeat(4,1fr); } }
+  .kpi { background:#fff; border:1px solid var(--line); border-radius:.9rem; padding:.8rem .9rem; }
+  .kpi .l { font-size:.82rem; color:var(--mute); }
+  .kpi .v { font-size:1.45rem; font-weight:700; font-variant-numeric:tabular-nums; }
+  .kpi .s { font-size:.8rem; color:var(--mute); }
+  .kpi.main { grid-column:span 2; background:var(--pine); border-color:var(--pine); color:#fff; }
+  .kpi.main .l, .kpi.main .s { color:#c8ebe7; }
+  .kpi.main .v { font-size:2rem; }
+  .num { font-variant-numeric:tabular-nums; }
+  .legend { display:flex; gap:1rem; font-size:.82rem; color:var(--mute); margin-bottom:.5rem; flex-wrap:wrap; }
+  .legend i { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:.3rem; vertical-align:-1px; }
+  .chart { display:flex; align-items:flex-end; overflow-x:auto; padding-bottom:.25rem; }
+  .col { display:flex; flex-direction:column; align-items:center; flex:1; min-width:24px; cursor:pointer; }
+  .plot { height:150px; width:100%; display:flex; align-items:flex-end; }
+  .bar { width:70%; margin:0 auto; background:var(--soft); border-radius:4px 4px 0 0; position:relative; min-height:0; }
+  .bar .p { position:absolute; left:0; right:0; bottom:0; background:var(--pine); }
+  .col.sel .bar { outline:2px solid var(--ink); outline-offset:1px; }
+  .col span { font-size:.72rem; color:var(--mute); margin-top:.2rem; }
+  .detail { margin-top:.6rem; padding:.55rem .75rem; background:#eef3f2; border-radius:.6rem; font-size:.9rem; min-height:2.6rem; }
+  .row { position:relative; display:grid; grid-template-columns:1fr auto auto auto; gap:.6rem; align-items:center; padding:.5rem .4rem; border-bottom:1px solid #eef3f2; font-size:.92rem; }
+  .row.head { font-size:.8rem; color:var(--mute); border-bottom:1.5px solid var(--line); }
+  .row .bg { position:absolute; left:0; top:0; bottom:0; background:#e3f2f0; z-index:0; border-radius:.4rem; }
+  .row > * { position:relative; z-index:1; }
+  .row .nm small { display:block; color:var(--mute); font-size:.76rem; }
+  .row .r { text-align:right; min-width:3.6rem; }
+  .crow { margin-bottom:.7rem; }
+  .crow .top { display:flex; justify-content:space-between; gap:.5rem; font-size:.92rem; }
+  .crow .track { height:9px; background:#e3f2f0; border-radius:99px; overflow:hidden; margin-top:.25rem; }
+  .crow .fill { height:100%; background:var(--pine); border-radius:99px; }
+  .note { font-size:.8rem; color:var(--mute); }
+  .muted { color:var(--mute); }
+  .red { color:var(--bad); }
+  .empty { text-align:center; color:#94a5a2; padding:1.5rem 0; }
+  .login { position:fixed; inset:0; background:#0f3f3a; display:none; align-items:center; justify-content:center; padding:1.25rem; z-index:50; }
+  .login.show { display:flex; }
+  .login .box { background:#fff; border-radius:1rem; padding:1.5rem; width:100%; max-width:22rem; }
+  .login label { display:block; font-size:.85rem; color:var(--mute); margin:.6rem 0 .2rem; }
+  .err { color:var(--bad); font-size:.9rem; margin-top:.6rem; text-align:center; }
+  .toast { position:fixed; left:50%; transform:translateX(-50%); top:1rem; background:#0f3f3a; color:#fff; padding:.7rem 1rem; border-radius:.7rem; z-index:90; display:none; max-width:90vw; }
+  .toast.show { display:block; }
+  .loading { text-align:center; padding:3rem 0; color:var(--mute); }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div><b id="shop">รายงานยอดขาย</b><small id="asof">กำลังโหลด...</small></div>
+  <div>
+    <button id="btnRefresh" type="button">รีเฟรช</button>
+    <a href="./">กลับหน้าขาย</a>
+  </div>
+</div>
+
+<div class="login" id="login">
+  <form class="box" id="loginForm">
+    <div style="text-align:center;font-weight:700;font-size:1.2rem">เข้าสู่ระบบเพื่อดูรายงาน</div>
+    <label>ชื่อผู้ใช้</label>
+    <input class="inp" id="lu" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="เช่น earth">
+    <label>รหัสผ่าน</label>
+    <input class="inp" id="lp" name="password" type="password" autocomplete="current-password">
+    <div class="err" id="lerr"></div>
+    <button class="btn pri" id="lbtn" type="submit" style="width:100%;margin-top:.9rem">เข้าสู่ระบบ</button>
+  </form>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="wrap">
+  <div class="card">
+    <div class="chips" id="chips"></div>
+    <div class="range" id="range">
+      <input class="inp" type="date" id="dFrom"><span>ถึง</span><input class="inp" type="date" id="dTo">
+    </div>
+    <div class="note" id="rangeLabel" style="margin-top:.6rem"></div>
+  </div>
+
+  <div id="content"><div class="loading">กำลังโหลดข้อมูล...</div></div>
+</div>
+
+<script>
+/* ===== รายงานนี้อ่านข้อมูลอย่างเดียว ไม่เขียนอะไรกลับเข้าฐานข้อมูล ===== */
+const supabaseUrl = 'https://snzhaqfffsueowqznqmm.supabase.co'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNuemhhcWZmZnN1ZW93cXpucW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3ODQ0MTEsImV4cCI6MjEwNTM2MDQxMX0.fnpvOwJntI5x1Ss5sA8MG5ZR8wLq1TBu7b8t-qbcBDI'
+const LOGIN_DOMAIN = 'knockdown-shop.com'   // ต้องตรงกับในแอพหลัก
+const sb = supabase.createClient(supabaseUrl, supabaseKey)
+
+const pad = n => String(n).padStart(2, '0')
+const dayKey = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x }
+const R2 = n => Math.round((Number(n) || 0) * 100) / 100
+const money = n => (Number(n) || 0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+const fmtDay = d => new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
+const toEmail = u => { u = String(u || '').trim().toLowerCase(); return u.indexOf('@') >= 0 ? u : u + '@' + LOGIN_DOMAIN }
+const $ = id => document.getElementById(id)
+
+const st = { S: null, range: 'month', from: '', to: '', sort: 'qty', showAll: false, sel: null, calc: null }
+const RANGES = [['today', 'วันนี้'], ['7d', '7 วัน'], ['month', 'เดือนนี้'], ['last', 'เดือนที่แล้ว'], ['custom', 'เลือกเอง']]
+
+function toast(t) {
+  const el = $('toast'); el.textContent = t; el.classList.add('show')
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 2600)
+}
+
+/* ---------- ช่วงเวลา ---------- */
+function resolveRange() {
+  const now = new Date(), today = dayKey(now)
+  if (st.range === 'today') return [today, today]
+  if (st.range === '7d') return [dayKey(addDays(now, -6)), today]
+  if (st.range === 'month') return [dayKey(new Date(now.getFullYear(), now.getMonth(), 1)), today]
+  if (st.range === 'last') return [dayKey(new Date(now.getFullYear(), now.getMonth() - 1, 1)), dayKey(new Date(now.getFullYear(), now.getMonth(), 0))]
+  let f = st.from || today, t = st.to || today
+  if (f > t) { const x = f; f = t; t = x }
+  return [f, t]
+}
+
+/* ---------- คำนวณรายงาน ---------- */
+function compute() {
+  const S = st.S, [from, to] = resolveRange()
+  const catOf = {}, codeOf = {}
+  for (const p of S.products || []) { catOf[p.id] = p.category || 'อื่นๆ'; codeOf[p.id] = p.code || '' }
+
+  const all = (S.sales || []).filter(s => s.day >= from && s.day <= to)
+  const ok = all.filter(s => s.status === 'ok')
+  const voided = all.filter(s => s.status === 'void')
+
+  // เตรียมทุกวันในช่วง (ให้กราฟมีวันที่ขายไม่ได้ด้วย)
+  const days = {}, order = []
+  let cur = new Date(from + 'T00:00:00'); const end = new Date(to + 'T00:00:00')
+  for (let i = 0; cur <= end && i < 400; i++) { const k = dayKey(cur); days[k] = { day: k, sales: 0, cost: 0, bills: 0 }; order.push(k); cur = addDays(cur, 1) }
+
+  const prods = {}, cats = {}
+  let sales = 0, cost = 0, cash = 0, transfer = 0, discount = 0, other = 0, items = 0
+  for (const s of ok) {
+    let sc = 0
+    sales += s.total; discount += s.discount || 0
+    if (s.method === 'cash') cash += s.total; else transfer += s.total
+    for (const l of s.items || []) {
+      sc += l.costTotal || 0
+      const rev = l.qty * l.price
+      const cat = l.other ? 'รายรับอื่น (ทิป/บริการ)' : (catOf[l.pid] || 'อื่นๆ')
+      const c = cats[cat] || (cats[cat] = { name: cat, sales: 0, cost: 0 })
+      c.sales += rev; c.cost += l.costTotal || 0
+      if (l.other) { other += rev; continue }
+      items += l.qty
+      const key = l.pid || l.name
+      const p = prods[key] || (prods[key] = { name: l.name, code: codeOf[l.pid] || '', cat, qty: 0, sales: 0, cost: 0 })
+      p.qty += l.qty; p.sales += rev; p.cost += l.costTotal || 0
+    }
+    cost += sc
+    const d = days[s.day]
+    if (d) { d.sales += s.total; d.cost += sc; d.bills += 1 }
+  }
+  const dayList = order.map(k => { const d = days[k]; return { ...d, sales: R2(d.sales), cost: R2(d.cost), profit: R2(d.sales - d.cost) } })
+  const prodList = Object.values(prods).map(p => ({ ...p, sales: R2(p.sales), cost: R2(p.cost), profit: R2(p.sales - p.cost) }))
+  const catList = Object.values(cats).map(c => ({ ...c, sales: R2(c.sales), cost: R2(c.cost), profit: R2(c.sales - c.cost) })).sort((a, b) => b.sales - a.sales)
+  return {
+    from, to, bills: ok.length, sales: R2(sales), cost: R2(cost), profit: R2(sales - cost),
+    margin: sales > 0 ? (sales - cost) / sales * 100 : 0, avg: ok.length ? R2(sales / ok.length) : 0,
+    cash: R2(cash), transfer: R2(transfer), discount: R2(discount), other: R2(other), items,
+    voidCount: voided.length, voidTotal: R2(voided.reduce((t, s) => t + s.total, 0)),
+    days: dayList, prods: prodList, cats: catList
+  }
+}
+
+/* ---------- วาดหน้าจอ ---------- */
+function renderChips() {
+  $('chips').innerHTML = RANGES.map(r => '<button type="button" class="chip' + (st.range === r[0] ? ' on' : '') + '" data-r="' + r[0] + '">' + r[1] + '</button>').join('')
+  $('range').classList.toggle('show', st.range === 'custom')
+}
+
+function sortedProds(c) {
+  const k = st.sort
+  return c.prods.slice().sort((a, b) => b[k] - a[k] || b.qty - a.qty)
+}
+
+function render() {
+  renderChips()
+  if (!st.S) return
+  const c = st.calc = compute()
+  $('rangeLabel').textContent = c.from === c.to ? fmtDay(c.from) : fmtDay(c.from) + ' - ' + fmtDay(c.to)
+
+  if (c.bills === 0) {
+    $('content').innerHTML = '<div class="card empty">ช่วงนี้ยังไม่มีบิลขาย ลองเลือกช่วงเวลาอื่น</div>' +
+      (c.voidCount ? '<div class="note" style="text-align:center">มีบิลที่ยกเลิก ' + c.voidCount + ' บิล</div>' : '')
+    return
+  }
+
+  const kpi = (l, v, s, cls) => '<div class="kpi ' + (cls || '') + '"><div class="l">' + l + '</div><div class="v num">' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>'
+  let h = '<div class="grid" style="margin-bottom:.75rem">'
+  h += kpi('ยอดขายสุทธิ', '฿' + money(c.sales), c.bills + ' บิล · เฉลี่ย ฿' + money(c.avg) + '/บิล', 'main')
+  h += kpi('กำไรขั้นต้น', '฿' + money(c.profit), c.margin.toFixed(1) + '% ของยอดขาย', 'main')
+  h += kpi('ต้นทุน', '฿' + money(c.cost), '')
+  h += kpi('ขายสินค้า', money(c.items), 'ชิ้น/หน่วย (ไม่รวมทิป)')
+  h += kpi('เงินสด', '฿' + money(c.cash), '')
+  h += kpi('โอน', '฿' + money(c.transfer), '')
+  h += kpi('ส่วนลดรวม', '฿' + money(c.discount), '')
+  h += kpi('ยกเลิก', '<span class="' + (c.voidCount ? 'red' : '') + '">' + c.voidCount + ' บิล</span>', c.voidCount ? 'มูลค่า ฿' + money(c.voidTotal) + ' (ไม่นับในยอด)' : '')
+  h += '</div>'
+
+  // กราฟ
+  const max = Math.max(1, ...c.days.map(d => d.sales))
+  h += '<div class="card"><h2>ยอดขายรายวัน</h2>' +
+    '<div class="legend"><span><i style="background:var(--soft)"></i>ยอดขาย</span><span><i style="background:var(--pine)"></i>ส่วนที่เป็นกำไร</span></div>' +
+    '<div class="chart" id="chart">' +
+    c.days.map((d, i) => {
+      const hh = d.sales > 0 ? Math.max(d.sales / max * 100, 2) : 0
+      const pp = d.sales > 0 ? Math.min(Math.max(d.profit / d.sales * 100, 0), 100) : 0
+      return '<div class="col' + (st.sel === i ? ' sel' : '') + '" data-i="' + i + '"><div class="plot"><div class="bar" style="height:' + hh + '%"><div class="p" style="height:' + pp + '%"></div></div></div><span>' + Number(d.day.slice(8)) + '</span></div>'
+    }).join('') + '</div>' +
+    '<div class="detail" id="detail">' + detailText() + '</div></div>'
+
+  // สินค้าขายดี
+  const list = sortedProds(c), show = st.showAll ? list : list.slice(0, 15)
+  const mx = Math.max(1, ...list.map(p => p[st.sort]))
+  h += '<div class="card"><h2>สินค้าขายดี</h2><div class="chips" style="margin-bottom:.5rem">' +
+    [['qty', 'ตามจำนวน'], ['sales', 'ตามยอดขาย'], ['profit', 'ตามกำไร']].map(x => '<button type="button" class="chip' + (st.sort === x[0] ? ' on' : '') + '" data-sort="' + x[0] + '">' + x[1] + '</button>').join('') + '</div>' +
+    '<div class="row head"><div>สินค้า</div><div class="r">จำนวน</div><div class="r">ยอดขาย</div><div class="r">กำไร</div></div>' +
+    show.map((p, i) => '<div class="row"><div class="bg" style="width:' + Math.max(p[st.sort] / mx * 100, 0) + '%"></div>' +
+      '<div class="nm">' + (i + 1) + '. ' + esc(p.name) + '<small>' + esc(p.cat) + '</small></div>' +
+      '<div class="r num">' + money(p.qty) + '</div><div class="r num">' + money(p.sales) + '</div><div class="r num ' + (p.profit < 0 ? 'red' : '') + '">' + money(p.profit) + '</div></div>').join('') +
+    (list.length > 15 ? '<button type="button" class="btn" id="btnAll" style="width:100%;margin-top:.6rem">' + (st.showAll ? 'แสดงแค่ 15 อันดับแรก' : 'ดูทั้งหมด ' + list.length + ' รายการ') + '</button>' : '') +
+    '<div class="note" style="margin-top:.6rem">ยาชุด (เช่น ชุดคลายเส้น) นับเป็น 1 รายการตามที่ขายจริง ส่วนลดทั้งบิลไม่ได้แบ่งลงรายสินค้า กำไรรายสินค้าจึงเป็นกำไรก่อนหักส่วนลด</div></div>'
+
+  // หมวด
+  const totalRev = c.cats.reduce((t, x) => t + x.sales, 0) || 1
+  h += '<div class="card"><h2>ยอดขายแยกตามหมวด</h2>' + c.cats.map(x => {
+    const pct = x.sales / totalRev * 100
+    return '<div class="crow"><div class="top"><span>' + esc(x.name) + '</span><span class="num">฿' + money(x.sales) + ' <span class="muted">(' + pct.toFixed(1) + '%)</span></span></div>' +
+      '<div class="track"><div class="fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="note">กำไร ฿' + money(x.profit) + '</div></div>'
+  }).join('') + '</div>'
+
+  // ดาวน์โหลด
+  h += '<div class="card"><h2>ดาวน์โหลด (เปิดใน Excel ได้)</h2><div class="grid" style="grid-template-columns:1fr 1fr">' +
+    '<button type="button" class="btn pri" id="csvProd">รายงานสินค้า (CSV)</button>' +
+    '<button type="button" class="btn pri" id="csvDay">ยอดขายรายวัน (CSV)</button></div></div>'
+
+  $('content').innerHTML = h
+}
+
+function detailText() {
+  const c = st.calc
+  if (st.sel == null || !c || !c.days[st.sel]) return '<span class="muted">แตะแท่งกราฟเพื่อดูยอดของวันนั้น</span>'
+  const d = c.days[st.sel]
+  return '<b>' + fmtDay(d.day) + '</b> · ' + d.bills + ' บิล · ขาย ฿' + money(d.sales) + ' · กำไร ฿' + money(d.profit)
+}
+
+/* ---------- ดาวน์โหลด CSV ---------- */
+function csvCell(v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v }
+function downloadCSV(name, rows) {
+  const text = '\uFEFF' + rows.map(r => r.map(csvCell).join(',')).join('\r\n')
+  try {
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }))
+    a.download = name; document.body.appendChild(a); a.click(); a.remove()
+    toast('ดาวน์โหลดแล้ว: ' + name)
+  } catch (e) { toast('เบราว์เซอร์นี้ดาวน์โหลดไม่ได้ ลองเปิดหน้านี้ใน Chrome / Safari') }
+}
+function csvProducts() {
+  const c = st.calc
+  const rows = [['ลำดับ', 'รหัส', 'ชื่อสินค้า', 'หมวด', 'จำนวนที่ขาย', 'ยอดขาย', 'ต้นทุน', 'กำไร', 'กำไร %']]
+  sortedProds(c).forEach((p, i) => rows.push([i + 1, p.code, p.name, p.cat, p.qty, p.sales, p.cost, p.profit, p.sales ? (p.profit / p.sales * 100).toFixed(1) : 0]))
+  rows.push([], ['รวมทั้งช่วง (สุทธิหลังส่วนลด)', '', '', '', '', c.sales, c.cost, c.profit, c.margin.toFixed(1)])
+  downloadCSV('รายงานสินค้า-' + c.from + '_' + c.to + '.csv', rows)
+}
+function csvDays() {
+  const c = st.calc
+  const rows = [['วันที่', 'จำนวนบิล', 'ยอดขาย', 'ต้นทุน', 'กำไร']]
+  c.days.forEach(d => rows.push([d.day, d.bills, d.sales, d.cost, d.profit]))
+  rows.push(['รวม', c.bills, c.sales, c.cost, c.profit])
+  downloadCSV('ยอดขายรายวัน-' + c.from + '_' + c.to + '.csv', rows)
+}
+
+/* ---------- โหลดข้อมูล / ล็อกอิน ---------- */
+async function loadData() {
+  $('asof').textContent = 'กำลังโหลด...'
+  try {
+    const { data, error } = await sb.from('app_state').select('data, updated_at, updated_by').eq('id', 1).maybeSingle()
+    if (error) throw error
+    if (!data || !data.data || !data.data.sales) {
+      $('content').innerHTML = '<div class="card empty">ยังไม่มีข้อมูลการขายในระบบ</div>'; $('asof').textContent = ''; return
+    }
+    st.S = data.data
+    $('shop').textContent = (st.S.settings && st.S.settings.shopName) || 'รายงานยอดขาย'
+    $('asof').textContent = 'ข้อมูลล่าสุด ' + new Date(data.updated_at).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    st.sel = null
+    render()
+  } catch (e) {
+    $('asof').textContent = ''
+    $('content').innerHTML = '<div class="card empty">โหลดข้อมูลไม่สำเร็จ<br><span class="note">' + esc(e.message || e) + '</span><br><br><button type="button" class="btn" id="btnRetry">ลองใหม่</button></div>'
+  }
+}
+
+async function boot() {
+  renderChips()
+  try {
+    const { data } = await sb.auth.getSession()
+    if (data && data.session) { $('login').classList.remove('show'); await loadData() }
+    else { $('login').classList.add('show'); try { $('lu').value = localStorage.getItem('knockdown_last_user') || '' } catch (e) {} }
+  } catch (e) { $('login').classList.add('show') }
+}
+
+$('loginForm').addEventListener('submit', async ev => {
+  ev.preventDefault()
+  const u = $('lu').value.trim(), p = $('lp').value
+  if (!u || !p) { $('lerr').textContent = 'กรอกชื่อผู้ใช้และรหัสผ่านก่อน'; return }
+  $('lbtn').disabled = true; $('lerr').textContent = ''
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email: toEmail(u), password: p })
+    if (error) { $('lerr').textContent = String(error.message).toLowerCase().indexOf('invalid login') >= 0 ? 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' : 'เข้าสู่ระบบไม่สำเร็จ: ' + error.message }
+    else { $('lp').value = ''; try { localStorage.setItem('knockdown_last_user', u) } catch (e) {} $('login').classList.remove('show'); await loadData() }
+  } catch (e) { $('lerr').textContent = 'เชื่อมต่อไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่' }
+  $('lbtn').disabled = false
+})
+
+document.addEventListener('click', ev => {
+  const t = ev.target.closest('[data-r],[data-sort],[data-i],#btnAll,#csvProd,#csvDay,#btnRefresh,#btnRetry')
+  if (!t) return
+  if (t.dataset.r) { st.range = t.dataset.r; st.sel = null; if (st.range === 'custom') { const [f, to] = resolveRange(); $('dFrom').value = st.from || f; $('dTo').value = st.to || to; st.from = $('dFrom').value; st.to = $('dTo').value } render() }
+  else if (t.dataset.sort) { st.sort = t.dataset.sort; render() }
+  else if (t.dataset.i !== undefined) { st.sel = Number(t.dataset.i); document.querySelectorAll('.col').forEach(c => c.classList.toggle('sel', Number(c.dataset.i) === st.sel)); $('detail').innerHTML = detailText() }
+  else if (t.id === 'btnAll') { st.showAll = !st.showAll; render() }
+  else if (t.id === 'csvProd') csvProducts()
+  else if (t.id === 'csvDay') csvDays()
+  else if (t.id === 'btnRefresh' || t.id === 'btnRetry') loadData()
+})
+$('dFrom').addEventListener('change', e => { st.from = e.target.value; st.sel = null; render() })
+$('dTo').addEventListener('change', e => { st.to = e.target.value; st.sel = null; render() })
+
+sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT') { $('login').classList.add('show') } })
+document.addEventListener('visibilitychange', () => { if (!document.hidden && st.S) loadData() })
+boot()
+</script>
+</body>
+</html>
