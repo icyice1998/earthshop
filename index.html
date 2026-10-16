@@ -297,6 +297,34 @@
       </div>
     </section>
 
+    <!-- ============ 2) บิล ============ -->
+    <section v-else-if="tab === 'history'" class="h-full overflow-y-auto p-3">
+      <div class="flex items-center gap-2 mb-3">
+        <input type="date" v-model="histDay" class="inp !w-auto">
+        <button class="btn btn-ghost !min-h-0 !py-2" @click="histDay = dayKey(new Date())">วันนี้</button>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mb-3 text-center">
+        <div class="card p-3"><div class="text-xs text-slate-500">จำนวนบิล</div><div class="text-xl font-bold num">{{ histReport.count }}</div></div>
+        <div class="card p-3"><div class="text-xs text-slate-500">ยอดขาย</div><div class="text-xl font-bold num" style="color:var(--pine)">฿{{ money(histReport.total) }}</div></div>
+        <div class="card p-3"><div class="text-xs text-slate-500">ยกเลิก</div><div class="text-xl font-bold num text-red-600">{{ histReport.voidCount }}</div></div>
+      </div>
+      <div v-if="histSales.length === 0" class="text-center text-slate-400 py-12">วันนี้ยังไม่มีบิล</div>
+      <button v-for="s in histSales" :key="s.id" class="card w-full text-left p-3 mb-2" :class="s.status === 'void' ? 'row-void' : ''" @click="saleDetailId = s.id; voidReason = 'คีย์ผิด'">
+        <div class="flex justify-between items-center">
+          <div class="font-semibold">{{ s.no }} <span class="text-sm font-normal text-slate-500">{{ fmtTime(s.ts) }}</span></div>
+          <div class="font-bold num" :class="s.status === 'void' ? 'line-through' : ''">฿{{ money(s.total) }}</div>
+        </div>
+        <div class="text-sm text-slate-600 mt-1">{{ saleSummary(s) }}</div>
+        <div class="mt-1">
+          <span class="tag" :style="s.method === 'cash' ? 'background:#e2e8f0' : 'background:#ccfbf1;color:#0f766e'">{{ s.method === 'cash' ? 'เงินสด' : 'โอน' }}</span>
+          <span v-if="s.status === 'void'" class="tag ml-1" style="background:#fee2e2;color:#b91c1c">ยกเลิกแล้ว</span>
+          <span v-if="s.by" class="text-xs text-slate-500 ml-1">{{ s.by }}</span>
+          <span v-if="s.memberId" class="tag ml-1" style="background:#dbeafe;color:#1e40af">{{ memberName(s.memberId) }}</span>
+          <span v-if="s.backdated" class="tag ml-1" style="background:#fef3c7;color:#92400e">ย้อนหลัง</span>
+        </div>
+      </button>
+    </section>
+
     <!-- ============ 3) คลังสินค้า ============ -->
     <section v-else-if="tab === 'stock'" class="h-full overflow-y-auto p-3">
       <div class="flex gap-2 mb-3">
@@ -1872,7 +1900,7 @@ createApp({
       stashAt: stash ? new Date(stash.at).toLocaleString('th-TH') : '',
       S: makeSeed(), storageOk: true, CATS, MOVE_LABEL,
       groups: [
-        { id: 'shop', name: 'หน้าร้าน', short: 'หน้าร้าน', subs: [{ id: 'pos', name: 'ขาย' }, { id: 'report', name: 'ปิดวัน' }] },
+        { id: 'shop', name: 'หน้าร้าน', short: 'หน้าร้าน', subs: [{ id: 'pos', name: 'ขาย' }, { id: 'report', name: 'ปิดวัน' }, { id: 'history', name: 'บิลการขาย' }] },
         { id: 'members', name: 'ระบบสมาชิก', short: 'สมาชิก', subs: [{ id: 'members', name: 'สมาชิก' }] },
         { id: 'stock', name: 'คลังสินค้า / เบิกวัสดุ', short: 'คลังสินค้า', subs: [{ id: 'stock', name: 'คลังสินค้า' }, { id: 'supplies', name: 'เบิกวัสดุ' }] },
         { id: 'receive', name: 'ระบบรับเข้า / ส่งคืนสินค้า', short: 'รับเข้า/คืน', subs: [{ id: 'receive', name: 'รับเข้า / ส่งคืน' }] },
