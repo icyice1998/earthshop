@@ -30,6 +30,7 @@
     .rt { width:100%; border-collapse:collapse; }
     @media (max-width: 1279px) { .rt .col-xl { display:none; } }
     @media (max-width: 1023px) { .rt .col-lg { display:none; } }
+    @media (min-width: 640px) and (max-width: 1023px) { .rt .col-tab { display:none; } }
     @media (max-width: 639px) {
       .rt, .rt tbody, .rt tr, .rt td { display:block; }
       .rt thead { display:none; }
@@ -318,8 +319,8 @@
               <td class="p-2 text-right num font-bold" data-l="คงเหลือ" :class="r.out ? 'text-red-600' : (r.low ? 'text-amber-700' : '')">{{ r.stock }}</td>
               <td class="p-2 text-right num" data-l="ทุน">{{ money(r.p.cost) }}</td>
               <td class="p-2 text-right num" data-l="ขาย">{{ money(r.p.price) }}</td>
-              <td class="p-2 text-right num" data-l="กำไร%">{{ invMargin(r) }}</td>
-              <td class="p-2 whitespace-nowrap" data-l="หมดอายุ" :class="r.days !== null && r.days < 0 ? 'text-red-600 font-semibold' : (r.near ? 'text-amber-700 font-semibold' : '')">{{ r.exp ? fmtExp(r.exp) : '-' }}</td>
+              <td class="p-2 text-right num col-tab" data-l="กำไร%">{{ invMargin(r) }}</td>
+              <td class="p-2 whitespace-nowrap col-tab" data-l="หมดอายุ" :class="r.days !== null && r.days < 0 ? 'text-red-600 font-semibold' : (r.near ? 'text-amber-700 font-semibold' : '')">{{ r.exp ? fmtExp(r.exp) : '-' }}</td>
               <td class="p-2 whitespace-nowrap col-xl" data-l="บาร์โค้ด">{{ r.p.barcode || '-' }}</td>
               <td class="p-2 whitespace-nowrap col-xl" data-l="ผู้จำหน่าย">{{ r.p.supplier || '-' }}</td>
               <td class="p-2 whitespace-nowrap col-lg" data-l="ที่เก็บ">{{ r.p.location || '-' }}</td>
@@ -1819,7 +1820,7 @@ createApp({
       invView: (() => { try { return localStorage.getItem('knockdown_inv_view') === 'table' ? 'table' : 'card' } catch (e) { return 'card' } })(),
       invCols: [{ key: 'code', label: 'รหัส' }, { key: 'name', label: 'ชื่อสินค้า' }, { key: 'generic', cls: 'col-xl', label: 'ชื่อสามัญ' }, { key: 'category', cls: 'col-lg', label: 'หมวด' },
                 { key: 'unit', cls: 'col-lg', label: 'หน่วย' }, { key: 'stock', label: 'คงเหลือ', num: true }, { key: 'cost', label: 'ทุน', num: true }, { key: 'price', label: 'ขาย', num: true },
-                { key: 'margin', label: 'กำไร%', num: true }, { key: 'exp', label: 'หมดอายุ' }, { key: 'barcode', cls: 'col-xl', label: 'บาร์โค้ด' }, { key: 'supplier', cls: 'col-xl', label: 'ผู้จำหน่าย' }, { key: 'location', cls: 'col-lg', label: 'ที่เก็บ' }], productModal: null, adj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, formModal: null,
+                { key: 'margin', cls: 'col-tab', label: 'กำไร%', num: true }, { key: 'exp', cls: 'col-tab', label: 'หมดอายุ' }, { key: 'barcode', cls: 'col-xl', label: 'บาร์โค้ด' }, { key: 'supplier', cls: 'col-xl', label: 'ผู้จำหน่าย' }, { key: 'location', cls: 'col-lg', label: 'ที่เก็บ' }], productModal: null, adj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, formModal: null,
       rcv: { invoice: '', supplier: '', day: today, items: [] }, rcvSearch: '', rcvOpen: false,
       repDay: today, openFloat: '', cashCounted: '', closeNote: '',
       pinForm: { old: '', next: '' }, backupText: '',
