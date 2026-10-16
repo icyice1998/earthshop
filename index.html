@@ -179,7 +179,7 @@
         <div class="flex-1 overflow-y-auto p-3 pb-24 md:pb-3">
           <div v-if="posList.length === 0" class="text-center text-slate-400 py-10">ไม่พบรายการ ลองพิมพ์คำอื่น</div>
           <div class="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2">
-            <button v-for="p in posList" :key="p.id" class="tile" :class="availFor(p) <= 0 ? 'tile-out' : ''" @click="addToCart(p)">
+            <button v-for="p in posList" :key="p.id" class="tile" :class="availFor(p) <= 0 || p.banned ? 'tile-out' : ''" @click="addToCart(p)">
               <div>
                 <div class="text-xs text-slate-500">{{ p.code }}</div>
                 <div class="font-semibold leading-normal">{{ p.name }}</div>
@@ -628,7 +628,52 @@
 
     <!-- ============ ระบบบริหารจัดการยา ============ -->
     <section v-else-if="tab === 'manage'" class="h-full overflow-y-auto p-3">
-      <div class="grid gap-3 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
+      <div class="flex gap-2 mb-3">
+        <button class="chip" :class="mgMode === 'edit' ? 'chip-on' : ''" @click="mgMode = 'edit'">แก้ไขรายตัว</button>
+        <button class="chip" :class="mgMode === 'assign' ? 'chip-on' : ''" @click="bkOpen">กำหนดประเภทยา (หลายรายการ)</button>
+      </div>
+
+      <div v-if="mgMode === 'assign'" class="card p-4">
+        <div class="flex flex-wrap items-end gap-3 mb-3">
+          <div class="flex-1" style="min-width:14rem">
+            <label class="lbl" for="bk-type">กำหนดประเภทยา</label>
+            <select id="bk-type" :value="bkType" @change="bkInit($event.target.value)" class="inp" :disabled="bkDirty"><option v-for="fl in DRUG_FLAGS" :key="fl.k" :value="fl.k">{{ fl.label }}</option></select>
+          </div>
+          <div class="text-sm text-slate-500 pb-3">{{ bkCount }} รายการอยู่ในประเภทนี้<span v-if="bkDirty" class="text-amber-700 font-semibold"> · มีการเปลี่ยนแปลงที่ยังไม่บันทึก (บันทึกหรือยกเลิกก่อนเปลี่ยนประเภท)</span></div>
+        </div>
+        <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <div class="min-w-0">
+            <div class="font-semibold text-sm mb-1">สินค้าทั้งหมด (ยังไม่อยู่ในประเภทนี้) {{ bkLeft.length }}</div>
+            <input v-model="bkL" class="inp mb-2" placeholder="ค้นหา ชื่อ / รหัส" aria-label="ค้นหาสินค้าทั้งหมด">
+            <div class="rounded-xl border overflow-y-auto" style="border-color:var(--line);max-height:22rem">
+              <label v-for="p in bkLeft.slice(0, 300)" :key="p.id" class="flex items-center gap-2 px-3 py-2 border-b cursor-pointer" style="border-color:var(--line)"><input type="checkbox" v-model="bkSelL[p.id]" class="w-5 h-5 shrink-0"><span class="min-w-0 truncate"><span class="text-xs text-slate-500">{{ p.code }}</span> {{ p.name }}</span></label>
+              <div v-if="bkLeft.length === 0" class="p-4 text-center text-slate-400 text-sm">ไม่มีรายการ</div>
+              <div v-else-if="bkLeft.length > 300" class="p-2 text-center text-xs text-slate-400">แสดง 300 รายการแรก ใช้ช่องค้นหาเพื่อกรอง</div>
+            </div>
+          </div>
+          <div class="flex md:flex-col items-center justify-center gap-2">
+            <button class="btn btn-ghost !min-h-0 !py-2 !px-3" title="เพิ่มรายการที่เลือก" @click="bkAddSel">เพิ่มที่เลือก ›</button>
+            <button class="btn btn-ghost !min-h-0 !py-2 !px-3" title="เพิ่มทั้งหมดที่แสดง" @click="bkAddAll">เพิ่มทั้งหมด ››</button>
+            <button class="btn btn-ghost !min-h-0 !py-2 !px-3" title="เอารายการที่เลือกออก" @click="bkDelSel">‹ เอาออก</button>
+            <button class="btn btn-ghost !min-h-0 !py-2 !px-3" title="เอาทั้งหมดที่แสดงออก" @click="bkDelAll">‹‹ เอาออกทั้งหมด</button>
+          </div>
+          <div class="min-w-0">
+            <div class="font-semibold text-sm mb-1">อยู่ในประเภท "{{ bkLabel }}" {{ bkRight.length }}</div>
+            <input v-model="bkR" class="inp mb-2" placeholder="ค้นหา ชื่อ / รหัส" aria-label="ค้นหาในประเภทนี้">
+            <div class="rounded-xl border overflow-y-auto" style="border-color:var(--line);max-height:22rem">
+              <label v-for="p in bkRight.slice(0, 300)" :key="p.id" class="flex items-center gap-2 px-3 py-2 border-b cursor-pointer" style="border-color:var(--line)"><input type="checkbox" v-model="bkSelR[p.id]" class="w-5 h-5 shrink-0"><span class="min-w-0 truncate"><span class="text-xs text-slate-500">{{ p.code }}</span> {{ p.name }}</span></label>
+              <div v-if="bkRight.length === 0" class="p-4 text-center text-slate-400 text-sm">ยังไม่มีรายการ เลือกจากฝั่งซ้ายแล้วกด "เพิ่มที่เลือก"</div>
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-4 justify-end">
+          <button class="btn btn-ghost" :disabled="!bkDirty" @click="bkInit(bkType)">ยกเลิกการเปลี่ยน</button>
+          <button class="btn btn-pri" :disabled="!bkDirty" @click="bkSave">บันทึก</button>
+        </div>
+        <div class="text-xs text-slate-500 mt-2">ยาห้ามขายจะถูกกันไม่ให้ขายที่หน้าร้าน ส่วนยาที่ตั้ง "พิมพ์ฉลากยาอัตโนมัติ" จะพิมพ์ฉลากให้ทุกครั้งที่ขาย แม้ไม่ได้ติ๊กพิมพ์ฉลาก</div>
+      </div>
+
+      <div v-else class="grid gap-3 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
 
         <!-- รายการยา -->
         <div :class="mg ? 'hidden lg:block' : ''" class="card p-3">
@@ -676,7 +721,8 @@
                 <div class="col-span-2"><label class="lbl" for="mg-unit">หน่วยขาย</label><input id="mg-unit" v-model="mg.unit" class="inp"></div>
                 <div class="col-span-2"><label class="lbl" for="mg-bar">บาร์โค้ด</label><input id="mg-bar" v-model="mg.barcode" class="inp" inputmode="numeric"></div>
                 <div class="col-span-2"><label class="lbl" for="mg-loc">ที่เก็บ / ชั้นวาง</label><input id="mg-loc" v-model="mg.location" class="inp"></div>
-                <div class="col-span-2 sm:col-span-4"><label class="lbl" for="mg-sup">ผู้จำหน่าย</label><input id="mg-sup" v-model="mg.supplier" list="supplier-list" class="inp"></div>
+                <div class="col-span-2"><label class="lbl" for="mg-sup">ผู้จำหน่าย</label><input id="mg-sup" v-model="mg.supplier" list="supplier-list" class="inp"></div>
+                <div class="col-span-2"><label class="lbl" for="mg-reg">เลขที่ขึ้นทะเบียน</label><input id="mg-reg" v-model="mg.regNo" class="inp"></div>
                 <div class="col-span-2 sm:col-span-4"><label class="lbl" for="mg-note">หมายเหตุ</label><input id="mg-note" v-model="mg.note" class="inp"></div>
               </div>
               <label class="flex items-center gap-2 mt-3"><input type="checkbox" v-model="mg.active" class="w-5 h-5"> ใช้งาน (ไม่ติ๊ก = ซ่อนจากหน้าขายและคลัง)</label>
@@ -704,6 +750,7 @@
               </div>
               <div class="grid grid-cols-2 gap-3 mt-3">
                 <div><label class="lbl" for="mg-reorder">เตือนสต็อกเมื่อเหลือไม่เกิน</label><input id="mg-reorder" v-model.number="mg.reorder" type="number" inputmode="numeric" class="inp"></div>
+                <div><label class="lbl" for="mg-oq">สั่งซื้อครั้งละ</label><input id="mg-oq" v-model.number="mg.orderQty" type="number" inputmode="numeric" class="inp" placeholder="คิดให้อัตโนมัติ"></div>
                 <div><label class="lbl" for="mg-exp">เตือนก่อนหมดอายุ (วัน)</label><input id="mg-exp" v-model.number="mg.expWarnDays" type="number" inputmode="numeric" class="inp" :placeholder="'ตามค่ารวม ' + (S.settings.nearExpiryDays || 90)"></div>
               </div>
             </div>
@@ -738,6 +785,8 @@
               <div class="font-bold mb-3">ข้อมูลสำหรับฉลากยา</div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div class="sm:col-span-2"><label class="lbl" for="mg-usage">วิธีใช้ / ขนาดยา</label><input id="mg-usage" v-model="mg.usage" class="inp"></div>
+                <div><label class="lbl" for="mg-meal">เวลาที่ใช้</label><select id="mg-meal" v-model="mg.mealTime" class="inp"><option value="">ไม่กำหนด</option><option value="before">ก่อนอาหาร</option><option value="with">พร้อมอาหาร</option><option value="after">หลังอาหาร</option></select></div>
+                <div><label class="lbl" for="mg-stype">วิธีเก็บรักษา</label><select id="mg-stype" v-model="mg.storageType" class="inp"><option value="">ไม่กำหนด</option><option value="room">เก็บที่อุณหภูมิห้อง</option><option value="fridge">เก็บในตู้เย็น</option></select></div>
                 <div><label class="lbl" for="mg-ind">ข้อบ่งใช้</label><input id="mg-ind" v-model="mg.indication" class="inp"></div>
                 <div><label class="lbl" for="mg-sto">การเก็บรักษา</label><input id="mg-sto" v-model="mg.storage" class="inp"></div>
                 <div class="sm:col-span-2"><label class="lbl" for="mg-warn">คำเตือน</label><input id="mg-warn" v-model="mg.warning" class="inp"></div>
@@ -955,6 +1004,7 @@
           <input type="checkbox" v-model="printOpt.label" :disabled="!cartHasDrug" class="w-5 h-5"> <span class="font-semibold">พิมพ์ฉลากยา</span>
         </label>
       </div>
+      <div v-if="autoLabelCount && !backdate.on" class="text-xs mt-2" style="color:#3730a3">มี {{ autoLabelCount }} รายการที่ตั้งไว้ให้พิมพ์ฉลากยาอัตโนมัติ จะพิมพ์ฉลากของรายการเหล่านั้นให้เสมอ</div>
       <div style="position:sticky; bottom:0; background:#fff; padding-top:.75rem; margin-top:.5rem; padding-bottom:env(safe-area-inset-bottom)">
         <button class="btn btn-pri w-full text-lg" :disabled="!canPay" @click="confirmPay">ยืนยันรับเงินและตัดสต็อก</button>
       </div>
@@ -1504,7 +1554,7 @@
         <div style="font-weight:700;font-size:13pt">{{ l.name }}</div>
         <div v-if="l.generic" style="font-size:9.5pt">({{ l.generic }})</div>
         <div style="margin:1mm 0">จำนวน {{ l.qty }} {{ l.unit }}</div>
-        <div v-if="l.usage" style="font-weight:700;font-size:12pt">วิธีใช้: {{ l.usage }}</div>
+        <div v-if="l.usage || l.meal" style="font-weight:700;font-size:12pt">วิธีใช้: {{ l.usage }}<span v-if="l.meal"> ({{ l.meal }})</span></div>
         <div v-if="l.indication">ข้อบ่งใช้: {{ l.indication }}</div>
         <div v-if="l.warning" style="font-weight:600">คำเตือน: {{ l.warning }}</div>
         <div v-if="l.storage" style="font-size:9.5pt">เก็บ: {{ l.storage }}</div>
@@ -1526,12 +1576,20 @@ const CATS = ['แก้ปวด', 'หวัด/แพ้/ไอ', 'ฆ่า�
 const MOVE_LABEL = { opening: 'ยอดยกมา', receive: 'รับเข้า', sale: 'ขาย', void: 'คืนจากบิลที่ยกเลิก', adjust: 'ปรับสต็อก',
   unpack_out: 'แกะแบ่ง (ออก)', unpack_in: 'แกะแบ่ง (เข้า)', return: 'คืนผู้จำหน่าย', return_void: 'ยกเลิกใบคืน', issue: 'เบิกใช้', receipt_void: 'ยกเลิกบิลรับเข้า', cost_adjust: 'แก้ราคาทุนล็อต' }
 const DRUG_FLAGS = [
+  { k: 'banned', label: 'ยาห้ามขาย', style: 'background:#1f2937;color:#fff' },
   { k: 'danger', label: 'ยาอันตราย', style: 'background:#fee2e2;color:#b91c1c' },
+  { k: 'controlled', label: 'ยาควบคุมพิเศษ', style: 'background:#fef3c7;color:#92400e' },
+  { k: 'offsys', label: 'ยานอกระบบ', style: 'background:#e2e8f0;color:#334155' },
+  { k: 'otc', label: 'ยา OTC', style: 'background:#ccfbf1;color:#0f766e' },
+  { k: 'ky9n', label: 'ยาออกรายงาน ข.ย.9N', style: 'background:#fce7f3;color:#9d174d' },
+  { k: 'nontax', label: 'สินค้านอกระบบภาษี', style: 'background:#ffedd5;color:#9a3412' },
+  { k: 'autolabel', label: 'พิมพ์ฉลากยาอัตโนมัติ', style: 'background:#e0e7ff;color:#3730a3' },
   { k: 'ky8', label: 'ขย.8', style: 'background:#ede9fe;color:#5b21b6' },
   { k: 'ky11', label: 'ขย.11', style: 'background:#e0f2fe;color:#075985' },
-  { k: 'special', label: 'ยาใช้เฉพาะ', style: 'background:#dcfce7;color:#166534' },
-  { k: 'controlled', label: 'ควบคุมพิเศษ', style: 'background:#fef3c7;color:#92400e' }
+  { k: 'special', label: 'ยาใช้เฉพาะ', style: 'background:#dcfce7;color:#166534' }
 ]
+const MEAL_TIME = { before: 'ก่อนอาหาร', with: 'พร้อมอาหาร', after: 'หลังอาหาร' }
+const STORAGE_TYPE = { room: 'เก็บที่อุณหภูมิห้อง', fridge: 'เก็บในตู้เย็น' }
 const SEED = [
   ['01','ชุดคลายเส้น (3 เม็ด)','Diclofenac + piroxicam + norgesic','แก้ปวด','ชุด',1.6,5,0,0,'ยาชุด 1 ชุด = ยา 3 เม็ด (รหัส 46, 47, 48) ชุดละ 5 บาท ตัดสต็อกที่ยาแต่ละตัว'],
   ['02','Buflex แผง','Ibuprofen 400 mg','แก้ปวด','แผง',12,30,4,1,''],
@@ -1762,6 +1820,7 @@ const Logic = {
   // at = เวลาขายย้อนหลัง (ISO) / deduct=false ใช้บันทึกยอดขายอย่างเดียว ไม่ตัดสต็อก
   commitSale(S, { items, discount, method, received, at, deduct, memberId }) {
     if (!items.length) throw new Error('ตะกร้าว่าง')
+    for (const i of items) { const bp = i.pid ? S.products.find(x => x.id === i.pid) : null; if (bp && bp.banned) throw new Error(bp.name + ' เป็นยาห้ามขาย') }
     const stockOn = deduct !== false
     if (at && new Date(at).getTime() > Date.now() + 60000) throw new Error('เลือกวันที่ในอนาคตไม่ได้')
     if (stockOn) {
@@ -2278,6 +2337,7 @@ createApp({
                 { key: 'unit', cls: 'col-lg', label: 'หน่วย' }, { key: 'stock', label: 'คงเหลือ', num: true }, { key: 'cost', label: 'ทุน', num: true }, { key: 'price', label: 'ขาย', num: true },
                 { key: 'margin', cls: 'col-tab', label: 'กำไร%', num: true }, { key: 'exp', cls: 'col-tab', label: 'หมดอายุ' }, { key: 'barcode', cls: 'col-xl', label: 'บาร์โค้ด' }, { key: 'supplier', cls: 'col-xl', label: 'ผู้จำหน่าย' }, { key: 'location', cls: 'col-lg', label: 'ที่เก็บ' }], productModal: null, adj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, formModal: null,
       Logic: Vue.markRaw(Logic),
+      mgMode: 'edit', bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
       mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
       DRUG_FLAGS,
       rcvDupOk: false,
@@ -2296,6 +2356,7 @@ createApp({
     syncLabel() { return { saved: 'บันทึกแล้ว', saving: 'กำลังบันทึก...', dirty: 'รอบันทึก...', error: 'ยังไม่ได้บันทึก (ลองใหม่)', conflict: 'ข้อมูลไม่ตรงกับคลาวด์' }[this.syncState] || '' },
     syncColor() { return { saved: '#4ade80', saving: '#fbbf24', dirty: '#fbbf24', error: '#f87171', conflict: '#f87171' }[this.syncState] || '#4ade80' },
     activeProducts() { return this.S.products.filter(p => p.active !== false) },
+    autoLabelCount() { return this.cart.filter(i => { const p = i.pid && this.S.products.find(x => x.id === i.pid); return p && p.autolabel }).length },
     cartHasDrug() { return this.cart.some(i => i.pid) },
     mgRows() {
       const q = this.mgQ.trim().toLowerCase(), f = this.mgFilter
@@ -2311,6 +2372,18 @@ createApp({
       for (const p of this.S.products) { if (p.active === false) c.inactive++; else { c.all++; for (const f of DRUG_FLAGS) if (p[f.k]) c[f.k]++ } }
       return c
     },
+    bkBase() { return this.S.products.filter(p => p.active !== false) },
+    bkLeft() {
+      const q = this.bkL.trim().toLowerCase()
+      return this.bkBase.filter(p => !this.bkSet[p.id] && (!q || p.name.toLowerCase().includes(q) || (p.generic || '').toLowerCase().includes(q) || p.code.toLowerCase().includes(q))).sort((a, b) => String(a.code).localeCompare(String(b.code), 'th', { numeric: true }))
+    },
+    bkRight() {
+      const q = this.bkR.trim().toLowerCase()
+      return this.bkBase.filter(p => this.bkSet[p.id] && (!q || p.name.toLowerCase().includes(q) || (p.generic || '').toLowerCase().includes(q) || p.code.toLowerCase().includes(q))).sort((a, b) => String(a.code).localeCompare(String(b.code), 'th', { numeric: true }))
+    },
+    bkCount() { return Object.keys(this.bkSet).length },
+    bkDirty() { return this.bkBase.some(p => !!p[this.bkType] !== !!this.bkSet[p.id]) },
+    bkLabel() { const f = DRUG_FLAGS.find(x => x.k === this.bkType); return f ? f.label : '' },
     mgProduct() { return this.mgSel ? this.S.products.find(p => p.id === this.mgSel) || null : null },
     mgIsBundle() { return !!(this.mgProduct && this.mgProduct.bundle && this.mgProduct.bundle.length) },
     mgStock() { return this.mgProduct ? (this.stockMap[this.mgProduct.id] || 0) : 0 },
@@ -2720,6 +2793,7 @@ createApp({
     costOf(p) { return p.bundle && p.bundle.length ? R2(p.bundle.reduce((s, b) => { const c = this.S.products.find(x => x.id === b.pid); return s + (c ? c.cost * b.qty : 0) }, 0)) : p.cost },
     lineTotal(i) { return R2((Number(i.price) || 0) * i.qty) },
     addToCart(p) {
+      if (p.banned) return this.toast(p.name + ' เป็นยาห้ามขาย', 'bad')
       if (this.availFor(p) <= 0) {
         const parent = this.S.products.find(x => x.unpack && x.unpack.pid === p.id && (this.stockMap[x.id] || 0) > 0)
         return this.toast(parent ? 'หมดแล้ว แต่ยังมี ' + parent.name + ' อยู่ ' + this.stockMap[parent.id] + ' ' + parent.unit + ' ไปแกะแบ่งขายที่คลังสินค้าได้' : 'สต็อกหมดแล้ว ถ้าของจริงยังมี ให้ปรับสต็อกก่อน', 'bad')
@@ -2821,7 +2895,7 @@ createApp({
         const p = this.S.products.find(x => x.id === it.pid); if (!p) continue
         let exp = ''
         for (const a of it.allocs || []) { const l = this.S.lots.find(x => x.id === a.lotId); if (l && l.expiry && (!exp || l.expiry < exp)) exp = l.expiry }
-        out.push({ name: it.name, generic: p.generic || '', usage: p.usage || '', indication: p.indication || '', warning: p.warning || '', storage: p.storage || '', qty: it.qty, unit: it.unit || p.unit || '', exp })
+        out.push({ name: it.name, generic: p.generic || '', usage: p.usage || '', meal: MEAL_TIME[p.mealTime] || '', indication: p.indication || '', warning: p.warning || '', storage: p.storage || STORAGE_TYPE[p.storageType] || '', qty: it.qty, unit: it.unit || p.unit || '', exp, auto: !!p.autolabel })
       }
       return out
     },
@@ -2831,7 +2905,8 @@ createApp({
       this.printDoc = { sale, receipt: false, lines }; this.runPrint()
     },
     autoPrint(sale) {
-      const lines = this.printOpt.label ? this.labelLines(sale) : []
+      const all = this.labelLines(sale)
+      const lines = this.printOpt.label ? all : all.filter(l => l.auto)
       if (!this.printOpt.receipt && !lines.length) return
       this.printDoc = { sale, receipt: !!this.printOpt.receipt, lines }
       this.runPrint()
@@ -2869,9 +2944,34 @@ createApp({
         } catch (e) { this.toast(e.message, 'bad') }
       })
     },
+    bkInit(type) {
+      this.bkType = type || this.bkType
+      const m = {}; for (const p of this.S.products) if (p[this.bkType] && p.active !== false) m[p.id] = true
+      this.bkSet = m; this.bkSelL = {}; this.bkSelR = {}
+    },
+    bkOpen() { this.mgMode = 'assign'; this.bkInit(this.bkType) },
+    bkAddSel() { const m = { ...this.bkSet }; for (const id of Object.keys(this.bkSelL)) if (this.bkSelL[id]) m[id] = true; this.bkSet = m; this.bkSelL = {} },
+    bkAddAll() { const m = { ...this.bkSet }; for (const p of this.bkLeft) m[p.id] = true; this.bkSet = m; this.bkSelL = {} },
+    bkDelSel() { const m = { ...this.bkSet }; for (const id of Object.keys(this.bkSelR)) if (this.bkSelR[id]) delete m[id]; this.bkSet = m; this.bkSelR = {} },
+    bkDelAll() { const m = { ...this.bkSet }; for (const p of this.bkRight) delete m[p.id]; this.bkSet = m; this.bkSelR = {} },
+    bkSave() {
+      const f = DRUG_FLAGS.find(x => x.k === this.bkType); if (!f) return
+      let on = 0, off = 0
+      for (const p of this.S.products) {
+        if (p.active === false) continue
+        const want = !!this.bkSet[p.id]
+        if (!!p[f.k] === want) continue
+        p[f.k] = want; want ? on++ : off++
+        if (!p.log) p.log = []
+        p.log.push({ ts: new Date().toISOString(), by: ACTOR, text: f.label + ' ' + (want ? 'เพิ่ม' : 'เอาออก') + ' (กำหนดประเภทหลายรายการ)' })
+      }
+      this.bkInit(this.bkType)
+      this.toast('บันทึก "' + f.label + '" แล้ว (เพิ่ม ' + on + ', เอาออก ' + off + ')')
+    },
     mgDraft(p) {
       return { code: p.code, name: p.name, generic: p.generic || '', category: p.category || CATS[0], unit: p.unit || '', type: p.type || 'sell', barcode: p.barcode || '', supplier: p.supplier || '', location: p.location || '',
                note: p.note || '', price: p.price, cost: p.cost, reorder: p.reorder, expWarnDays: p.expWarnDays || '', active: p.active !== false,
+               regNo: p.regNo || '', orderQty: p.orderQty || '', mealTime: p.mealTime || '', storageType: p.storageType || '',
                flags: Object.fromEntries(DRUG_FLAGS.map(f => [f.k, !!p[f.k]])), usage: p.usage || '', indication: p.indication || '', warning: p.warning || '', storage: p.storage || '' }
     },
     mgInitLots() { const m = {}; for (const l of this.mgLotRows) m[l.id] = { qty: l.qtyLeft, cost: l.cost }; this.mgLots = m },
@@ -2899,6 +2999,7 @@ createApp({
       if (!(Number(d.cost) >= 0 || d.cost === '')) return this.toast('ราคาทุนไม่ถูกต้อง', 'bad')
       const next = { code: d.code.trim(), name: d.name.trim(), generic: d.generic.trim(), category: d.category, unit: d.unit.trim() || 'ชิ้น', type: d.type, barcode: bc, supplier: d.supplier.trim(), location: d.location.trim(),
         note: d.note.trim(), price: Number(d.price) || 0, reorder: Number(d.reorder) || 0, expWarnDays: Number(d.expWarnDays) || 0, active: !!d.active,
+        regNo: (d.regNo || '').trim(), orderQty: Math.floor(Number(d.orderQty)) || 0, mealTime: d.mealTime || '', storageType: d.storageType || '',
         usage: d.usage.trim(), indication: d.indication.trim(), warning: d.warning.trim(), storage: d.storage.trim() }
       if (!this.mgIsBundle) next.cost = Number(d.cost) || 0
       for (const f of DRUG_FLAGS) next[f.k] = !!d.flags[f.k]
@@ -3054,9 +3155,10 @@ createApp({
     },
 
     // ===== ใบสั่งซื้อ / ผู้จำหน่าย =====
+    orderQtyFor(p) { return Number(p.orderQty) > 0 ? Number(p.orderQty) : Math.max((Number(p.reorder) || 1) * 3 - (this.stockMap[p.id] || 0), 1) },
     addOrdItem(p) {
       if (this.ord.items.some(i => i.pid === p.id)) { this.ordSearch = ''; this.ordOpen = false; return this.toast('มีรายการนี้ในใบสั่งซื้อแล้ว', 'bad') }
-      this.ord.items.push({ pid: p.id, name: p.name, unit: p.unit, qty: Math.max((Number(p.reorder) || 1) * 3 - (this.stockMap[p.id] || 0), 1), unitCost: p.cost })
+      this.ord.items.push({ pid: p.id, name: p.name, unit: p.unit, qty: this.orderQtyFor(p), unitCost: p.cost })
       this.ordSearch = ''; this.ordOpen = false
     },
     suggestOrder() {
@@ -3064,7 +3166,7 @@ createApp({
       if (!k) return this.toast('ใส่ชื่อผู้จำหน่ายก่อน', 'bad')
       const list = this.sellProducts.filter(p => !(p.bundle && p.bundle.length) && Logic.supplierKey(p.supplier) === k && (this.stockMap[p.id] || 0) <= (Number(p.reorder) || 0))
       if (!list.length) return this.toast('ไม่มีสินค้าของผู้จำหน่ายนี้ที่ใกล้หมด (ตั้งชื่อผู้จำหน่ายที่สินค้าก่อน)', 'bad')
-      for (const p of list) if (!this.ord.items.some(i => i.pid === p.id)) this.ord.items.push({ pid: p.id, name: p.name, unit: p.unit, qty: Math.max((Number(p.reorder) || 1) * 3 - (this.stockMap[p.id] || 0), 1), unitCost: p.cost })
+      for (const p of list) if (!this.ord.items.some(i => i.pid === p.id)) this.ord.items.push({ pid: p.id, name: p.name, unit: p.unit, qty: this.orderQtyFor(p), unitCost: p.cost })
       this.toast('เพิ่ม ' + list.length + ' รายการที่ใกล้หมด')
     },
     saveOrder() {
