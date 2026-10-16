@@ -352,7 +352,7 @@
           <tbody>
             <tr v-for="r in invShown" :key="r.p.id" class="cursor-pointer hover:bg-teal-50" style="border-bottom:1px solid var(--line)" @click="openProduct(r.p)">
               <td class="p-2 whitespace-nowrap c-code">{{ r.p.code }}</td>
-              <td class="p-2 font-semibold c-name">{{ r.p.name }}<span v-if="r.p.type === 'supply'" class="tag ml-1" style="background:#e0e7ff;color:#3730a3">วัสดุ</span><span v-if="r.p.danger" class="tag ml-1" style="background:#fee2e2;color:#b91c1c">อันตราย</span><span v-if="r.p.controlled" class="tag ml-1" style="background:#fef3c7;color:#92400e">ควบคุม</span></td>
+              <td class="p-2 font-semibold c-name">{{ r.p.name }}<span v-if="r.p.type === 'supply'" class="tag ml-1" style="background:#e0e7ff;color:#3730a3">วัสดุ</span><span v-for="t in flagTags(r.p)" :key="t.k" class="tag ml-1" :style="t.style">{{ t.label }}</span></td>
               <td class="p-2 text-slate-500 col-xl" data-l="ชื่อสามัญ">{{ r.p.generic }}</td>
               <td class="p-2 whitespace-nowrap col-lg" data-l="หมวด">{{ r.p.category }}</td>
               <td class="p-2 whitespace-nowrap col-lg" data-l="หน่วย">{{ r.p.unit }}</td>
@@ -371,7 +371,7 @@
       <div v-if="invView !== 'table'" class="grid gap-2 md:grid-cols-2 xl:grid-cols-3 mb-2">
       <button v-for="r in invShown" :key="r.p.id" class="card w-full text-left p-3 flex items-center justify-between gap-3" @click="openProduct(r.p)">
         <div class="min-w-0">
-          <div class="font-semibold leading-normal">{{ r.p.name }}<span v-if="r.p.type === 'supply'" class="tag ml-1" style="background:#e0e7ff;color:#3730a3">วัสดุ</span><span v-if="r.p.danger" class="tag ml-1" style="background:#fee2e2;color:#b91c1c">อันตราย</span><span v-if="r.p.controlled" class="tag ml-1" style="background:#fef3c7;color:#92400e">ควบคุม</span></div>
+          <div class="font-semibold leading-normal">{{ r.p.name }}<span v-if="r.p.type === 'supply'" class="tag ml-1" style="background:#e0e7ff;color:#3730a3">วัสดุ</span><span v-for="t in flagTags(r.p)" :key="t.k" class="tag ml-1" :style="t.style">{{ t.label }}</span></div>
           <div class="text-xs text-slate-500 truncate">{{ r.p.code }} &nbsp;{{ r.p.generic }}<span v-if="r.p.location"> &nbsp;📍{{ r.p.location }}</span></div>
           <div class="text-xs mt-1">
             <span class="text-slate-500">ขาย ฿{{ money(r.p.price) }}</span>
@@ -621,6 +621,138 @@
           <div v-if="retDetailId === r.id" class="mt-2 pt-2 border-t text-sm" style="border-color:var(--line)" @click.stop>
             <div v-for="(it, i) in r.items" :key="i" class="flex justify-between py-1"><span>{{ it.name }} ล็อต {{ it.lotNo || '-' }} × {{ it.qty }}</span><span class="num">฿{{ money(it.qty * it.unitCost) }}</span></div>
             <button v-if="r.status !== 'void'" class="btn btn-badline w-full mt-2" @click="askVoidReturn(r)">ยกเลิกใบคืน (ต้องใส่รหัสผ่าน)</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ระบบบริหารจัดการยา ============ -->
+    <section v-else-if="tab === 'manage'" class="h-full overflow-y-auto p-3">
+      <div class="grid gap-3 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
+
+        <!-- รายการยา -->
+        <div :class="mg ? 'hidden lg:block' : ''" class="card p-3">
+          <input v-model="mgQ" class="inp mb-2" placeholder="ค้นหาชื่อ / ชื่อสามัญ / รหัส / บาร์โค้ด / ผู้จำหน่าย" autocomplete="off">
+          <div class="flex gap-2 overflow-x-auto pb-2">
+            <button class="chip" :class="mgFilter === 'all' ? 'chip-on' : ''" @click="mgFilter = 'all'">ทั้งหมด {{ mgCounts.all }}</button>
+            <button v-for="fl in DRUG_FLAGS" :key="fl.k" class="chip" :class="mgFilter === fl.k ? 'chip-on' : ''" @click="mgFilter = fl.k">{{ fl.label }} {{ mgCounts[fl.k] }}</button>
+            <button class="chip" :class="mgFilter === 'inactive' ? 'chip-on' : ''" @click="mgFilter = 'inactive'">ปิดใช้งาน {{ mgCounts.inactive }}</button>
+          </div>
+          <div v-if="mgRows.length === 0" class="text-center text-slate-400 py-8">ไม่พบรายการ</div>
+          <div class="lg:max-h-[calc(100dvh-17rem)] lg:overflow-y-auto">
+            <button v-for="p in mgRows.slice(0, mgLimit)" :key="p.id" class="w-full text-left p-2 border-b flex items-center justify-between gap-2" style="border-color:var(--line)" :style="mgSel === p.id ? 'background:#eef7f5' : ''" @click="mgSelect(p)">
+              <span class="min-w-0">
+                <span class="block font-semibold truncate">{{ p.name }}<span v-if="p.active === false" class="tag ml-1" style="background:#e2e8f0">ปิดใช้งาน</span></span>
+                <span class="block text-xs text-slate-500 truncate">{{ p.code }} · {{ p.generic }}</span>
+                <span v-if="flagTags(p).length" class="block mt-1"><span v-for="t in flagTags(p)" :key="t.k" class="tag mr-1" :style="t.style">{{ t.label }}</span></span>
+              </span>
+              <span class="text-right shrink-0">
+                <span class="block font-bold num" :class="(stockMap[p.id] || 0) <= 0 && !p.bundle && p.type !== 'supply' ? 'text-red-600' : ''">{{ stockMap[p.id] || 0 }}</span>
+                <span class="block text-xs text-slate-500 num">฿{{ money(p.price) }}</span>
+              </span>
+            </button>
+            <div v-if="mgRows.length > mgLimit" class="text-center py-3"><button class="btn btn-ghost" @click="mgLimit += 50">แสดงเพิ่ม ({{ mgLimit }} / {{ mgRows.length }})</button></div>
+          </div>
+          <button class="btn btn-ghost w-full mt-3" @click="openForm(null)">+ เพิ่มสินค้าใหม่</button>
+        </div>
+
+        <!-- ตัวแก้ไข -->
+        <div id="mg-editor" :class="mg ? '' : 'hidden lg:block'" class="min-w-0">
+          <div v-if="!mg" class="card p-8 text-center text-slate-400">เลือกยาจากรายการเพื่อแก้ไขรายละเอียด ปรับสต็อก ราคา และชนิดยา</div>
+          <div v-else class="pb-24">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <button class="btn btn-ghost !min-h-0 !py-2 lg:hidden" @click="mgBack">&lsaquo; กลับไปรายการ</button>
+              <div class="font-bold text-lg min-w-0 truncate">{{ mgProduct.name }}</div>
+              <div class="text-sm text-slate-500 whitespace-nowrap">คงเหลือ <b class="num text-slate-800">{{ mgStock }}</b> {{ mgProduct.unit }}</div>
+            </div>
+
+            <div class="card p-4 mb-3">
+              <div class="font-bold mb-3">ข้อมูลทั่วไป</div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div><label class="lbl" for="mg-code">รหัส</label><input id="mg-code" v-model="mg.code" class="inp"></div>
+                <div class="col-span-2 sm:col-span-3"><label class="lbl" for="mg-name">ชื่อการค้า</label><input id="mg-name" v-model="mg.name" class="inp"></div>
+                <div class="col-span-2 sm:col-span-4"><label class="lbl" for="mg-generic">ชื่อสามัญ</label><input id="mg-generic" v-model="mg.generic" class="inp"></div>
+                <div class="col-span-2"><label class="lbl" for="mg-cat">หมวด</label><select id="mg-cat" v-model="mg.category" class="inp"><option v-for="c in CATS" :key="c">{{ c }}</option></select></div>
+                <div class="col-span-2"><label class="lbl" for="mg-unit">หน่วยขาย</label><input id="mg-unit" v-model="mg.unit" class="inp"></div>
+                <div class="col-span-2"><label class="lbl" for="mg-bar">บาร์โค้ด</label><input id="mg-bar" v-model="mg.barcode" class="inp" inputmode="numeric"></div>
+                <div class="col-span-2"><label class="lbl" for="mg-loc">ที่เก็บ / ชั้นวาง</label><input id="mg-loc" v-model="mg.location" class="inp"></div>
+                <div class="col-span-2 sm:col-span-4"><label class="lbl" for="mg-sup">ผู้จำหน่าย</label><input id="mg-sup" v-model="mg.supplier" list="supplier-list" class="inp"></div>
+                <div class="col-span-2 sm:col-span-4"><label class="lbl" for="mg-note">หมายเหตุ</label><input id="mg-note" v-model="mg.note" class="inp"></div>
+              </div>
+              <label class="flex items-center gap-2 mt-3"><input type="checkbox" v-model="mg.active" class="w-5 h-5"> ใช้งาน (ไม่ติ๊ก = ซ่อนจากหน้าขายและคลัง)</label>
+            </div>
+
+            <div class="card p-4 mb-3">
+              <div class="font-bold mb-3">ราคา</div>
+              <div class="grid grid-cols-2 gap-3">
+                <div><label class="lbl" for="mg-price">ราคาขาย (บาท)</label><input id="mg-price" v-model.number="mg.price" type="number" inputmode="decimal" class="inp" :disabled="mg.type === 'supply'"></div>
+                <div><label class="lbl" for="mg-cost">ราคาทุนล่าสุด (บาท)</label><input id="mg-cost" v-model.number="mg.cost" type="number" inputmode="decimal" class="inp" :disabled="mgIsBundle"></div>
+              </div>
+              <div class="grid grid-cols-2 gap-3 mt-3 text-center">
+                <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">กำไรต่อหน่วย</div><div class="font-bold num">{{ mgMargin === null ? '-' : '฿' + money(mg.price - (Number(mg.cost) || 0)) + ' (' + mgMargin + '%)' }}</div></div>
+                <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ทุนเฉลี่ยของที่เหลือ</div><div class="font-bold num">{{ !mgIsBundle && Logic.avgCost(S, mgProduct.id) !== null ? '฿' + money(Logic.avgCost(S, mgProduct.id)) : '-' }}</div></div>
+              </div>
+              <div class="text-xs text-slate-500 mt-2">{{ mgIsBundle ? 'ยาชุด ทุนคิดจากตัวยาในชุดอัตโนมัติ' : 'ราคาทุนล่าสุดใช้เป็นค่าตั้งต้นตอนรับของและตอนปรับสต็อกเพิ่ม ไม่เปลี่ยนทุนของล็อตที่มีอยู่ ถ้าจะแก้ทุนของล็อต ให้แก้ในตารางล็อตด้านล่าง' }}</div>
+            </div>
+
+            <div class="card p-4 mb-3">
+              <div class="font-bold mb-3">ชนิดยา</div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <label v-for="fl in DRUG_FLAGS" :key="fl.k" class="flex items-center gap-2 p-3 rounded-xl cursor-pointer" style="border:1.5px solid var(--line)" :style="mg.flags[fl.k] ? 'background:#eef7f5;border-color:var(--pine)' : ''">
+                  <input type="checkbox" v-model="mg.flags[fl.k]" class="w-5 h-5"> <span class="font-semibold">{{ fl.label }}</span>
+                </label>
+              </div>
+              <div class="grid grid-cols-2 gap-3 mt-3">
+                <div><label class="lbl" for="mg-reorder">เตือนสต็อกเมื่อเหลือไม่เกิน</label><input id="mg-reorder" v-model.number="mg.reorder" type="number" inputmode="numeric" class="inp"></div>
+                <div><label class="lbl" for="mg-exp">เตือนก่อนหมดอายุ (วัน)</label><input id="mg-exp" v-model.number="mg.expWarnDays" type="number" inputmode="numeric" class="inp" :placeholder="'ตามค่ารวม ' + (S.settings.nearExpiryDays || 90)"></div>
+              </div>
+            </div>
+
+            <div v-if="!mgIsBundle && mg.type !== 'supply'" class="card p-4 mb-3">
+              <div class="font-bold mb-3">ปรับสต็อก</div>
+              <label class="lbl" for="mg-reason">เหตุผล</label>
+              <select id="mg-reason" v-model="mgAdj.reason" class="inp mb-2">
+                <option>นับสต็อกไม่ตรง</option><option>ยาหมดอายุ ทิ้ง</option><option>ยาเสียหาย</option><option>แจกตัวอย่าง / ใช้เอง</option><option>บันทึกยอดผิดพลาด</option><option>อื่นๆ</option>
+              </select>
+              <input v-model="mgAdj.note" class="inp mb-3" placeholder="หมายเหตุ (ถ้ามี)">
+              <div class="font-semibold text-sm mb-2">ปรับยอดรวม (ตัดล็อตที่ใกล้หมดอายุก่อน หรือเพิ่มเป็นล็อตใหม่)</div>
+              <div class="flex items-center gap-3 flex-wrap">
+                <input v-model.number="mgAdj.counted" type="number" inputmode="numeric" class="inp !w-32 text-center font-bold" aria-label="จำนวนที่นับได้">
+                <div class="text-sm" :class="mgDiff === 0 ? 'text-slate-500' : (mgDiff > 0 ? 'text-green-700' : 'text-red-600')">{{ mgDiff === 0 ? 'เท่ากับยอดในระบบ' : (mgDiff > 0 ? 'เพิ่ม ' : 'ลด ') + Math.abs(mgDiff) + ' ' + mgProduct.unit }}</div>
+                <button class="btn btn-dark ml-auto" :disabled="mgDiff === 0" @click="mgAdjustTotal">ปรับสต็อก (ใส่รหัสผ่าน)</button>
+              </div>
+
+              <div class="font-semibold text-sm mt-5 mb-2">แก้รายล็อต (จำนวนและราคาทุนของล็อต)</div>
+              <div v-if="mgLotRows.length === 0" class="text-sm text-slate-400">ไม่มีล็อตที่มีของเหลือ</div>
+              <div v-for="l in mgLotRows" :key="l.id" class="p-3 mb-2 rounded-xl border" style="border-color:var(--line);background:#f8fbfa">
+                <div class="text-sm font-semibold">ล็อต {{ l.lotNo || 'ไม่ระบุ' }} <span class="font-normal text-slate-500">· {{ l.expiry ? 'หมดอายุ ' + fmtExp(l.expiry) : 'ไม่ระบุวันหมดอายุ' }} · รับ {{ fmtDay(dayKey(new Date(l.receivedAt))) }} · {{ l.source === 'receive' ? 'รับเข้า' : (l.source === 'opening' ? 'ยอดยกมา' : 'ปรับสต็อก') }}</span></div>
+                <div v-if="mgLots[l.id]" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 items-end">
+                  <div><label class="lbl">จำนวนคงเหลือ</label><input v-model.number="mgLots[l.id].qty" type="number" inputmode="numeric" class="inp"></div>
+                  <div><label class="lbl">ราคาทุน/{{ mgProduct.unit }}</label><input v-model.number="mgLots[l.id].cost" type="number" inputmode="decimal" class="inp"></div>
+                  <button class="btn btn-ghost col-span-2 sm:col-span-1" @click="mgLotSave(l)">บันทึกล็อต (ใส่รหัสผ่าน)</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card p-4 mb-3">
+              <div class="font-bold mb-3">ข้อมูลสำหรับฉลากยา</div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="sm:col-span-2"><label class="lbl" for="mg-usage">วิธีใช้ / ขนาดยา</label><input id="mg-usage" v-model="mg.usage" class="inp"></div>
+                <div><label class="lbl" for="mg-ind">ข้อบ่งใช้</label><input id="mg-ind" v-model="mg.indication" class="inp"></div>
+                <div><label class="lbl" for="mg-sto">การเก็บรักษา</label><input id="mg-sto" v-model="mg.storage" class="inp"></div>
+                <div class="sm:col-span-2"><label class="lbl" for="mg-warn">คำเตือน</label><input id="mg-warn" v-model="mg.warning" class="inp"></div>
+              </div>
+            </div>
+
+            <div v-if="mgLog.length" class="card p-4 mb-3">
+              <div class="font-bold mb-2">ประวัติการแก้ไขข้อมูล</div>
+              <div v-for="(h, i) in mgLog" :key="i" class="text-xs text-slate-600 py-1 border-b" style="border-color:var(--line)">{{ fmtDay(dayKey(new Date(h.ts))) }} {{ fmtTime(h.ts) }} {{ h.by }}: {{ h.text }}</div>
+            </div>
+            <button class="btn btn-ghost w-full mb-3" @click="openForm(mgProduct)">แก้ไขชุดยา / แกะแบ่งขาย...</button>
+
+            <div class="fixed left-0 right-0 bottom-0 z-30 p-3 bg-white border-t md:static md:border-0 md:p-0" style="border-color:var(--line);padding-bottom:calc(.75rem + env(safe-area-inset-bottom, 0px))" :style="mgChanged() ? '' : 'display:none'">
+              <button class="btn btn-pri w-full" @click="mgSave">บันทึกการแก้ไข</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1020,14 +1152,11 @@
           <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ราคาขาย</div><div class="text-xl font-bold num">฿{{ money(curProduct.price) }}</div></div>
           <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ทุนล่าสุด</div><div class="text-xl font-bold num">฿{{ money(costOf(curProduct)) }}</div><div v-if="!curProduct.bundle && Logic.avgCost(S, curProduct.id) !== null" class="text-xs text-slate-500">เฉลี่ยคงเหลือ ฿{{ money(Logic.avgCost(S, curProduct.id)) }}</div></div>
         </div>
-        <div v-if="curProduct.barcode || curProduct.supplier || curProduct.location || curProduct.danger || curProduct.controlled" class="text-sm p-3 rounded-lg grid grid-cols-2 gap-x-3 gap-y-1" style="background:#f8fafc;border:1px solid var(--line)">
+        <div v-if="curProduct.barcode || curProduct.supplier || curProduct.location || flagTags(curProduct).length" class="text-sm p-3 rounded-lg grid grid-cols-2 gap-x-3 gap-y-1" style="background:#f8fafc;border:1px solid var(--line)">
           <div v-if="curProduct.barcode"><span class="text-slate-500">บาร์โค้ด</span> {{ curProduct.barcode }}</div>
           <div v-if="curProduct.location"><span class="text-slate-500">ที่เก็บ</span> {{ curProduct.location }}</div>
           <div v-if="curProduct.supplier" class="col-span-2"><span class="text-slate-500">ผู้จำหน่าย</span> {{ curProduct.supplier }}</div>
-          <div v-if="curProduct.danger || curProduct.controlled" class="col-span-2">
-            <span v-if="curProduct.danger" class="tag" style="background:#fee2e2;color:#b91c1c">ยาอันตราย</span>
-            <span v-if="curProduct.controlled" class="tag ml-1" style="background:#fef3c7;color:#92400e">ยาควบคุมพิเศษ / เฝ้าระวัง</span>
-          </div>
+          <div v-if="flagTags(curProduct).length" class="col-span-2"><span v-for="t in flagTags(curProduct)" :key="t.k" class="tag mr-1" :style="t.style">{{ t.label }}</span></div>
         </div>
         <div v-if="curProduct.note" class="text-sm p-3 rounded-lg" style="background:#f8fafc;border:1px solid var(--line)">{{ curProduct.note }}</div>
         <div v-if="curProduct.usage || curProduct.indication || curProduct.warning || curProduct.storage" class="text-sm p-3 rounded-lg" style="background:#f0fdf4;border:1px solid #bbf7d0">
@@ -1113,8 +1242,7 @@
         <div><label class="lbl">บาร์โค้ด</label><input v-model="formModal.barcode" class="inp" inputmode="numeric" placeholder="ยิงหรือพิมพ์เลขบาร์โค้ด"></div>
         <div><label class="lbl">ที่เก็บ / ชั้นวาง</label><input v-model="formModal.location" class="inp" placeholder="เช่น ชั้น A2"></div>
         <div class="col-span-2"><label class="lbl">ผู้จำหน่าย</label><input v-model="formModal.supplier" class="inp" placeholder="ไม่บังคับ"></div>
-        <label class="flex items-center gap-2"><input type="checkbox" v-model="formModal.danger" class="w-5 h-5"> ยาอันตราย</label>
-        <label class="flex items-center gap-2"><input type="checkbox" v-model="formModal.controlled" class="w-5 h-5"> ยาควบคุมพิเศษ / เฝ้าระวัง</label>
+        <label v-for="fl in DRUG_FLAGS" :key="fl.k" class="flex items-center gap-2"><input type="checkbox" v-model="formModal.flags[fl.k]" class="w-5 h-5"> {{ fl.label }}</label>
       </div>
       <label class="lbl">หมายเหตุ</label><input v-model="formModal.note" class="inp mb-3">
       <label class="lbl">ประเภท</label>
@@ -1396,7 +1524,14 @@
    ===================================================================== */
 const CATS = ['แก้ปวด', 'หวัด/แพ้/ไอ', 'ฆ่าเชื้อ', 'ยาตา', 'กระเพาะ/ท้อง', 'ผิวหนัง', 'อาหารเสริม', 'อื่นๆ']
 const MOVE_LABEL = { opening: 'ยอดยกมา', receive: 'รับเข้า', sale: 'ขาย', void: 'คืนจากบิลที่ยกเลิก', adjust: 'ปรับสต็อก',
-  unpack_out: 'แกะแบ่ง (ออก)', unpack_in: 'แกะแบ่ง (เข้า)', return: 'คืนผู้จำหน่าย', return_void: 'ยกเลิกใบคืน', issue: 'เบิกใช้', receipt_void: 'ยกเลิกบิลรับเข้า' }
+  unpack_out: 'แกะแบ่ง (ออก)', unpack_in: 'แกะแบ่ง (เข้า)', return: 'คืนผู้จำหน่าย', return_void: 'ยกเลิกใบคืน', issue: 'เบิกใช้', receipt_void: 'ยกเลิกบิลรับเข้า', cost_adjust: 'แก้ราคาทุนล็อต' }
+const DRUG_FLAGS = [
+  { k: 'danger', label: 'ยาอันตราย', style: 'background:#fee2e2;color:#b91c1c' },
+  { k: 'ky8', label: 'ขย.8', style: 'background:#ede9fe;color:#5b21b6' },
+  { k: 'ky11', label: 'ขย.11', style: 'background:#e0f2fe;color:#075985' },
+  { k: 'special', label: 'ยาใช้เฉพาะ', style: 'background:#dcfce7;color:#166534' },
+  { k: 'controlled', label: 'ควบคุมพิเศษ', style: 'background:#fef3c7;color:#92400e' }
+]
 const SEED = [
   ['01','ชุดคลายเส้น (3 เม็ด)','Diclofenac + piroxicam + norgesic','แก้ปวด','ชุด',1.6,5,0,0,'ยาชุด 1 ชุด = ยา 3 เม็ด (รหัส 46, 47, 48) ชุดละ 5 บาท ตัดสต็อกที่ยาแต่ละตัว'],
   ['02','Buflex แผง','Ibuprofen 400 mg','แก้ปวด','แผง',12,30,4,1,''],
@@ -1806,6 +1941,27 @@ const Logic = {
     }
     return diff
   },
+  adjustLot(S, lotId, newQty, reason, note) {
+    const lot = S.lots.find(l => l.id === lotId)
+    if (!lot) throw new Error('ไม่พบล็อต')
+    newQty = Math.floor(Number(newQty))
+    if (!(newQty >= 0)) throw new Error('จำนวนไม่ถูกต้อง')
+    const diff = newQty - lot.qtyLeft
+    if (diff === 0) throw new Error('จำนวนเท่าเดิม')
+    lot.qtyLeft = newQty
+    S.movements.push({ id: uid(), ts: new Date().toISOString(), pid: lot.pid, type: 'adjust', qty: diff, lotId: lot.id, ref: '', note: (reason || '') + (note ? ' - ' + note : '') + ' (ล็อต ' + (lot.lotNo || '-') + ')', by: ACTOR })
+    return diff
+  },
+  adjustLotCost(S, lotId, newCost) {
+    const lot = S.lots.find(l => l.id === lotId)
+    if (!lot) throw new Error('ไม่พบล็อต')
+    const c = R4(newCost)
+    if (!(c >= 0)) throw new Error('ราคาทุนไม่ถูกต้อง')
+    if (c === lot.cost) throw new Error('ราคาทุนเท่าเดิม')
+    const old = lot.cost
+    lot.cost = c
+    S.movements.push({ id: uid(), ts: new Date().toISOString(), pid: lot.pid, type: 'cost_adjust', qty: 0, lotId: lot.id, ref: '', note: 'ทุน ' + old + ' → ' + c + ' (ล็อต ' + (lot.lotNo || '-') + ')', by: ACTOR })
+  },
   lotOfRow(S, rc, row) {
     return S.lots.find(l => l.id === row.lotId) || S.lots.find(l => l.pid === row.pid && l.source === 'receive' && l.receivedAt === rc.ts) || null
   },
@@ -2106,7 +2262,7 @@ createApp({
       groups: [
         { id: 'shop', name: 'หน้าร้าน', short: 'หน้าร้าน', subs: [{ id: 'pos', name: 'ขาย' }, { id: 'report', name: 'ปิดวัน' }, { id: 'history', name: 'บิลการขาย' }] },
         { id: 'members', name: 'ระบบสมาชิก', short: 'สมาชิก', subs: [{ id: 'members', name: 'สมาชิก' }] },
-        { id: 'stock', name: 'คลังสินค้า / เบิกวัสดุ', short: 'คลังสินค้า', subs: [{ id: 'stock', name: 'คลังสินค้า' }, { id: 'supplies', name: 'เบิกวัสดุ' }] },
+        { id: 'stock', name: 'คลังสินค้า / เบิกวัสดุ', short: 'คลังสินค้า', subs: [{ id: 'stock', name: 'คลังสินค้า' }, { id: 'supplies', name: 'เบิกวัสดุ' }, { id: 'manage', name: 'ระบบบริหารจัดการยา' }] },
         { id: 'receive', name: 'ระบบรับเข้า / ส่งคืนสินค้า', short: 'รับเข้า/คืน', subs: [{ id: 'receive', name: 'รับเข้า / ส่งคืน' }] },
         { id: 'settings', name: 'ตั้งค่า', short: 'ตั้งค่า', subs: [{ id: 'settings', name: 'ตั้งค่า' }] }],
       tab: 'pos',
@@ -2122,6 +2278,8 @@ createApp({
                 { key: 'unit', cls: 'col-lg', label: 'หน่วย' }, { key: 'stock', label: 'คงเหลือ', num: true }, { key: 'cost', label: 'ทุน', num: true }, { key: 'price', label: 'ขาย', num: true },
                 { key: 'margin', cls: 'col-tab', label: 'กำไร%', num: true }, { key: 'exp', cls: 'col-tab', label: 'หมดอายุ' }, { key: 'barcode', cls: 'col-xl', label: 'บาร์โค้ด' }, { key: 'supplier', cls: 'col-xl', label: 'ผู้จำหน่าย' }, { key: 'location', cls: 'col-lg', label: 'ที่เก็บ' }], productModal: null, adj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, formModal: null,
       Logic: Vue.markRaw(Logic),
+      mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
+      DRUG_FLAGS,
       rcvDupOk: false,
       rcv: { invoice: '', supplier: '', day: today, items: [], discount: '', invoiceTotal: '', orderId: '' }, rcvSearch: '', rcvOpen: false,
       ord: { supplier: '', day: today, note: '', items: [] }, ordSearch: '', ordOpen: false, ordFilter: 'active', orderModalId: null, vendorOpen: false, vendorNew: '',
@@ -2139,6 +2297,27 @@ createApp({
     syncColor() { return { saved: '#4ade80', saving: '#fbbf24', dirty: '#fbbf24', error: '#f87171', conflict: '#f87171' }[this.syncState] || '#4ade80' },
     activeProducts() { return this.S.products.filter(p => p.active !== false) },
     cartHasDrug() { return this.cart.some(i => i.pid) },
+    mgRows() {
+      const q = this.mgQ.trim().toLowerCase(), f = this.mgFilter
+      return this.S.products.filter(p => {
+        if (f === 'inactive' ? p.active !== false : p.active === false) return false
+        if (f !== 'all' && f !== 'inactive' && !p[f]) return false
+        return !q || p.name.toLowerCase().includes(q) || (p.generic || '').toLowerCase().includes(q) || p.code.toLowerCase().includes(q) || (p.barcode || '').includes(q) || (p.supplier || '').toLowerCase().includes(q)
+      }).slice().sort((a, b) => String(a.code).localeCompare(String(b.code), 'th', { numeric: true }))
+    },
+    mgCounts() {
+      const c = { all: 0, inactive: 0 }
+      for (const f of DRUG_FLAGS) c[f.k] = 0
+      for (const p of this.S.products) { if (p.active === false) c.inactive++; else { c.all++; for (const f of DRUG_FLAGS) if (p[f.k]) c[f.k]++ } }
+      return c
+    },
+    mgProduct() { return this.mgSel ? this.S.products.find(p => p.id === this.mgSel) || null : null },
+    mgIsBundle() { return !!(this.mgProduct && this.mgProduct.bundle && this.mgProduct.bundle.length) },
+    mgStock() { return this.mgProduct ? (this.stockMap[this.mgProduct.id] || 0) : 0 },
+    mgDiff() { return this.mgProduct ? (Math.floor(Number(this.mgAdj.counted)) || 0) - this.mgStock : 0 },
+    mgLotRows() { return this.mgProduct ? this.S.lots.filter(l => l.pid === this.mgProduct.id && l.qtyLeft > 0).sort((a, b) => (a.expiry || '9999').localeCompare(b.expiry || '9999') || a.receivedAt.localeCompare(b.receivedAt)) : [] },
+    mgMargin() { const d = this.mg; return d && Number(d.price) > 0 ? Math.round((d.price - (Number(d.cost) || 0)) / d.price * 100) : null },
+    mgLog() { return this.mgProduct && this.mgProduct.log ? this.mgProduct.log.slice(-8).reverse() : [] },
     curGroup() { return this.groups.find(g => g.subs.some(t => t.id === this.tab)) || this.groups[0] },
     stockMap() {
       const m = {}
@@ -2195,8 +2374,9 @@ createApp({
     curSale() { return this.S.sales.find(s => s.id === this.saleDetailId) || null },
 
     invAll() {
-      const nd = Number(this.S.settings.nearExpiryDays) || 90
+      const gnd = Number(this.S.settings.nearExpiryDays) || 90
       return this.activeProducts.map(p => {
+        const nd = Number(p.expWarnDays) || gnd
         const stock = this.stockMap[p.id] || 0, exp = this.expiryMap[p.id] || ''
         const days = exp ? daysUntil(exp) : null
         const kit = !!(p.bundle && p.bundle.length)
@@ -2319,6 +2499,9 @@ createApp({
 
   watch: {
     printOpt: { deep: true, handler(v) { try { localStorage.setItem('knockdown_print_opt', JSON.stringify(v)) } catch (e) { /* ignore */ } } },
+    formModal(v) { if (!v && this.mgSel && this.mgProduct) this.mg = this.mgDraft(this.mgProduct) },
+    mgQ() { this.mgLimit = 50 },
+    mgFilter() { this.mgLimit = 50 },
     invSearch() { this.invLimit = 50 },
     invFilter() { this.invLimit = 50 },
     S: {
@@ -2686,6 +2869,80 @@ createApp({
         } catch (e) { this.toast(e.message, 'bad') }
       })
     },
+    mgDraft(p) {
+      return { code: p.code, name: p.name, generic: p.generic || '', category: p.category || CATS[0], unit: p.unit || '', type: p.type || 'sell', barcode: p.barcode || '', supplier: p.supplier || '', location: p.location || '',
+               note: p.note || '', price: p.price, cost: p.cost, reorder: p.reorder, expWarnDays: p.expWarnDays || '', active: p.active !== false,
+               flags: Object.fromEntries(DRUG_FLAGS.map(f => [f.k, !!p[f.k]])), usage: p.usage || '', indication: p.indication || '', warning: p.warning || '', storage: p.storage || '' }
+    },
+    mgInitLots() { const m = {}; for (const l of this.mgLotRows) m[l.id] = { qty: l.qtyLeft, cost: l.cost }; this.mgLots = m },
+    mgSelect(p) {
+      this.mgSel = p.id; this.mg = this.mgDraft(p)
+      this.mgAdj = { counted: this.stockMap[p.id] || 0, reason: 'นับสต็อกไม่ตรง', note: '' }
+      this.mgInitLots()
+      this.$nextTick(() => { const el = document.getElementById('mg-editor'); if (el && window.innerWidth < 1024) el.scrollIntoView({ block: 'start' }) })
+    },
+    mgBack() { this.mgSel = null; this.mg = null },
+    mgChanged() {
+      const p = this.mgProduct, d = this.mg
+      if (!p || !d) return false
+      return JSON.stringify(d) !== JSON.stringify(this.mgDraft(p))
+    },
+    mgSave() {
+      const p = this.mgProduct, d = this.mg
+      if (!p || !d) return
+      if (!d.name.trim()) return this.toast('ใส่ชื่อสินค้าก่อน', 'bad')
+      if (!d.code.trim()) return this.toast('ใส่รหัสสินค้าก่อน', 'bad')
+      if (this.S.products.some(x => x.code === d.code.trim() && x.id !== p.id)) return this.toast('รหัสนี้ถูกใช้แล้ว', 'bad')
+      const bc = (d.barcode || '').trim()
+      if (bc && this.S.products.some(x => x.barcode === bc && x.id !== p.id)) return this.toast('บาร์โค้ดนี้ถูกใช้กับสินค้าอื่นแล้ว', 'bad')
+      if (d.type !== 'supply' && (d.price === '' || !(Number(d.price) >= 0))) return this.toast('ใส่ราคาขายให้ถูกต้อง', 'bad')
+      if (!(Number(d.cost) >= 0 || d.cost === '')) return this.toast('ราคาทุนไม่ถูกต้อง', 'bad')
+      const next = { code: d.code.trim(), name: d.name.trim(), generic: d.generic.trim(), category: d.category, unit: d.unit.trim() || 'ชิ้น', type: d.type, barcode: bc, supplier: d.supplier.trim(), location: d.location.trim(),
+        note: d.note.trim(), price: Number(d.price) || 0, reorder: Number(d.reorder) || 0, expWarnDays: Number(d.expWarnDays) || 0, active: !!d.active,
+        usage: d.usage.trim(), indication: d.indication.trim(), warning: d.warning.trim(), storage: d.storage.trim() }
+      if (!this.mgIsBundle) next.cost = Number(d.cost) || 0
+      for (const f of DRUG_FLAGS) next[f.k] = !!d.flags[f.k]
+      const L = []
+      const ch = (label, a, b) => { if (String(a === undefined || a === null ? '' : a) !== String(b === undefined || b === null ? '' : b)) L.push(label + ' ' + (a === undefined || a === '' ? '-' : a) + ' → ' + (b === '' ? '-' : b)) }
+      ch('ชื่อ', p.name, next.name); ch('รหัส', p.code, next.code); ch('ราคาขาย', p.price, next.price)
+      if (!this.mgIsBundle) ch('ราคาทุน', p.cost, next.cost)
+      ch('จุดเตือนสต็อก', p.reorder, next.reorder); ch('เตือนหมดอายุ (วัน)', p.expWarnDays || 0, next.expWarnDays); ch('ผู้จำหน่าย', p.supplier || '', next.supplier)
+      ch('บาร์โค้ด', p.barcode || '', next.barcode); ch('ที่เก็บ', p.location || '', next.location); ch('สถานะ', p.active === false ? 'ปิดใช้งาน' : 'ใช้งาน', next.active ? 'ใช้งาน' : 'ปิดใช้งาน')
+      for (const f of DRUG_FLAGS) if (!!p[f.k] !== next[f.k]) L.push(f.label + ' ' + (next[f.k] ? 'เพิ่ม' : 'เอาออก'))
+      if (!L.length && !this.mgChanged()) return this.toast('ไม่มีอะไรเปลี่ยน')
+      Object.assign(p, next)
+      if (L.length) { if (!p.log) p.log = []; p.log.push({ ts: new Date().toISOString(), by: ACTOR, text: L.join('; ') }) }
+      this.mg = this.mgDraft(p)
+      this.toast('บันทึกข้อมูลยาแล้ว')
+    },
+    mgAdjustTotal() {
+      const p = this.mgProduct
+      if (!p || this.mgDiff === 0) return
+      const counted = Math.floor(Number(this.mgAdj.counted))
+      if (!(counted >= 0)) return this.toast('จำนวนไม่ถูกต้อง', 'bad')
+      this.askPin('ปรับสต็อก ' + p.name, () => {
+        try {
+          const dd = Logic.adjust(this.S, p.id, counted, this.mgAdj.reason, this.mgAdj.note)
+          this.toast('ปรับสต็อกแล้ว (' + (dd > 0 ? '+' : '') + dd + ')')
+          this.mgAdj = { counted, reason: 'นับสต็อกไม่ตรง', note: '' }; this.mgInitLots()
+        } catch (e) { this.toast(e.message, 'bad') }
+      })
+    },
+    mgLotSave(l) {
+      const d = this.mgLots[l.id]
+      if (!d) return
+      const nq = Math.floor(Number(d.qty)), nc = Number(d.cost)
+      if (!(nq >= 0)) return this.toast('จำนวนไม่ถูกต้อง', 'bad')
+      if (!(nc >= 0)) return this.toast('ราคาทุนไม่ถูกต้อง', 'bad')
+      if (nq === l.qtyLeft && R4(nc) === l.cost) return this.toast('ไม่มีอะไรเปลี่ยน')
+      this.askPin('แก้ล็อต ' + (l.lotNo || 'ไม่ระบุ'), () => {
+        try {
+          if (nq !== l.qtyLeft) Logic.adjustLot(this.S, l.id, nq, this.mgAdj.reason, this.mgAdj.note)
+          if (R4(nc) !== l.cost) Logic.adjustLotCost(this.S, l.id, nc)
+          this.mgInitLots(); this.mgAdj.counted = this.mgStock; this.toast('บันทึกล็อตแล้ว')
+        } catch (e) { this.toast(e.message, 'bad') }
+      })
+    },
     toggleInvView() {
       this.invView = this.invView === 'table' ? 'card' : 'table'
       try { localStorage.setItem('knockdown_inv_view', this.invView) } catch (e) { /* ignore */ }
@@ -2705,16 +2962,17 @@ createApp({
       if (k === 'exp') return r.exp || '9999-99-99'
       return p[k] || ''
     },
+    flagTags(p) { return DRUG_FLAGS.filter(f => p && p[f.k]) },
     invMargin(r) { const p = r.p; return p.price && p.type !== 'supply' ? Math.round((p.price - (Number(p.cost) || 0)) / p.price * 100) + '%' : '-' },
     openForm(p, presetType) {
       if (p) this.formModal = { isNew: false, id: p.id, code: p.code, name: p.name, generic: p.generic, category: p.category, unit: p.unit, price: p.price, cost: p.cost, reorder: p.reorder, note: p.note,
                                 isBundle: !!(p.bundle && p.bundle.length), parts: (p.bundle || []).map(b => ({ ...b })),
-                                type: p.type || 'sell', barcode: p.barcode || '', location: p.location || '', supplier: p.supplier || '', danger: !!p.danger, controlled: !!p.controlled, usage: p.usage || '', indication: p.indication || '', warning: p.warning || '', storage: p.storage || '',
+                                type: p.type || 'sell', barcode: p.barcode || '', location: p.location || '', supplier: p.supplier || '', flags: Object.fromEntries(DRUG_FLAGS.map(f => [f.k, !!p[f.k]])), usage: p.usage || '', indication: p.indication || '', warning: p.warning || '', storage: p.storage || '',
                                 unpackPid: p.unpack ? p.unpack.pid : '', unpackRatio: p.unpack ? p.unpack.ratio : '' }
       else {
         const max = this.S.products.reduce((m, x) => Math.max(m, parseInt(x.code, 10) || 0), 0)
         this.formModal = { isNew: true, id: '', code: pad(max + 1), name: '', generic: '', category: CATS[0], unit: 'แผง', price: '', cost: '', reorder: 1, note: '', isBundle: false, parts: [], openQty: '',
-                          type: presetType || 'sell', barcode: '', location: '', supplier: '', danger: false, controlled: false, usage: '', indication: '', warning: '', storage: '', unpackPid: '', unpackRatio: '' }
+                          type: presetType || 'sell', barcode: '', location: '', supplier: '', flags: Object.fromEntries(DRUG_FLAGS.map(f => [f.k, false])), usage: '', indication: '', warning: '', storage: '', unpackPid: '', unpackRatio: '' }
         if (presetType === 'supply') { this.formModal.unit = 'ชิ้น'; this.formModal.category = 'อื่นๆ' }
       }
     },
@@ -2728,7 +2986,7 @@ createApp({
                      price: Number(f.price) || 0, cost: Number(f.cost) || 0, reorder: Number(f.reorder) || 0, note: f.note.trim() }
       data.type = f.type || 'sell'
       data.barcode = (f.barcode || '').trim(); data.location = (f.location || '').trim(); data.supplier = (f.supplier || '').trim()
-      data.danger = !!f.danger; data.controlled = !!f.controlled
+      for (const fl of DRUG_FLAGS) data[fl.k] = !!(f.flags && f.flags[fl.k])
       if (data.barcode && this.S.products.some(x => x.barcode === data.barcode && x.id !== f.id)) return this.toast('บาร์โค้ดนี้ถูกใช้กับสินค้าอื่นแล้ว', 'bad')
       data.usage = (f.usage || '').trim(); data.indication = (f.indication || '').trim(); data.warning = (f.warning || '').trim(); data.storage = (f.storage || '').trim()
       if (data.type === 'supply' && f.isBundle) return this.toast('วัสดุทำเป็นยาชุดไม่ได้', 'bad')

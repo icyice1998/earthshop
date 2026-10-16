@@ -56,6 +56,7 @@ function build(DAYS) {
         barcode: '8851' + String(200000 + n * 53), supplier: pick(SUP), location: pick(LOC),
         danger: ['Amoxicillin', 'Cefalexin', 'Roxithromycin', 'Norfloxacin', 'Omeprazole', 'Diclofenac gel', 'Amlodipine', 'Metformin', 'Simvastatin'].includes(g[0]),
         controlled: g[0] === 'Lorazepam' }
+      p.ky8 = rnd() < 0.06; p.ky11 = rnd() < 0.06; p.special = /cream|gel|eye|lotion|tear/i.test(g[0])
       S.products.push(p); mock.push(p)
     }
   }
