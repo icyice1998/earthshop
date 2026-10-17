@@ -39,6 +39,13 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   ok(got.length === before + 1 && tr > 0 && tb.length > 2000, 'typed text printed to the slip printer (' + tb.length + ' bytes)')
   const bp = await pg.evaluate(() => { const v = window.__vm; v.tt = { text: 'ข้อความทดสอบ', size: 24, align: 'l', bold: false }; window.print = () => {}; v.typeTestBrowser(); return v.printDoc && v.printDoc.text })
   ok(bp === 'ข้อความทดสอบ', 'typed text can also go to the browser print dialog')
+  // drug labels to the LAN printer, Thai text drawn as an image
+  const lb4 = got.length
+  await pg.evaluate(async () => { const v = window.__vm; v.S.settings.prog = { lanPrint: true, lanLabel: true, lanHost: '127.0.0.1', lanPort: 19100, lanDots: 576, labelW: 50, labelH: 30 }
+    const p = v.S.products.find(x => x.type !== 'supply'); v.openLabel(p); v.labelAsk.usage = 'รับประทานครั้งละ 1 เม็ด วันละ 3 ครั้ง หลังอาหาร'; v.labelAsk.copies = 2; v.printLabelNow() })
+  await new Promise(r => setTimeout(r, 1500))
+  const lbb = got.slice(lb4); const w = lbb[0] ? lbb[0][lbb[0].indexOf(Buffer.from([0x1d, 0x76, 0x30, 0x00])) + 4] : 0
+  ok(lbb.length === 2 && w === 50, 'two drug labels sent to the LAN printer as images, 50 mm label = 400 dots = 50 bytes wide (copies: ' + lbb.length + ', width bytes ' + w + ')')
   // phone modes -------------------------------------------------------
   // (1) Android + RawBT app: the app hands the ESC/POS bytes to the rawbt: link
   const rb = await pg.evaluate(async () => { const v = window.__vm; let url = ''; Slip.openUrl = u => { url = u }; v.S.settings.prog = { ...v.S.settings.prog, lanMode: 'rawbt' }; await v.lanTest(); return { url, msg: v.lanMsg } })

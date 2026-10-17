@@ -136,6 +136,37 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
     await v.csvRun(v.csvImp.rows.filter(r => r.pick)); return { changed, c1, first: im.prog.ok, left, again, final: v.csvImp.after.counts } })
   ok(rep2.c1.change === rep2.changed && rep2.first === 100 && rep2.left === rep2.changed - 100 && rep2.again === rep2.changed - 100 && rep2.final.change === 0, 'repeat decision: apply 100 now, compare, apply the rest later: ' + JSON.stringify(rep2))
 
+  // delete a product: allowed only without history
+  const del = await vm(pg, async () => {
+    const v = window.__vm; const id = await Db.saveProduct(v.S, null, { code: 'DEL1', name: 'ลบได้', unit: 'ชิ้น', price: 1, cost: 1, category: 'อื่นๆ', type: 'sell', reorder: 0, note: '' })
+    await Logic.deleteProduct(v.S, id); const gone = !v.S.products.some(x => x.id === id)
+    let err = ''; try { await Logic.deleteProduct(v.S, v.S.products.find(x => x.code === 'P001').id) } catch (e) { err = e.message }
+    return { gone, err } })
+  ok(del.gone && /ลบไม่ได้/.test(del.err), 'unused product can be deleted, product with history cannot: ' + JSON.stringify(del))
+  const pk = await q(`select count(*) c from products where code='DEL1'`); ok(Number(pk[0].c) === 0, 'deleted product is gone from the database')
+
+  // delete several products at once from the management grid (unused ones go, used ones are offered "switch off" instead)
+  await vm(pg, async () => { const v = window.__vm; for (let i = 1; i <= 5; i++) await Db.saveProduct(v.S, null, { code: 'MD' + i, name: 'ลบหลายตัว ' + i, unit: 'ชิ้น', price: 1, cost: 1, category: 'อื่นๆ', type: 'sell', reorder: 0, note: '' })
+    v.tab = 'manage'; v.mgMode = 'grid'; v.mgQ = ''; const sel = {}; for (const p of v.S.products.filter(x => x.code.startsWith('MD') || x.code === 'P002')) sel[p.id] = true; v.gridSel = sel; v.gridDeleteSelected() })
+  await pg.waitForTimeout(200); await pg.click('.modal button.btn-bad:has-text("ลบ")'); await pg.waitForTimeout(200)
+  await pg.fill('.modal input[type=password]', '482913'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(1500)
+  const bd = await vm(pg, () => { const v = window.__vm; return { left: v.S.products.filter(p => p.code.startsWith('MD')).length, asked: !!(v.confirmBox && v.confirmBox.open && /ปิดใช้งาน/.test(v.confirmBox.okText)) } })
+  ok(bd.left === 0 && bd.asked, 'bulk delete removed 5 unused products and offered to switch off the one with history: ' + JSON.stringify(bd))
+  await pg.click('.modal button.btn-bad'); await pg.waitForTimeout(1200)
+  const off = (await q(`select active from products where code='P002'`))[0].active
+  ok(off === false, 'the product with history was switched off instead of deleted')
+  await q(`update products set active = true where code='P002'`)
+  await vm(pg, () => window.__vm.dbRefresh())
+
+  // delete members: the bills stay, only the link to the member is removed
+  const dm = await vm(pg, async () => {
+    const v = window.__vm; const m = v.S.members.find(x => x.code === 'M9001'); const billMember = v.S.members.find(x => x.name === 'สมหญิง ใจดี')
+    await Logic.deleteMember(v.S, m.id); const gone = !v.S.members.some(x => x.id === m.id)
+    await Logic.deleteMember(v.S, billMember.id)
+    return { gone, left: v.S.members.length } })
+  const sb = (await q(`select count(*) filter (where customer_id is null) nulls, count(*) c from sales`))[0]
+  ok(dm.gone && Number(sb.c) >= 2, 'members deleted; bills kept: ' + JSON.stringify({ dm, bills: sb }))
+
   // reports and forms via the database
   const rep = await vm(pg, async () => { const v = window.__vm; const to = Date.now() + 864e5, from = to - 5 * 864e5; const r = await Db.reportSales({ from, to, group: 'flag' }); const k = await Db.kyData('11', { from, to }); const doc = Logic.buildKyFromRows(v.S, '11', { from, to }, k.rows); const k9 = await Db.kyData('9', { from, to }); return { total: r.totals.sales, flags: r.rows.map(x => x.key).join(), pages: doc.pages.length, rows: doc.pages[0] && doc.pages[0].rows.length, buyer: doc.pages[0] && doc.pages[0].rows[0] && doc.pages[0].rows[0].buyer, k9: k9.rows.length } })
   ok(rep.total === 234 && rep.pages === 1 && rep.rows === 1 && rep.buyer === 'สมหญิง ใจดี' && rep.k9 >= 3, 'reports and ข.ย. forms from the database: ' + JSON.stringify(rep))

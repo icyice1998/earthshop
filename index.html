@@ -35,6 +35,16 @@
     @media (max-width: 1023px) { .rt .col-lg { display:none; } }
     @media (max-width: 1023px) { .rt .col-tab { display:none; } }
     @media (max-width: 639px) { .rt { font-size:.82rem; } .rt td, .rt th { padding:.35rem .4rem !important; } .rt .c-name { min-width:9rem; } }
+    #mg-editor .inp { padding: .3rem .5rem; font-size: .9rem; border-radius: .4rem; }
+    #mg-editor .lbl { font-size: .74rem; margin-bottom: .1rem; }
+    #mg-editor .card { padding: .65rem .8rem !important; margin-bottom: .5rem !important; border-radius: .6rem; }
+    #mg-editor .grid { gap: .45rem !important; }
+    #mg-editor .btn { min-height: 2.1rem; padding: .3rem .8rem; }
+    .kebab-menu { position: absolute; right: .4rem; top: 2.2rem; z-index: 25; background: #fff; border: 1px solid var(--line); border-radius: .6rem; box-shadow: 0 6px 18px rgba(16,48,44,.18); min-width: 9.5rem; overflow: hidden; }
+    .kebab-menu button { display: block; width: 100%; text-align: left; padding: .45rem .8rem; font-size: .9rem; }
+    .kebab-menu button:hover { background: #eef7f5; }
+    .kebab { width: 1.9rem; height: 1.9rem; border-radius: 99px; font-size: 1.15rem; line-height: 1; color: #5b6f6b; }
+    .kebab:hover { background: #e3eeeb; }
     .gwrap { max-height: calc(100dvh - 15rem); overflow: auto; border: 1px solid var(--line); border-radius: .6rem; background: #fff; }
     .gtbl { border-collapse: separate; border-spacing: 0; font-size: .85rem; min-width: 100%; }
     .gtbl th { position: sticky; top: 0; z-index: 2; background: #e8f0ee; border-bottom: 1.5px solid var(--line); padding: .3rem .4rem; white-space: nowrap; text-align: left; font-weight: 600; }
@@ -70,6 +80,8 @@
     .ky-sign { margin-top:1rem; text-align:right; line-height:2.2; }
     @media (max-width: 767px) { .ky-page { overflow-x:auto; } .ky-table { min-width:640px; } .ky-hd { grid-template-columns:1fr; } }
     [v-cloak] { display: none !important; }
+    input[type=search] { -webkit-appearance: none; appearance: none; }
+    input[type=search]::-webkit-search-cancel-button { display: none; }
     #print-area { display: none; color: #000; background: #fff; font-size: 11pt; line-height: 1.35; }
     #print-area.measure { display: block !important; position: absolute; left: -9999px; top: 0; visibility: hidden; }
     @page wide { size: A4 landscape; margin: 10mm; }
@@ -237,7 +249,7 @@
           <button class="underline font-semibold whitespace-nowrap" @click="endBackdate">ออกจากโหมด</button>
         </div>
         <div class="p-3 border-b" style="border-color:var(--line)">
-          <input ref="searchInput" v-model="search" @keyup.enter="onSearchEnter" @keydown.esc="search = ''; $event.target.blur()" class="inp" placeholder="ชื่อ รหัส หรือยิงบาร์โค้ด แล้วกด Enter (F2 ค้นหา · F9 เงินสด · F10 โอน)" autocomplete="off">
+          <input type="search" autocomplete="off" name="q-pos" enterkeyhint="search" ref="searchInput" v-model="search" @keyup.enter="onSearchEnter" @keydown.esc="search = ''; $event.target.blur()" class="inp" placeholder="ชื่อ รหัส หรือยิงบาร์โค้ด แล้วกด Enter (F2 ค้นหา · F9 เงินสด · F10 โอน)" autocomplete="off">
           <div class="flex gap-2 overflow-x-auto pt-3 pb-1">
             <button class="chip" :class="cat === 'ทั้งหมด' ? 'chip-on' : ''" @click="cat = 'ทั้งหมด'">ทั้งหมด</button>
             <button class="chip" :class="cat === 'ขายบ่อย' ? 'chip-on' : ''" @click="cat = 'ขายบ่อย'">★ ขายบ่อย</button>
@@ -397,7 +409,7 @@
     <!-- ============ 3) คลังสินค้า ============ -->
     <section v-else-if="tab === 'stock'" class="h-full overflow-y-auto p-3">
       <div class="flex gap-2 mb-3">
-        <input v-model="invSearch" class="inp" placeholder="ค้นหาชื่อ / ชื่อสามัญ / รหัส / บาร์โค้ด / ผู้จำหน่าย / ที่เก็บ">
+        <input type="search" autocomplete="off" name="q-invSearch" enterkeyhint="search" v-model="invSearch" class="inp" placeholder="ค้นหาชื่อ / ชื่อสามัญ / รหัส / บาร์โค้ด / ผู้จำหน่าย / ที่เก็บ">
         <button class="btn btn-ghost whitespace-nowrap" @click="toggleInvView">{{ invView === 'table' ? 'มุมมองการ์ด' : 'มุมมองตาราง' }}</button>
         <button class="btn btn-ghost whitespace-nowrap" @click="exportProductsCsv">ส่งออก CSV</button>
         <label v-if="isAdmin" class="btn btn-ghost whitespace-nowrap cursor-pointer inline-flex items-center">นำเข้า CSV<input type="file" accept=".csv,text/csv" class="hidden" @change="pickCsv('products', $event)"></label>
@@ -497,7 +509,7 @@
       <div class="card p-4 mb-3">
         <div class="font-bold mb-3">2. รายการยาที่รับเข้า</div>
         <div class="relative mb-3">
-          <input v-model="rcvSearch" @focus="rcvOpen = true" @input="rcvOpen = true" class="inp" placeholder="ค้นหายาที่จะรับเข้า" autocomplete="off">
+          <input type="search" autocomplete="off" name="q-rcvSearch" enterkeyhint="search" v-model="rcvSearch" @focus="rcvOpen = true" @input="rcvOpen = true" class="inp" placeholder="ค้นหายาที่จะรับเข้า" autocomplete="off">
           <div v-if="rcvOpen && rcvSearch" class="absolute left-0 right-0 bg-white border shadow-xl rounded-xl mt-1 z-20 max-h-64 overflow-y-auto" style="border-color:var(--line)">
             <button v-for="p in rcvResults" :key="p.id" class="w-full text-left p-3 border-b hover:bg-teal-50" style="border-color:var(--line)" @click="addRcvItem(p)">
               <span class="text-slate-500 mr-2">{{ p.code }}</span><span class="font-semibold">{{ p.name }}</span>
@@ -580,7 +592,7 @@
           </div>
           <div class="flex gap-2 mt-3">
             <div class="relative flex-1">
-              <input v-model="ordSearch" @focus="ordOpen = true" @input="ordOpen = true" class="inp" placeholder="ค้นหายาที่จะสั่ง" autocomplete="off">
+              <input type="search" autocomplete="off" name="q-ordSearch" enterkeyhint="search" v-model="ordSearch" @focus="ordOpen = true" @input="ordOpen = true" class="inp" placeholder="ค้นหายาที่จะสั่ง" autocomplete="off">
               <div v-if="ordOpen && ordSearch" class="absolute left-0 right-0 bg-white border shadow-xl rounded-xl mt-1 z-20 max-h-64 overflow-y-auto" style="border-color:var(--line)">
                 <button v-for="p in ordResults" :key="p.id" class="w-full text-left p-3 border-b hover:bg-teal-50" style="border-color:var(--line)" @click="addOrdItem(p)">
                   <span class="text-slate-500 mr-2">{{ p.code }}</span><span class="font-semibold">{{ p.name }}</span><span class="text-xs text-slate-500 ml-2">เหลือ {{ stockMap[p.id] || 0 }}</span>
@@ -650,7 +662,7 @@
               <select v-model="ret.reason" class="inp"><option>ขายไม่ออก</option><option>ใกล้หมดอายุ</option><option>หมดอายุ</option><option>ชำรุด / เสียหาย</option><option>อื่นๆ</option></select></div>
           </div>
           <div class="relative mb-3">
-            <input v-model="retSearch" @focus="retOpen = true" @input="retOpen = true" class="inp" placeholder="ค้นหายาที่จะคืน (ต้องมีสต็อก)" autocomplete="off">
+            <input type="search" autocomplete="off" name="q-retSearch" enterkeyhint="search" v-model="retSearch" @focus="retOpen = true" @input="retOpen = true" class="inp" placeholder="ค้นหายาที่จะคืน (ต้องมีสต็อก)" autocomplete="off">
             <div v-if="retOpen && retSearch" class="absolute left-0 right-0 bg-white border shadow-xl rounded-xl mt-1 z-20 max-h-64 overflow-y-auto" style="border-color:var(--line)">
               <button v-for="p in retResults" :key="p.id" class="w-full text-left p-3 border-b hover:bg-teal-50" style="border-color:var(--line)" @click="addRetItem(p)">
                 <span class="text-slate-500 mr-2">{{ p.code }}</span><span class="font-semibold">{{ p.name }}</span> <span class="text-xs text-slate-500">เหลือ {{ stockMap[p.id] }}</span>
@@ -715,7 +727,7 @@
           <div><label class="lbl" for="sr-cat">กลุ่มยา</label><select id="sr-cat" v-model="srCat" class="inp"><option value="">ทุกกลุ่ม</option><option v-for="c in srCats" :key="c">{{ c }}</option></select></div>
           <div><label class="lbl" for="sr-flag">ประเภทยา</label><select id="sr-flag" v-model="srFlag" class="inp"><option value="">ทุกประเภท</option><option value="none">ไม่มีประเภทพิเศษ</option><option v-for="fl in DRUG_FLAGS" :key="fl.k" :value="fl.k">{{ fl.label }}</option></select></div>
           <div><label class="lbl" for="sr-m">วิธีชำระ</label><select id="sr-m" v-model="srMethod" class="inp"><option value="">ทั้งหมด</option><option value="cash">เงินสด</option><option value="transfer">โอน</option></select></div>
-          <div class="col-span-2 sm:col-span-4"><label class="lbl" for="sr-q">ค้นหาชื่อยา / ชื่อสามัญ</label><input id="sr-q" v-model="srQ" class="inp" placeholder="เช่น paracetamol" autocomplete="off"></div>
+          <div class="col-span-2 sm:col-span-4"><label class="lbl" for="sr-q">ค้นหาชื่อยา / ชื่อสามัญ</label><input id="sr-q" type="search" autocomplete="off" name="q-sr" v-model="srQ" class="inp" placeholder="เช่น paracetamol" autocomplete="off"></div>
         </div>
         <div class="mt-3"><span class="text-sm text-slate-500 mr-1">แยกตาม:</span>
           <span class="inline-flex flex-wrap gap-2 align-middle">
@@ -812,7 +824,7 @@
             ใช้ยาที่ตั้งประเภท <b>{{ kyForm === '10' ? 'ยาควบคุมพิเศษ' : (kyForm === '11' ? 'ขย.11' : 'ขย.13') }}</b> ({{ kyAutoCount }} รายการ) ทำให้ทีละล็อต ผู้ซื้อมาจากข้อมูลที่กรอกตอนรับเงิน
             <label class="flex items-center gap-2 mt-2"><input type="checkbox" v-model="kyManual" class="w-5 h-5"> เลือกยาเอง (แทนที่ประเภทยา)</label>
             <div v-if="kyManual" class="mt-2">
-              <input v-model="kyQ" class="inp mb-2" placeholder="ค้นหายา" aria-label="ค้นหายาที่จะทำบัญชี">
+              <input type="search" autocomplete="off" name="q-kyQ" enterkeyhint="search" v-model="kyQ" class="inp mb-2" placeholder="ค้นหายา" aria-label="ค้นหายาที่จะทำบัญชี">
               <div class="rounded-xl border overflow-y-auto" style="border-color:var(--line);max-height:12rem;background:#fff">
                 <label v-for="p in kyPickList" :key="p.id" class="flex items-center gap-2 px-3 py-2 border-b cursor-pointer" style="border-color:var(--line)"><input type="checkbox" :checked="kyPids.includes(p.id)" @change="kyTogglePid(p.id)" class="w-5 h-5 shrink-0"><span class="truncate"><span class="text-xs text-slate-500">{{ p.code }}</span> {{ p.name }}</span></label>
               </div>
@@ -848,11 +860,12 @@
       <!-- ตารางจัดการ: แก้ข้อมูล ประเภทยา ราคา และปรับสต็อกในตารางเดียว -->
       <div v-if="mgMode === 'grid'">
         <div class="flex flex-wrap items-center gap-2 mb-2">
-          <input v-model="mgQ" class="inp !w-72" placeholder="ค้นหาชื่อ / ชื่อสามัญ / รหัส / บาร์โค้ด / ผู้จำหน่าย" autocomplete="off">
+          <input type="search" autocomplete="off" name="q-mgQ" enterkeyhint="search" v-model="mgQ" class="inp !w-72" placeholder="ค้นหาชื่อ / ชื่อสามัญ / รหัส / บาร์โค้ด / ผู้จำหน่าย" autocomplete="off">
           <select v-model="mgFilter" class="inp !w-56"><option value="all">ทั้งหมด ({{ mgCounts.all }})</option><option v-for="fl in DRUG_FLAGS" :key="fl.k" :value="fl.k">{{ fl.label }} ({{ mgCounts[fl.k] }})</option><option value="inactive">ปิดใช้งาน ({{ mgCounts.inactive }})</option></select>
           <span class="text-sm text-slate-500">แสดง {{ Math.min(gridLimit, mgRows.length) }} / {{ mgRows.length }}</span>
           <span class="flex-1"></span>
           <span v-if="gridCount" class="tag" style="background:#fef9c3;color:#854d0e">แก้ไขแล้ว {{ gridCount }} รายการ</span>
+          <button v-if="can('manage') && gridSelCount" class="btn btn-badline" @click="gridDeleteSelected">ลบที่เลือก ({{ gridSelCount }})</button>
           <button class="btn btn-ghost" :disabled="!gridCount" @click="gridReset">ยกเลิกการแก้</button>
           <button class="btn btn-pri" :disabled="!gridCount || paying" @click="gridSave">บันทึกที่แก้ไข</button>
           <button class="btn btn-ghost" @click="exportProductsCsv">ส่งออก CSV</button>
@@ -864,14 +877,14 @@
           <table class="gtbl">
             <thead>
               <tr>
-                <th class="gstick">รหัส</th><th class="gstick2">ชื่อการค้า</th><th>ชื่อสามัญ</th><th>หมวด</th><th>หน่วย</th><th>บาร์โค้ด</th><th>ผู้จำหน่าย</th><th>ที่เก็บ</th>
+                <th class="gstick"><label class="inline-flex items-center gap-1" v-if="can('manage')"><input type="checkbox" class="w-4 h-4" :checked="gridAllPicked" @change="gridPickAll($event.target.checked)" title="เลือกทั้งหมดที่แสดง"></label> รหัส</th><th class="gstick2">ชื่อการค้า</th><th>ชื่อสามัญ</th><th>หมวด</th><th>หน่วย</th><th>บาร์โค้ด</th><th>ผู้จำหน่าย</th><th>ที่เก็บ</th>
                 <th v-for="fl in DRUG_FLAGS" :key="fl.k" class="gc" :title="fl.label" style="text-align:center">{{ FLAG_SHORT[fl.k] }}</th>
-                <th v-if="can('viewCost')" style="text-align:right">ทุน</th><th style="text-align:right">ราคาขาย</th><th style="text-align:right">คงเหลือ</th><th style="text-align:right">จุดเตือน</th><th style="text-align:center">ใช้งาน</th>
+                <th v-if="can('viewCost')" style="text-align:right">ทุน</th><th style="text-align:right">ราคาขาย</th><th style="text-align:right">คงเหลือ</th><th style="text-align:right">จุดเตือน</th><th style="text-align:center">ใช้งาน</th><th></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(p, ri) in mgRows.slice(0, gridLimit)" :key="p.id">
-                <td class="gstick" :class="gchg(p, 'code') ? 'gchg' : ''"><input class="gin" style="width:6.5rem" :value="gv(p, 'code')" :disabled="!can('manage')" :data-c="'code'" :data-r="ri" @input="gset(p, 'code', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
+                <td class="gstick" :class="gchg(p, 'code') ? 'gchg' : ''"><div class="flex items-center"><input v-if="can('manage')" type="checkbox" class="w-4 h-4 ml-1 shrink-0" :checked="!!gridSel[p.id]" @change="gridPick(p.id, $event.target.checked)"><input class="gin" style="width:5.8rem" :value="gv(p, 'code')" :disabled="!can('manage')" :data-c="'code'" :data-r="ri" @input="gset(p, 'code', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
                 <td class="gstick2" :class="gchg(p, 'name') ? 'gchg' : ''"><input class="gin" style="width:15rem" :value="gv(p, 'name')" :disabled="!can('manage')" data-c="name" :data-r="ri" @input="gset(p, 'name', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
                 <td :class="gchg(p, 'generic') ? 'gchg' : ''"><input class="gin" style="width:11rem" :value="gv(p, 'generic')" :disabled="!can('manage')" data-c="generic" :data-r="ri" @input="gset(p, 'generic', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
                 <td :class="gchg(p, 'category') ? 'gchg' : ''"><select class="gin" style="width:8rem" :value="gv(p, 'category')" :disabled="!can('manage')" @change="gset(p, 'category', $event.target.value)"><option v-for="c in catList" :key="c" :value="c">{{ c }}</option></select></td>
@@ -885,8 +898,9 @@
                 <td :class="gchg(p, 'stock') ? 'gchg' : ''"><input class="gin gnum" style="width:5rem" type="number" :value="gv(p, 'stock')" :disabled="!can('adjustStock') || !!p.bundle" :title="p.bundle ? 'ยาชุดปรับสต็อกที่ตัวยาแต่ละตัว' : ''" data-c="stock" :data-r="ri" @input="gset(p, 'stock', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
                 <td :class="gchg(p, 'reorder') ? 'gchg' : ''"><input class="gin gnum" style="width:4.5rem" type="number" :value="gv(p, 'reorder')" :disabled="!can('manage')" data-c="reorder" :data-r="ri" @input="gset(p, 'reorder', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
                 <td class="gc" :class="gchg(p, 'active') ? 'gchg' : ''"><input type="checkbox" class="w-4 h-4" :checked="gv(p, 'active')" :disabled="!can('manage')" @change="gset(p, 'active', $event.target.checked)"></td>
+                <td class="gc"><button v-if="can('manage')" class="px-2 text-red-600" title="ลบสินค้า" @click="askDeleteProduct(p)">ลบ</button></td>
               </tr>
-              <tr v-if="mgRows.length === 0"><td :colspan="20" class="p-6 text-center text-slate-400">ไม่พบรายการ</td></tr>
+              <tr v-if="mgRows.length === 0"><td :colspan="21" class="p-6 text-center text-slate-400">ไม่พบรายการ</td></tr>
             </tbody>
           </table>
         </div>
@@ -904,7 +918,7 @@
         <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
           <div class="min-w-0">
             <div class="font-semibold text-sm mb-1">สินค้าทั้งหมด (ยังไม่อยู่ในประเภทนี้) {{ bkLeft.length }}</div>
-            <input v-model="bkL" class="inp mb-2" placeholder="ค้นหา ชื่อ / รหัส" aria-label="ค้นหาสินค้าทั้งหมด">
+            <input type="search" autocomplete="off" name="q-bkL" enterkeyhint="search" v-model="bkL" class="inp mb-2" placeholder="ค้นหา ชื่อ / รหัส" aria-label="ค้นหาสินค้าทั้งหมด">
             <div class="rounded-xl border overflow-y-auto" style="border-color:var(--line);max-height:22rem">
               <label v-for="p in bkLeft.slice(0, 300)" :key="p.id" class="flex items-center gap-2 px-3 py-2 border-b cursor-pointer" style="border-color:var(--line)"><input type="checkbox" v-model="bkSelL[p.id]" class="w-5 h-5 shrink-0"><span class="min-w-0 truncate"><span class="text-xs text-slate-500">{{ p.code }}</span> {{ p.name }}</span></label>
               <div v-if="bkLeft.length === 0" class="p-4 text-center text-slate-400 text-sm">ไม่มีรายการ</div>
@@ -919,7 +933,7 @@
           </div>
           <div class="min-w-0">
             <div class="font-semibold text-sm mb-1">อยู่ในประเภท "{{ bkLabel }}" {{ bkRight.length }}</div>
-            <input v-model="bkR" class="inp mb-2" placeholder="ค้นหา ชื่อ / รหัส" aria-label="ค้นหาในประเภทนี้">
+            <input type="search" autocomplete="off" name="q-bkR" enterkeyhint="search" v-model="bkR" class="inp mb-2" placeholder="ค้นหา ชื่อ / รหัส" aria-label="ค้นหาในประเภทนี้">
             <div class="rounded-xl border overflow-y-auto" style="border-color:var(--line);max-height:22rem">
               <label v-for="p in bkRight.slice(0, 300)" :key="p.id" class="flex items-center gap-2 px-3 py-2 border-b cursor-pointer" style="border-color:var(--line)"><input type="checkbox" v-model="bkSelR[p.id]" class="w-5 h-5 shrink-0"><span class="min-w-0 truncate"><span class="text-xs text-slate-500">{{ p.code }}</span> {{ p.name }}</span></label>
               <div v-if="bkRight.length === 0" class="p-4 text-center text-slate-400 text-sm">ยังไม่มีรายการ เลือกจากฝั่งซ้ายแล้วกด "เพิ่มที่เลือก"</div>
@@ -937,7 +951,7 @@
 
         <!-- รายการยา -->
         <div :class="mg ? 'hidden lg:block' : ''" class="card p-3">
-          <input v-model="mgQ" class="inp mb-2" placeholder="ค้นหาชื่อ / ชื่อสามัญ / รหัส / บาร์โค้ด / ผู้จำหน่าย" autocomplete="off">
+          <input type="search" autocomplete="off" name="q-mgQ" enterkeyhint="search" v-model="mgQ" class="inp mb-2" placeholder="ค้นหาชื่อ / ชื่อสามัญ / รหัส / บาร์โค้ด / ผู้จำหน่าย" autocomplete="off">
           <div class="flex gap-2 overflow-x-auto pb-2">
             <button class="chip" :class="mgFilter === 'all' ? 'chip-on' : ''" @click="mgFilter = 'all'">ทั้งหมด {{ mgCounts.all }}</button>
             <button v-for="fl in DRUG_FLAGS" :key="fl.k" class="chip" :class="mgFilter === fl.k ? 'chip-on' : ''" @click="mgFilter = fl.k">{{ fl.label }} {{ mgCounts[fl.k] }}</button>
@@ -945,7 +959,8 @@
           </div>
           <div v-if="mgRows.length === 0" class="text-center text-slate-400 py-8">ไม่พบรายการ</div>
           <div class="lg:max-h-[calc(100dvh-17rem)] lg:overflow-y-auto">
-            <button v-for="p in mgRows.slice(0, mgLimit)" :key="p.id" class="w-full text-left p-2 border-b flex items-center justify-between gap-2" style="border-color:var(--line)" :style="mgSel === p.id ? 'background:#eef7f5' : ''" @click="mgSelect(p)">
+            <div v-for="p in mgRows.slice(0, mgLimit)" :key="p.id" class="relative border-b" style="border-color:var(--line)">
+              <button class="w-full text-left py-1.5 pl-2 pr-9 flex items-center justify-between gap-2" :style="mgSel === p.id ? 'background:#eef7f5' : ''" @click="mgSelect(p)">
               <span class="min-w-0">
                 <span class="block font-semibold truncate">{{ p.name }}<span v-if="p.active === false" class="tag ml-1" style="background:#e2e8f0">ปิดใช้งาน</span></span>
                 <span class="block text-xs text-slate-500 truncate">{{ p.code }} · {{ p.generic }}</span>
@@ -955,7 +970,16 @@
                 <span class="block font-bold num" :class="(stockMap[p.id] || 0) <= 0 && !p.bundle && p.type !== 'supply' ? 'text-red-600' : ''">{{ stockMap[p.id] || 0 }}</span>
                 <span class="block text-xs text-slate-500 num">฿{{ money(p.price) }}</span>
               </span>
-            </button>
+              </button>
+              <button class="kebab absolute right-1 top-2" title="เมนู" @click.stop="menuFor = menuFor === 'p' + p.id ? '' : 'p' + p.id">&#8942;</button>
+              <div v-if="menuFor === 'p' + p.id" class="kebab-menu" @click.stop>
+                <button @click="menuFor = ''; mgSelect(p)">แก้ไข</button>
+                <button v-if="can('adjustStock') && !p.bundle" @click="menuFor = ''; openProduct(p)">ปรับสต็อก / ดูล็อต</button>
+                <button v-if="p.type !== 'supply'" @click="menuFor = ''; openLabel(p)">พิมพ์ฉลากยา</button>
+                <button v-if="can('manage')" @click="menuFor = ''; toggleActive(p)">{{ p.active === false ? 'เปิดใช้งาน' : 'ปิดใช้งาน' }}</button>
+                <button v-if="can('manage')" class="text-red-600" @click="menuFor = ''; askDeleteProduct(p)">ลบ</button>
+              </div>
+            </div>
             <div v-if="mgRows.length > mgLimit" class="text-center py-3"><button class="btn btn-ghost" @click="mgLimit += 50">แสดงเพิ่ม ({{ mgLimit }} / {{ mgRows.length }})</button></div>
           </div>
           <button class="btn btn-ghost w-full mt-3" @click="openForm(null)">+ เพิ่มสินค้าใหม่</button>
@@ -968,7 +992,13 @@
             <div class="flex items-center justify-between gap-2 mb-3">
               <button class="btn btn-ghost !min-h-0 !py-2 lg:hidden" @click="mgBack">&lsaquo; กลับไปรายการ</button>
               <div class="font-bold text-lg min-w-0 truncate">{{ mgProduct.name }}</div>
-              <div class="text-sm text-slate-500 whitespace-nowrap">คงเหลือ <b class="num text-slate-800">{{ mgStock }}</b> {{ mgProduct.unit }}</div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="text-sm text-slate-500 whitespace-nowrap">คงเหลือ <b class="num text-slate-800">{{ mgStock }}</b> {{ mgProduct.unit }}</span>
+                <button v-if="mgProduct.type !== 'supply'" class="btn btn-ghost !min-h-0 !py-1 !px-2 text-sm" @click="openLabel(mgProduct)">พิมพ์ฉลาก</button>
+                <button v-if="can('manage')" class="btn btn-ghost !min-h-0 !py-1 !px-2 text-sm" @click="openForm(null)">+ เพิ่ม</button>
+                <button v-if="can('manage')" class="btn btn-badline !min-h-0 !py-1 !px-2 text-sm" @click="askDeleteProduct(mgProduct)">ลบ</button>
+                <button class="btn btn-pri !min-h-0 !py-1 !px-3 text-sm" @click="mgSave">บันทึก</button>
+              </div>
             </div>
 
             <div class="card p-4 mb-3">
@@ -1057,7 +1087,7 @@
             <button class="btn btn-ghost w-full mb-3" @click="openForm(mgProduct)">แก้ไขชุดยา / แกะแบ่งขาย...</button>
 
             <div class="fixed left-0 right-0 bottom-0 z-30 p-3 bg-white border-t md:static md:border-0 md:p-0" style="border-color:var(--line);padding-bottom:calc(.75rem + env(safe-area-inset-bottom, 0px))" :style="mgChanged() ? '' : 'display:none'">
-              <button class="btn btn-pri w-full" @click="mgSave">บันทึกการแก้ไข</button>
+              <div class="flex gap-2"><button v-if="can('manage')" class="btn btn-badline" @click="askDeleteProduct(mgProduct)">ลบสินค้า</button><button class="btn btn-pri flex-1" @click="mgSave">บันทึกการแก้ไข</button></div>
             </div>
           </div>
         </div>
@@ -1107,11 +1137,12 @@
         <button v-if="can('members')" class="chip" :class="memMode === 'grid' ? 'chip-on' : ''" @click="memMode = 'grid'">ตารางจัดการ (แก้ไขหลายคน)</button>
       </div>
       <div class="flex flex-wrap gap-2 mb-3">
-        <input v-model="memSearch" class="inp !w-72" placeholder="ค้นหาชื่อ รหัส หรือเบอร์โทร">
+        <input type="search" autocomplete="off" name="q-memSearch" enterkeyhint="search" v-model="memSearch" class="inp !w-72" placeholder="ค้นหาชื่อ รหัส หรือเบอร์โทร">
         <span class="text-sm text-slate-500 self-center">{{ memberList.length }} / {{ S.members.length }} คน</span>
         <span class="flex-1"></span>
         <template v-if="memMode === 'grid'">
           <span v-if="Object.keys(memEdits).length" class="tag self-center" style="background:#fef9c3;color:#854d0e">แก้ไขแล้ว {{ Object.keys(memEdits).length }} คน</span>
+          <button v-if="can('members') && Object.keys(memSel).some(k => memSel[k])" class="btn btn-badline" @click="memDeleteSelected">ลบที่เลือก ({{ Object.keys(memSel).filter(k => memSel[k]).length }})</button>
           <button class="btn btn-ghost" :disabled="!Object.keys(memEdits).length" @click="memReset">ยกเลิกการแก้</button>
           <button class="btn btn-pri" :disabled="!Object.keys(memEdits).length || paying" @click="memSave">บันทึกที่แก้ไข</button>
         </template>
@@ -1128,19 +1159,28 @@
       </div>
       <div v-if="memberList.length === 0" class="text-center text-slate-400 py-12">{{ S.members.length ? 'ไม่พบสมาชิก' : 'ยังไม่มีสมาชิก กด + เพิ่ม' }}</div>
       <div v-if="memMode === 'cards'" class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-      <button v-for="m in memberList.slice(0, memLimit)" :key="m.id" class="card w-full text-left p-3 mb-2" @click="openMember(m)">
+      <div v-for="m in memberList.slice(0, memLimit)" :key="m.id" class="card relative mb-2">
+        <button class="w-full text-left p-3 pr-10" @click="openMember(m)">
         <div class="flex justify-between gap-2"><div class="font-semibold">{{ memberLabel(m) }} <span v-if="m.name" class="text-xs text-slate-400">{{ m.code }}</span></div><div class="text-sm text-slate-500">{{ m.phone }}</div></div>
         <div v-if="m.allergies.length" class="text-sm mt-1" style="color:#b91c1c">แพ้ยา: {{ allergyText(m) }}</div>
         <div class="text-xs text-slate-500 mt-1">ซื้อล่าสุด: {{ lastBuy(m) }}</div>
-      </button>
+        </button>
+        <button class="kebab absolute right-1 top-2" title="เมนู" @click.stop="menuFor = menuFor === 'm' + m.id ? '' : 'm' + m.id">&#8942;</button>
+        <div v-if="menuFor === 'm' + m.id" class="kebab-menu" @click.stop>
+          <button @click="menuFor = ''; openMember(m)">เปิด / แก้ไข</button>
+          <button v-if="can('members')" class="text-red-600" @click="menuFor = ''; askDeleteMemberOf(m)">ลบ</button>
+        </div>
+      </div>
       </div>
       <div v-if="memMode === 'table'" class="card overflow-x-auto">
         <table class="rt text-sm">
-          <thead><tr class="text-left text-slate-500" style="border-bottom:1.5px solid var(--line)"><th class="p-2">รหัส</th><th class="p-2">ชื่อ</th><th class="p-2">โทรศัพท์</th><th class="p-2 col-lg">แพ้ยา</th><th class="p-2 col-lg">ซื้อล่าสุด</th><th class="p-2 col-xl">หมายเหตุ</th></tr></thead>
+          <thead><tr class="text-left text-slate-500" style="border-bottom:1.5px solid var(--line)"><th class="p-2">รหัส</th><th class="p-2">ชื่อ</th><th class="p-2">โทรศัพท์</th><th class="p-2 col-lg">แพ้ยา</th><th class="p-2 col-lg">ซื้อล่าสุด</th><th class="p-2 col-xl">หมายเหตุ</th><th class="p-2"></th></tr></thead>
           <tbody>
             <tr v-for="m in memberList.slice(0, memLimit)" :key="m.id" class="cursor-pointer hover:bg-teal-50" style="border-bottom:1px solid var(--line)" @click="openMember(m)">
               <td class="p-2 whitespace-nowrap">{{ m.code }}</td><td class="p-2 font-semibold">{{ m.name || '-' }}</td><td class="p-2 whitespace-nowrap">{{ m.phone }}</td>
               <td class="p-2 col-lg" style="color:#b91c1c">{{ allergyText(m) }}</td><td class="p-2 col-lg whitespace-nowrap">{{ lastBuy(m) }}</td><td class="p-2 col-xl text-slate-500">{{ m.note }}</td>
+              <td class="p-1 relative" @click.stop><button class="kebab" title="เมนู" @click.stop="menuFor = menuFor === 'm' + m.id ? '' : 'm' + m.id">&#8942;</button>
+                <div v-if="menuFor === 'm' + m.id" class="kebab-menu" style="top:1.8rem" @click.stop><button @click="menuFor = ''; openMember(m)">เปิด / แก้ไข</button><button v-if="can('members')" class="text-red-600" @click="menuFor = ''; askDeleteMemberOf(m)">ลบ</button></div></td>
             </tr>
           </tbody>
         </table>
@@ -1149,10 +1189,10 @@
         <div class="text-xs text-slate-500 mb-2">คลิกที่ช่องเพื่อแก้ไข Tab เลื่อนช่อง Enter ลงแถวถัดไป ช่องที่แก้ไขเป็นสีเหลือง การบันทึกต้องยืนยันด้วย PIN แพ้ยาคั่นด้วย ; เช่น Penicillin:ผื่น; Aspirin</div>
         <div class="gwrap">
           <table class="gtbl mtbl">
-            <thead><tr><th class="gstick">รหัส</th><th>ชื่อ</th><th>โทรศัพท์</th><th>แพ้ยา</th><th>หมายเหตุ</th></tr></thead>
+            <thead><tr><th class="gstick"><input v-if="can('members')" type="checkbox" class="w-4 h-4 mr-1" :checked="memberList.slice(0, memLimit).length > 0 && memberList.slice(0, memLimit).every(x => memSel[x.id])" @change="memPickAll($event.target.checked)" title="เลือกทั้งหมดที่แสดง"> รหัส</th><th>ชื่อ</th><th>โทรศัพท์</th><th>แพ้ยา</th><th>หมายเหตุ</th></tr></thead>
             <tbody>
               <tr v-for="(m, ri) in memberList.slice(0, memLimit)" :key="m.id">
-                <td class="gstick" style="padding:.25rem .5rem;color:#5b6f6b">{{ m.code }}</td>
+                <td class="gstick" style="padding:.25rem .5rem;color:#5b6f6b"><input v-if="can('members')" type="checkbox" class="w-4 h-4 mr-1" :checked="!!memSel[m.id]" @change="memPick(m.id, $event.target.checked)">{{ m.code }}</td>
                 <td :class="mchg(m, 'name') ? 'gchg' : ''"><input class="gin" style="width:14rem" :value="mv(m, 'name')" data-c="name" :data-r="ri" @input="mset(m, 'name', $event.target.value)" @keydown.enter.prevent="memNext($event)"></td>
                 <td :class="mchg(m, 'phone') ? 'gchg' : ''"><input class="gin" style="width:9rem" :value="mv(m, 'phone')" data-c="phone" :data-r="ri" @input="mset(m, 'phone', $event.target.value)" @keydown.enter.prevent="memNext($event)"></td>
                 <td :class="mchg(m, 'allergies') ? 'gchg' : ''"><input class="gin" style="width:18rem" :value="mv(m, 'allergies')" data-c="allergies" :data-r="ri" @input="mset(m, 'allergies', $event.target.value)" @keydown.enter.prevent="memNext($event)"></td>
@@ -1302,6 +1342,12 @@
             <div><label class="lbl" for="lan-dots">ความกว้างภาพ</label><select id="lan-dots" class="inp" :value="prog.lanDots" @change="setProg('lanDots', Number($event.target.value))"><option :value="576">80 มม. (576 จุด)</option><option :value="512">80 มม. เล็ก (512 จุด)</option><option :value="384">58 มม. (384 จุด)</option></select></div>
             <label class="flex items-center gap-2 self-end pb-3"><input type="checkbox" class="w-5 h-5" :checked="prog.lanCut !== false" @change="setProg('lanCut', $event.target.checked)"> ตัดกระดาษหลังพิมพ์</label>
           </div>
+          <label class="flex items-center gap-2 p-1 mt-3"><input type="checkbox" class="w-5 h-5" :checked="prog.lanLabel" @change="setProg('lanLabel', $event.target.checked)"> พิมพ์ฉลากยาไปเครื่องพิมพ์ในวงแลนด้วย (ภาษาไทยไม่เพี้ยน เพราะส่งเป็นภาพ)</label>
+          <div v-if="prog.lanLabel" class="grid grid-cols-2 gap-3 mt-1">
+            <div><label class="lbl" for="lan-lh">IP เครื่องพิมพ์ฉลาก (ว่าง = เครื่องเดียวกับสลิป)</label><input id="lan-lh" class="inp" inputmode="decimal" :value="prog.lanLabelHost" @input="setProg('lanLabelHost', $event.target.value.trim())" placeholder="เหมือนสลิป"></div>
+            <div><label class="lbl" for="lan-lp">พอร์ต (0 = เหมือนสลิป)</label><input id="lan-lp" class="inp" type="number" inputmode="numeric" :value="prog.lanLabelPort" @input="setProg('lanLabelPort', Number($event.target.value) || 0)"></div>
+            <div class="col-span-2 text-xs text-slate-500">ความกว้างฉลากใช้ตามขนาดฉลากที่ตั้งไว้ด้านล่าง (กว้าง x 8 จุด) ถ้าต่อเครื่องพิมพ์ฉลากเครื่องเดียวกับสลิป ฉลากจะออกที่ความกว้างของกระดาษที่ใส่อยู่</div>
+          </div>
           <div class="flex gap-2 mt-3"><button class="btn btn-ghost flex-1" :disabled="lanMsg.busy" @click="lanCheck">ตรวจสอบการเชื่อมต่อ</button><button class="btn btn-pri flex-1" :disabled="lanMsg.busy" @click="lanTest">ทดสอบพิมพ์</button></div>
           <div class="mt-4 pt-3" style="border-top:1px solid var(--line)">
             <div class="font-semibold mb-1">ทดลองพิมพ์ข้อความเอง</div>
@@ -1349,7 +1395,7 @@
       <div v-if="setTab === 'vendors' && isAdmin" class="grid gap-3 lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start">
         <div class="card p-3">
           <div class="font-bold mb-2">รายชื่อผู้จำหน่าย ({{ (S.suppliers || []).length }})</div>
-          <input v-model="vsSearch" class="inp mb-2" placeholder="ค้นหาชื่อ / รหัส">
+          <input type="search" autocomplete="off" name="q-vsSearch" enterkeyhint="search" v-model="vsSearch" class="inp mb-2" placeholder="ค้นหาชื่อ / รหัส">
           <div style="max-height:60vh;overflow-y:auto">
             <button v-for="x in vsList" :key="x.id" class="w-full text-left p-2 border-b" style="border-color:var(--line)" :style="vsSel === x.id ? 'background:#eef7f5' : ''" @click="vsSelect(x)">
               <div class="font-semibold truncate">{{ x.name }}</div><div class="text-xs text-slate-500">{{ x.code || '' }} {{ x.phone || '' }}</div>
@@ -1396,7 +1442,7 @@
             <div v-if="vsTab === 'terms'" class="card p-4 mb-3">
               <div class="text-xs text-slate-500 mb-2">ใช้เป็นข้อมูลอ้างอิงตอนรับของ: ระบบจะแสดงเงื่อนไข "ซื้อ X แถม Y" ที่แถวสินค้าในหน้ารับเข้า</div>
               <div class="relative mb-3">
-                <input v-model="vsTermSearch" class="inp" placeholder="ค้นหาสินค้าที่จะเพิ่มเงื่อนไข" autocomplete="off">
+                <input type="search" autocomplete="off" name="q-vsTermSearch" enterkeyhint="search" v-model="vsTermSearch" class="inp" placeholder="ค้นหาสินค้าที่จะเพิ่มเงื่อนไข" autocomplete="off">
                 <div v-if="vsTermResults.length" class="absolute left-0 right-0 bg-white border shadow-xl rounded-xl mt-1 z-20 max-h-64 overflow-y-auto" style="border-color:var(--line)">
                   <button v-for="p in vsTermResults" :key="p.id" class="w-full text-left p-3 border-b hover:bg-teal-50" style="border-color:var(--line)" @click="vsAddTerm(p)"><span class="text-slate-500 mr-2">{{ p.code }}</span>{{ p.name }}</button>
                 </div>
@@ -1720,7 +1766,7 @@
   <div v-if="pickModal.open" class="modal-bg" @click.self="pickModal.open = false">
     <div class="modal p-5">
       <div class="font-bold text-lg mb-3">เลือกสมาชิก</div>
-      <input v-model="pickModal.search" class="inp mb-3" placeholder="ค้นหาชื่อหรือเบอร์โทร">
+      <input type="search" autocomplete="off" name="q-pickModal-search" enterkeyhint="search" v-model="pickModal.search" class="inp mb-3" placeholder="ค้นหาชื่อหรือเบอร์โทร">
       <div v-if="pickList.length === 0" class="text-center text-slate-400 py-4">{{ S.members.length ? 'ไม่พบสมาชิก' : 'ยังไม่มีสมาชิก' }}</div>
       <button v-for="m in pickList" :key="m.id" class="card w-full text-left p-3 mb-2" @click="selectMember(m)">
         <div class="flex justify-between"><span class="font-semibold">{{ memberLabel(m) }}</span><span class="text-sm text-slate-500">{{ m.phone }}</span></div>
@@ -1937,6 +1983,7 @@
             <span class="num font-semibold" :class="m.qty > 0 ? 'text-green-700' : 'text-red-600'">{{ m.qty > 0 ? '+' : '' }}{{ m.qty }}</span>
           </div>
         </div>
+        <button v-if="curProduct.type !== 'supply'" class="btn btn-ghost w-full" @click="openLabel(curProduct)">พิมพ์ฉลากยา</button>
         <button v-if="can('manage')" class="btn btn-ghost w-full" @click="openForm(curProduct)">แก้ไขชื่อ / ราคา / จุดสั่งซื้อ</button>
       </div>
     </div>
@@ -2195,6 +2242,24 @@
     </div>
   </div>
 
+  <!-- พิมพ์ฉลากยา (ไม่ต้องมีบิล) -->
+  <div v-if="labelAsk" class="modal-bg" style="z-index:70" @click.self="labelAsk = null">
+    <div class="modal p-5">
+      <div class="flex justify-between items-start mb-3"><div class="font-bold text-lg">พิมพ์ฉลากยา: {{ labelAsk.p.name }}</div><button class="text-slate-400 text-2xl leading-none" @click="labelAsk = null">&times;</button></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="lbl" for="lb-q">จำนวนยาที่ใส่ในฉลาก ({{ labelAsk.p.unit }})</label><input id="lb-q" v-model="labelAsk.qty" type="number" inputmode="numeric" class="inp"></div>
+        <div><label class="lbl" for="lb-c">จำนวนใบ</label><input id="lb-c" v-model.number="labelAsk.copies" type="number" inputmode="numeric" min="1" max="50" class="inp"></div>
+        <div class="col-span-2"><label class="lbl" for="lb-u">วิธีใช้</label><input id="lb-u" v-model="labelAsk.usage" class="inp" placeholder="เช่น รับประทานครั้งละ 1 เม็ด วันละ 3 ครั้ง"></div>
+        <div><label class="lbl" for="lb-m">เวลาที่ใช้</label><select id="lb-m" v-model="labelAsk.meal" class="inp"><option value="">ไม่ระบุ</option><option v-for="(v, k) in MEAL_TIME" :key="k" :value="k">{{ v }}</option></select></div>
+        <div><label class="lbl" for="lb-e">วันหมดอายุ</label><input id="lb-e" v-model="labelAsk.exp" type="date" class="inp"></div>
+        <div class="col-span-2"><label class="lbl" for="lb-i">ข้อบ่งใช้</label><input id="lb-i" v-model="labelAsk.indication" class="inp"></div>
+        <div class="col-span-2"><label class="lbl" for="lb-w">คำเตือน</label><input id="lb-w" v-model="labelAsk.warning" class="inp"></div>
+      </div>
+      <div class="text-xs text-slate-500 mt-2">ที่แก้ตรงนี้ใช้เฉพาะฉลากใบนี้ ไม่เปลี่ยนข้อมูลยา ขนาดฉลากตั้งที่ ตั้งค่า > ตั้งค่าโปรแกรม > กระดาษพิมพ์</div>
+      <div class="flex gap-2 mt-3"><button class="btn btn-ghost flex-1" @click="labelAsk = null">ยกเลิก</button><button class="btn btn-pri flex-1" @click="printLabelNow">พิมพ์ฉลาก</button></div>
+    </div>
+  </div>
+
   <!-- ตรวจไฟล์ CSV ก่อนนำเข้า / ความคืบหน้า / ตรวจเทียบหลังนำเข้า -->
   <div v-if="csvImp" class="modal-bg" @click.self="csvImp.stage === 'preview' && (csvImp = null)">
     <div class="modal modal-lg p-5">
@@ -2372,7 +2437,7 @@ const DRUG_FLAGS = [
   { k: 'special', label: 'ยาใช้เฉพาะ', style: 'background:#dcfce7;color:#166534' }
 ]
 const PROG_DEFAULT = { costMethod: 'actual', posCost: 'none', costSymbols: 'ABCDEFGHIJ', posSearch: { code: true, barcode: true, name: true, generic: true, category: false },
-  remindOnOpen: false, lanPrint: false, lanMode: 'bridge', lanHost: '192.168.1.146', lanPort: 9100, lanDots: 576, lanCut: true, paperReceipt: '80', labelW: 80, labelH: 50, vatMode: 'none', vatRate: 7, receiptLang: 'th', codePrefix: '', codeDigits: 5 }
+  remindOnOpen: false, lanPrint: false, lanLabel: false, lanLabelHost: '', lanLabelPort: 0, lanMode: 'bridge', lanHost: '192.168.1.146', lanPort: 9100, lanDots: 576, lanCut: true, paperReceipt: '80', labelW: 80, labelH: 50, vatMode: 'none', vatRate: 7, receiptLang: 'th', codePrefix: '', codeDigits: 5 }
 const progOf = S => { const p = (S && S.settings && S.settings.prog) || {}; return { ...PROG_DEFAULT, ...p, posSearch: { ...PROG_DEFAULT.posSearch, ...(p.posSearch || {}) } } }
 const RCPT_TEXT = {
   th: { title: 'ใบเสร็จรับเงิน', member: 'สมาชิก', discount: 'ส่วนลด', total: 'รวม', cash: 'รับเงินสด', change: 'เงินทอน', paidBy: 'ชำระโดย', transfer: 'โอนเงิน', thanks: 'ขอบคุณที่ใช้บริการ', net: 'ราคาไม่รวมภาษี', vat: 'ภาษีมูลค่าเพิ่ม', taxId: 'เลขประจำตัวผู้เสียภาษี' },
@@ -3364,6 +3429,14 @@ const Logic = {
     m.allergies = this.cleanAllergies(allergies); m.note = String(note || '').trim()
     return m
   },
+  deleteProduct(S, id) {
+    const p = S.products.find(x => x.id === id)
+    if (!p) throw new Error('ไม่พบสินค้า')
+    const used = S.lots.some(l => l.pid === id) || S.movements.some(m => m.pid === id) || S.sales.some(x => x.items.some(i => i.pid === id)) || S.receipts.some(r => r.items.some(i => i.pid === id)) ||
+      (S.orders || []).some(o => o.items.some(i => i.pid === id)) || S.products.some(x => (x.bundle || []).some(b => b.pid === id) || (x.unpack && x.unpack.pid === id))
+    if (used) throw new Error('สินค้านี้มีประวัติแล้ว (ขาย รับเข้า หรือสต็อก) ลบไม่ได้ ให้ปิดใช้งานแทน (เอาติ๊ก "ใช้งาน" ออก)')
+    S.products = S.products.filter(x => x.id !== id)
+  },
   deleteMember(S, id) {
     S.members = S.members.filter(m => m.id !== id)
     S.memberNotes = S.memberNotes.filter(n => n.mid !== id)
@@ -3801,6 +3874,8 @@ const DB_OPS = {
     await Db.reloadSuppliers(S)
     return await Db.reloadOrder(S, id)
   },
+  async deleteProduct(S, id) { await Db.rpc('delete_product', { p_id: N(id) }); S.products = S.products.filter(x => x.id !== id) },
+  async deleteMember(S, id) { await Db.rpc('delete_customer', { p_id: N(id) }); S.members = S.members.filter(m => m.id !== id) },
   async closeOrder(S, id) { await Db.rpc('close_purchase_order', { p_po: N(id) }); await Db.reloadOrder(S, id) },
   async cancelOrder(S, id) { await Db.rpc('cancel_purchase_order', { p_po: N(id) }); await Db.reloadOrder(S, id) },
   async adjust(S, pid, counted, reason, note) {
@@ -3841,7 +3916,7 @@ const DB_OPS = {
 }
 if (DB_MODE) {
   for (const k of Object.keys(DB_OPS)) if (k !== 'reloadMember') Logic[k] = DB_OPS[k]
-  for (const k of ['returnGoods', 'voidReturn', 'issueSupply', 'voidIssue', 'unpack', 'editReceipt', 'openStock', 'clearHistory', 'deleteMember', 'addMemberNote', 'deleteMemberNote', 'addFollowup', 'doneFollowup', 'deleteFollowup']) Logic[k] = DB_UNSUPPORTED
+  for (const k of ['returnGoods', 'voidReturn', 'issueSupply', 'voidIssue', 'unpack', 'editReceipt', 'openStock', 'clearHistory', 'addMemberNote', 'deleteMemberNote', 'addFollowup', 'doneFollowup', 'deleteFollowup']) Logic[k] = DB_UNSUPPORTED
   Logic.openStock = (S, pid, qty, cost) => Db.openStock(S, pid, qty, cost)
 }
 
@@ -4012,9 +4087,9 @@ const app = createApp({
       posLimit: 120, imp: { busy: false, pct: 0, msg: '', days: 365, result: null, backup: true },
       loginName: '', nowTick: Date.now(), dbMode: DB_MODE, dbHasAdmin: false, dbMe: null, dbUid: '', dbCfg: { url: '', key: '', open: false }, paying: false, dbSr: { rows: [], totals: { bills: 0, qty: 0, sales: 0, cost: 0, profit: 0 }, lines: [] }, dbKy: null, dbLoading: false, uiSize: (() => { try { const u = localStorage.getItem('knockdown_ui_size'); return u === 's' || u === 'l' ? u : 'm' } catch (e) { return 'm' } })(), setTab: 'general', usSel: null, us: null, usPass: '', usPass2: '', vs: null, vsSel: null, vsTab: 'gen', vsSearch: '', vsTermSearch: '',
       setup: { name: '', empId: '', pin: '', pin2: '', busy: false },
-      dbBackup: { from: '', to: '', busy: false, msg: '', error: '' }, dbImp: null, lanMsg: { busy: false, text: '', ok: null }, tt: { text: 'ทดสอบพิมพ์ข้อความ\nสวัสดีครับ 123 ราคา ฿99.50', size: 24, align: 'l', bold: false },  bridgeUrl: Slip.bridgeUrl(), restoreFile: null, csvFail: [], csvImp: null, csvProg: '', memMode: 'cards', memEdits: {}, memLimit: 100, mgMode: 'grid', gridEdits: {}, gridLimit: 100, bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
+      dbBackup: { from: '', to: '', busy: false, msg: '', error: '' }, dbImp: null, lanMsg: { busy: false, text: '', ok: null }, tt: { text: 'ทดสอบพิมพ์ข้อความ\nสวัสดีครับ 123 ราคา ฿99.50', size: 24, align: 'l', bold: false },  bridgeUrl: Slip.bridgeUrl(), restoreFile: null, csvFail: [], csvImp: null, csvProg: '', memMode: 'cards', memEdits: {}, memLimit: 100, mgMode: 'grid', labelAsk: null, menuFor: '', memSel: {}, gridEdits: {}, gridSel: {}, gridLimit: 100, bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
       mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
-      DRUG_FLAGS, FLAG_SHORT,
+      DRUG_FLAGS, FLAG_SHORT, MEAL_TIME,
       rcvDupOk: false,
       rcv: { invoice: '', supplier: '', day: today, items: [], discount: '', invoiceTotal: '', orderId: '' }, rcvSearch: '', rcvOpen: false,
       ord: { supplier: '', day: today, note: '', items: [] }, ordSearch: '', ordOpen: false, ordFilter: 'active', orderModalId: null, vendorOpen: false, vendorNew: '',
@@ -4095,6 +4170,8 @@ const app = createApp({
       }).slice().sort((a, b) => String(a.code).localeCompare(String(b.code), 'th', { numeric: true }))
     },
     gridCount() { return Object.keys(this.gridEdits).length },
+    gridSelCount() { return Object.keys(this.gridSel).filter(k => this.gridSel[k]).length },
+    gridAllPicked() { const rows = this.mgRows.slice(0, this.gridLimit); return rows.length > 0 && rows.every(p => this.gridSel[p.id]) },
     mgCounts() {
       const c = { all: 0, inactive: 0 }
       for (const f of DRUG_FLAGS) c[f.k] = 0
@@ -4373,6 +4450,7 @@ const app = createApp({
     window.addEventListener('online', () => { if (this.authed) { if (this.dirty) this.saveNow(); else this.checkRemote() } })
     window.addEventListener('pagehide', () => { if (this.authed && this.dirty) this.saveNow() })
     window.addEventListener('keydown', this.onKey)
+    document.addEventListener('click', () => { if (this.menuFor) this.menuFor = '' })
     this.srSetPreset('month'); this.kySetPreset('month')
     setInterval(() => { this.nowTick = Date.now() }, 30000)
     window.addEventListener('afterprint', () => { const nx = (this.printQueue || []).shift(); this.printDoc = nx || null; if (nx) setTimeout(() => this.runPrint(), 300) })
@@ -5036,6 +5114,7 @@ const app = createApp({
     printLabels(sale) {
       const lines = this.labelLines(sale)
       if (!lines.length) return this.toast('ไม่มีรายการยาในบิลนี้', 'bad')
+      if (this.prog.lanLabel) { this.lanPrintLabels(lines, sale.day, sale.memberId).then(ok => { if (!ok) { this.printDoc = { sale, receipt: false, lines }; this.runPrint() } }); return }
       this.printDoc = { sale, receipt: false, lines }; this.runPrint()
     },
     autoPrint(sale) {
@@ -5046,7 +5125,8 @@ const app = createApp({
       const docs = []
       if (this.printOpt.receipt && this.lanOn()) { this.lanPrintReceipt(sale).then(ok => { if (!ok) { this.printQueue = [{ sale, receipt: true, lines: [] }]; if (!this.printDoc) { this.printDoc = this.printQueue.shift(); this.runPrint() } } }) }
       else if (this.printOpt.receipt) docs.push({ sale, receipt: true, lines: [] })
-      if (lines.length) docs.push({ sale, receipt: false, lines })
+      if (lines.length && this.prog.lanLabel) { this.lanPrintLabels(lines, sale.day, sale.memberId).then(ok => { if (!ok) { this.printQueue = [{ sale, receipt: false, lines }]; if (!this.printDoc) { this.printDoc = this.printQueue.shift(); this.runPrint() } } }) }
+      else if (lines.length) docs.push({ sale, receipt: false, lines })
       if (!docs.length) return
       this.printQueue = docs.slice(1)
       this.printDoc = docs[0]
@@ -5197,7 +5277,7 @@ const app = createApp({
       a.download = name; a.click()
     },
     exportProductsCsv() {
-      const rows = [PROD_CSV].concat(this.S.products.slice().sort((a, b) => String(a.code).localeCompare(String(b.code), 'th', { numeric: true })).map(p => prodCsvRow(p, p.bundle ? '' : (this.stockMap[p.id] || 0))))
+      const rows = [PROD_CSV].concat(this.S.products.slice().sort((a, b) => String(a.code).localeCompare(String(b.code), 'th', { numeric: true })).map(p => { const r = prodCsvRow(p, p.bundle ? '' : (this.stockMap[p.id] || 0)); if (!this.can('viewCost')) r[PROD_CSV.indexOf('cost')] = ''; return r }))
       this.csvDownload('products-' + dayKey(new Date()) + '.csv', Csv.encode(rows)); this.toast('ส่งออกสินค้า ' + (rows.length - 1) + ' รายการ')
     },
     exportMembersCsv() {
@@ -5601,6 +5681,137 @@ const app = createApp({
       this.mgAdj = { counted: this.stockMap[p.id] || 0, reason: 'นับสต็อกไม่ตรง', note: '' }
       this.mgInitLots()
       this.$nextTick(() => { const el = document.getElementById('mg-editor'); if (el && window.innerWidth < 1024) el.scrollIntoView({ block: 'start' }) })
+    },
+    gridPick(id, on) { const m = { ...this.gridSel }; if (on) m[id] = true; else delete m[id]; this.gridSel = m },
+    gridPickAll(on) { const m = { ...this.gridSel }; for (const p of this.mgRows.slice(0, this.gridLimit)) { if (on) m[p.id] = true; else delete m[p.id] } this.gridSel = m },
+    gridDeleteSelected() {
+      if (!this.can('manage')) return this.deny('ลบสินค้า')
+      const ids = Object.keys(this.gridSel).filter(k => this.gridSel[k]), prods = ids.map(id => this.S.products.find(x => x.id === id)).filter(Boolean)
+      if (!prods.length) return
+      this.askConfirm('ลบสินค้าที่เลือก ' + prods.length + ' รายการ?', 'ลบได้เฉพาะสินค้าที่ยังไม่เคยมีประวัติ (ขาย รับเข้า สต็อก) รายการที่มีประวัติแล้วจะถูกข้าม แล้วระบบจะถามว่าจะปิดใช้งานแทนหรือไม่ การลบกู้คืนไม่ได้', 'ลบ', () => {
+        this.askPin('ลบสินค้า ' + prods.length + ' รายการ', async () => {
+          this.paying = true
+          const gone = [], blocked = []
+          try {
+            if (DB_MODE) {
+              for (let i = 0; i < prods.length; i += 100) {
+                const part = prods.slice(i, i + 100)
+                const res = await Db.rpc('bulk_delete_products', { p: { ids: part.map(p => Number(p.id)) } })
+                res.forEach((r, k) => { if (r.ok) gone.push(part[k]); else blocked.push({ p: part[k], err: r.error }) })
+              }
+              this.S.products = this.S.products.filter(p => !gone.includes(p))
+            } else {
+              for (const p of prods) { try { await Logic.deleteProduct(this.S, p.id); gone.push(p) } catch (e) { blocked.push({ p, err: e.message }) } }
+            }
+          } catch (e) { this.toast('ลบไม่สำเร็จ: ' + e.message, 'bad'); this.paying = false; return }
+          this.paying = false
+          const sel = { ...this.gridSel }; for (const p of gone) delete sel[p.id]; this.gridSel = sel
+          const ed = { ...this.gridEdits }; for (const p of gone) delete ed[p.id]; this.gridEdits = ed
+          if (!blocked.length) return this.toast('ลบแล้ว ' + gone.length + ' รายการ')
+          this.toast('ลบแล้ว ' + gone.length + ' รายการ ลบไม่ได้ ' + blocked.length + ' รายการ (มีประวัติ)', 'bad')
+          this.askConfirm('มี ' + blocked.length + ' รายการที่ลบไม่ได้เพราะมีประวัติแล้ว', 'ปิดใช้งานแทนไหม สินค้าจะถูกซ่อนจากหน้าขายและคลัง แต่ประวัติเดิมยังอยู่ครบ', 'ปิดใช้งาน ' + blocked.length + ' รายการ', async () => {
+            try {
+              if (DB_MODE) {
+                const items = blocked.map(b => { const pay = Db.productPayload(this.S, { ...b.p, active: false }, b.p.bundle || null, b.p.unpack || null); pay.id = Number(b.p.id); return { key: b.p.id, payload: pay } })
+                const res = await this.dbBulk('products', items, { total: items.length, done: 0, ok: 0, fail: 0, cancel: false })
+                const okIds = blocked.filter(b => res[b.p.id] && res[b.p.id].ok).map(b => b.p.id)
+                for (let i = 0; i < okIds.length; i += 200) await Db.reloadProducts(this.S, okIds.slice(i, i + 200))
+                this.toast('ปิดใช้งานแล้ว ' + okIds.length + ' รายการ')
+              } else { for (const b of blocked) b.p.active = false; this.toast('ปิดใช้งานแล้ว ' + blocked.length + ' รายการ') }
+              const s2 = { ...this.gridSel }; for (const b of blocked) delete s2[b.p.id]; this.gridSel = s2
+            } catch (e) { this.toast(e.message, 'bad') }
+          })
+        })
+      })
+    },
+    // ฉลากยาไปเครื่องพิมพ์ในวงแลน (วาดเป็นภาพ ภาษาไทยจึงไม่ผิดเพี้ยนไม่ว่าเครื่องพิมพ์รองรับรหัสภาษาไทยหรือไม่)
+    labelSlipLines(l, day, memberId) {
+      const st = this.S.settings, L = []
+      const head = (st.printShopOnLabel !== false ? (st.shopName || '') + ' · ' : '') + this.fmtDay(day) + (memberId ? ' · ' + this.memberName(memberId) : '')
+      L.push({ t: head, s: 20 })
+      L.push({ t: l.name, s: 28, b: true })
+      if (l.generic) L.push({ t: '(' + l.generic + ')', s: 20 })
+      L.push({ t: 'จำนวน ' + l.qty + ' ' + l.unit, s: 22 })
+      if (l.usage || l.meal) L.push({ t: 'วิธีใช้: ' + l.usage + (l.meal ? ' (' + l.meal + ')' : ''), s: 24, b: true })
+      if (l.indication) L.push({ t: 'ข้อบ่งใช้: ' + l.indication, s: 20 })
+      if (l.warning) L.push({ t: 'คำเตือน: ' + l.warning, s: 20, b: true })
+      if (l.storage) L.push({ t: 'เก็บ: ' + l.storage, s: 20 })
+      if (l.exp) L.push({ t: 'หมดอายุ: ' + this.fmtExp(l.exp), s: 20 })
+      return L
+    },
+    labelProg() { const pr = this.prog; return { ...pr, lanHost: pr.lanLabelHost || pr.lanHost, lanPort: Number(pr.lanLabelPort) || pr.lanPort, lanDots: Math.round((Number(pr.labelW) || 80) * 8) } },
+    async lanPrintLabels(lines, day, memberId) {
+      try { for (const l of lines) await Slip.print(this.labelProg(), this.labelSlipLines(l, day, memberId)); return true }
+      catch (e) { this.toast('พิมพ์ฉลากไม่สำเร็จ: ' + e.message, 'bad'); return false }
+    },
+    openLabel(p) {
+      if (!p || p.type === 'supply') return
+      const lots = this.S.lots.filter(l => l.pid === p.id && l.qtyLeft > 0 && l.expiry).sort((a, b) => a.expiry.localeCompare(b.expiry))
+      this.labelAsk = { p, qty: 1, copies: 1, usage: p.usage || '', meal: p.mealTime || '', indication: p.indication || '', warning: p.warning || '', exp: lots[0] ? lots[0].expiry : '' }
+    },
+    printLabelNow() {
+      const a = this.labelAsk; if (!a) return
+      const copies = Math.min(Math.max(Math.floor(Number(a.copies)) || 1, 1), 50)
+      const p = a.p
+      const line = { name: p.name, generic: p.generic || '', usage: a.usage || '', meal: MEAL_TIME[a.meal] || '', indication: a.indication || '', warning: a.warning || '', storage: p.storage || STORAGE_TYPE[p.storageType] || '', exp: a.exp || '', qty: a.qty, unit: p.unit || '', auto: true }
+      this.labelAsk = null
+      const lines = Array.from({ length: copies }, () => line)
+      if (this.prog.lanLabel) { this.lanPrintLabels(lines, dayKey(new Date()), '').then(ok => { if (!ok) { this.printDoc = { sale: { day: dayKey(new Date()), memberId: '' }, receipt: false, lines }; this.runPrint() } }); return }
+      this.printDoc = { sale: { day: dayKey(new Date()), memberId: '' }, receipt: false, lines }
+      this.runPrint()
+    },
+    toggleActive(p) {
+      if (!this.can('manage')) return this.deny('แก้ไขข้อมูลยา')
+      this.askPin((p.active === false ? 'เปิดใช้งาน ' : 'ปิดใช้งาน ') + p.name, async () => {
+        try {
+          const next = { active: p.active === false }
+          if (DB_MODE) await Db.saveProduct(this.S, p, next); else Object.assign(p, next)
+          this.toast(next.active ? 'เปิดใช้งานแล้ว' : 'ปิดใช้งานแล้ว (ซ่อนจากหน้าขายและคลัง)')
+        } catch (e) { this.toast(e.message, 'bad') }
+      })
+    },
+    askDeleteMemberOf(m) {
+      if (!m) return
+      if (!this.can('members')) return this.deny('ลบสมาชิก')
+      this.askConfirm('ลบสมาชิก ' + this.memberLabel(m) + '?', 'จะลบข้อมูลสมาชิก บันทึก และนัดติดตามของคนนี้ บิลขายเดิมยังอยู่ครบ แต่จะไม่ผูกกับสมาชิกคนนี้อีก', 'ลบสมาชิก', () => {
+        this.askPin('ลบสมาชิก ' + this.memberLabel(m), async () => {
+          try { if (this.cartMemberId === m.id) this.cartMemberId = ''; await Logic.deleteMember(this.S, m.id); if (this.memberModalId === m.id) this.memberModalId = null; this.toast('ลบสมาชิกแล้ว') }
+          catch (e) { this.toast(e.message, 'bad') }
+        })
+      })
+    },
+    memPick(id, on) { const m = { ...this.memSel }; if (on) m[id] = true; else delete m[id]; this.memSel = m },
+    memPickAll(on) { const m = { ...this.memSel }; for (const x of this.memberList.slice(0, this.memLimit)) { if (on) m[x.id] = true; else delete m[x.id] } this.memSel = m },
+    memDeleteSelected() {
+      if (!this.can('members')) return this.deny('ลบสมาชิก')
+      const list = Object.keys(this.memSel).filter(k => this.memSel[k]).map(id => this.S.members.find(x => x.id === id)).filter(Boolean)
+      if (!list.length) return
+      this.askConfirm('ลบสมาชิกที่เลือก ' + list.length + ' คน?', 'บิลขายเดิมยังอยู่ครบ แต่จะไม่ผูกกับสมาชิกเหล่านี้อีก การลบกู้คืนไม่ได้', 'ลบ', () => {
+        this.askPin('ลบสมาชิก ' + list.length + ' คน', async () => {
+          this.paying = true
+          let ok = 0; const bad = []
+          try {
+            if (DB_MODE) {
+              for (let i = 0; i < list.length; i += 100) {
+                const part = list.slice(i, i + 100), res = await Db.rpc('bulk_delete_customers', { p: { ids: part.map(m => Number(m.id)) } })
+                res.forEach((r, k) => { if (r.ok) { ok++; this.S.members = this.S.members.filter(m => m.id !== part[k].id) } else bad.push(r.error) })
+              }
+            } else for (const m of list) { try { await Logic.deleteMember(this.S, m.id); ok++ } catch (e) { bad.push(e.message) } }
+          } catch (e) { bad.push(e.message) }
+          this.paying = false
+          const sel = { ...this.memSel }; for (const m of list) if (!this.S.members.some(x => x.id === m.id)) delete sel[m.id]; this.memSel = sel
+          this.toast(bad.length ? 'ลบแล้ว ' + ok + ' คน ไม่สำเร็จ ' + bad.length + ': ' + bad[0] : 'ลบแล้ว ' + ok + ' คน', bad.length ? 'bad' : undefined)
+        })
+      })
+    },
+    askDeleteProduct(p) {
+      if (!this.can('manage')) return this.deny('ลบสินค้า')
+      this.askConfirm('ลบสินค้า ' + p.name + '?', 'ลบได้เฉพาะสินค้าที่ยังไม่เคยมีประวัติ (ขาย รับเข้า สต็อก) ถ้ามีประวัติแล้ว ให้เอาติ๊ก "ใช้งาน" ออกแทน', 'ลบสินค้า', () => {
+        this.askPin('ลบสินค้า ' + p.name, async () => {
+          try { await Logic.deleteProduct(this.S, p.id); if (this.mgSel === p.id) { this.mgSel = null; this.mg = null } const e = { ...this.gridEdits }; delete e[p.id]; this.gridEdits = e; this.toast('ลบสินค้าแล้ว') }
+          catch (e) { this.toast(e.message, 'bad') }
+        })
+      })
     },
     mgBack() { this.mgSel = null; this.mg = null },
     mgChanged() {
@@ -6049,15 +6260,7 @@ const app = createApp({
         this.memberForm = null
       } catch (e) { this.toast(e.message, 'bad') }
     },
-    askDeleteMember() {
-      const m = this.curMember; if (!m) return
-      this.askPin('ลบสมาชิก ' + this.memberLabel(m), () => {
-        this.askConfirm('ลบสมาชิกนี้?', 'จะลบข้อมูลสมาชิก บันทึก และนัดติดตามทั้งหมดของคนนี้ บิลขายเดิมยังอยู่ แต่จะไม่แสดงชื่อ', 'ลบสมาชิก', () => {
-          if (this.cartMemberId === m.id) this.cartMemberId = ''
-          Logic.deleteMember(this.S, m.id); this.memberModalId = null; this.toast('ลบสมาชิกแล้ว')
-        })
-      })
-    },
+    askDeleteMember() { this.askDeleteMemberOf(this.curMember) },
     addNoteAction() {
       try { Logic.addMemberNote(this.S, this.curMember.id, this.noteText); this.noteText = ''; this.toast('บันทึกแล้ว') } catch (e) { this.toast(e.message, 'bad') }
     },
