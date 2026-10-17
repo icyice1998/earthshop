@@ -31,6 +31,14 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   // bridge refuses a public address
   const bad = await pg.evaluate(async () => { try { await Slip.call('/print', { host: '8.8.8.8', port: 9100, data: 'AA==' }); return 'accepted' } catch (e) { return e.message } })
   ok(/วงแลน/.test(bad), 'bridge refuses addresses outside the shop network')
+  // typed-text tester (like typing in a word processor)
+  const before = got.length
+  await pg.evaluate(async () => { const v = window.__vm; v.S.settings.prog = { lanPrint: true, lanHost: '127.0.0.1', lanPort: 19100, lanDots: 576, lanCut: true }; v.tt = { text: 'สวัสดีครับ ทดสอบ\nบรรทัดสอง 12345', size: 32, align: 'c', bold: true }; await v.lanTypeTest() })
+  await new Promise(r => setTimeout(r, 800))
+  const tb = got[got.length - 1] || Buffer.alloc(0); const tr = tb.indexOf(Buffer.from([0x1d, 0x76, 0x30, 0x00]))
+  ok(got.length === before + 1 && tr > 0 && tb.length > 2000, 'typed text printed to the slip printer (' + tb.length + ' bytes)')
+  const bp = await pg.evaluate(() => { const v = window.__vm; v.tt = { text: 'ข้อความทดสอบ', size: 24, align: 'l', bold: false }; window.print = () => {}; v.typeTestBrowser(); return v.printDoc && v.printDoc.text })
+  ok(bp === 'ข้อความทดสอบ', 'typed text can also go to the browser print dialog')
   // phone modes -------------------------------------------------------
   // (1) Android + RawBT app: the app hands the ESC/POS bytes to the rawbt: link
   const rb = await pg.evaluate(async () => { const v = window.__vm; let url = ''; Slip.openUrl = u => { url = u }; v.S.settings.prog = { ...v.S.settings.prog, lanMode: 'rawbt' }; await v.lanTest(); return { url, msg: v.lanMsg } })
