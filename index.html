@@ -230,7 +230,7 @@
                 <div class="font-semibold leading-normal">{{ p.name }}</div>
               </div>
               <div class="flex items-end justify-between mt-2">
-                <div class="font-bold text-lg num" style="color:var(--pine)">฿{{ money(p.price) }}</div>
+                <div class="font-bold text-lg num" style="color:var(--pine)">฿{{ money(p.price) }}<span v-if="posCostText(p)" class="text-xs font-normal text-slate-500 ml-1">ทุน {{ posCostText(p) }}</span></div>
                 <div class="text-xs num" :class="(stockMap[p.id] || 0) <= 0 ? 'text-red-600 font-semibold' : (!p.bundle && stockMap[p.id] <= p.reorder ? 'text-amber-700 font-semibold' : 'text-slate-500')">
                   {{ (stockMap[p.id] || 0) <= 0 ? 'หมด' : (p.bundle ? 'ประกอบได้ ' : 'เหลือ ') + stockMap[p.id] }}
                 </div>
@@ -494,6 +494,7 @@
             <div><label class="lbl">เลขล็อต</label><input v-model="it.lotNo" class="inp" placeholder="ไม่บังคับ"></div>
             <div><label class="lbl">วันหมดอายุ</label><input v-model="it.expiry" type="date" class="inp"></div>
           </div>
+          <div v-if="termHint(it)" class="text-sm mt-2" style="color:var(--pine)">{{ termHint(it) }}</div>
           <div class="text-sm text-slate-500 mt-2">
             รวม ฿{{ money((Number(it.qty) || 0) * (Number(it.unitCost) || 0)) }}
             <span v-if="(Number(it.freeQty) || 0) > 0 || rcvDiscount > 0"> · ทุนจริงต่อหน่วย ฿{{ money(rcvEff(it)) }} (รวมของแถม/ส่วนลดแล้ว)</span>
@@ -1095,22 +1096,168 @@
 
     <!-- ============ 6) ตั้งค่า ============ -->
     <section v-else-if="tab === 'settings'" class="h-full overflow-y-auto p-3">
-      <div class="flex gap-2 mb-3">
-        <button class="chip" :class="setTab === 'general' ? 'chip-on' : ''" @click="setTab = 'general'">ทั่วไป</button>
+      <div class="flex gap-2 mb-3 overflow-x-auto pb-1">
+        <button v-if="isAdmin" class="chip" :class="setTab === 'shop' ? 'chip-on' : ''" @click="setTab = 'shop'">ข้อมูลร้าน</button>
+        <button v-if="isAdmin" class="chip" :class="setTab === 'prog' ? 'chip-on' : ''" @click="setTab = 'prog'">ตั้งค่าโปรแกรม</button>
+        <button v-if="isAdmin" class="chip" :class="setTab === 'vendors' ? 'chip-on' : ''" @click="setTab = 'vendors'">ผู้จำหน่าย</button>
         <button v-if="isAdmin" class="chip" :class="setTab === 'users' ? 'chip-on' : ''" @click="setTab = 'users'">ผู้ใช้และสิทธิ์</button>
+        <button class="chip" :class="setTab === 'general' || !isAdmin ? 'chip-on' : ''" @click="setTab = 'general'">บัญชีและข้อมูล</button>
       </div>
-      <div v-if="setTab === 'general' || !isAdmin">
-      <div class="card p-4 mb-3">
-        <div class="font-bold mb-3">ข้อมูลร้าน</div>
-        <label class="lbl">ชื่อร้าน (ชื่อสถานที่ขายยา)</label><input v-model="S.settings.shopName" class="inp mb-3">
-        <label class="lbl">ที่อยู่ร้าน</label><input v-model="S.settings.shopAddress" class="inp mb-3" placeholder="ใช้พิมพ์ในแบบรายงาน ข.ย.">
-        <div class="grid grid-cols-2 gap-3 mb-3">
-          <div><label class="lbl">ชื่อเภสัชกร / ผู้รับอนุญาต</label><input v-model="S.settings.pharmacistName" class="inp"></div>
-          <div><label class="lbl">เลขที่ใบอนุญาต</label><input v-model="S.settings.licenseNo" class="inp" placeholder="เช่น ภ.0000"></div>
+      <!-- ===== ข้อมูลร้าน ===== -->
+      <div v-if="setTab === 'shop' && isAdmin" class="grid gap-3 lg:grid-cols-2 lg:items-start">
+        <div class="card p-4">
+          <div class="font-bold mb-3">ข้อมูลร้าน</div>
+          <label class="lbl" for="sh-name">ชื่อร้าน (ชื่อสถานที่ขายยา)</label><input id="sh-name" v-model="S.settings.shopName" class="inp mb-1">
+          <label class="flex items-center gap-2 mb-3 text-sm"><input type="checkbox" class="w-5 h-5" :checked="S.settings.printShopOnLabel !== false" @change="S.settings.printShopOnLabel = $event.target.checked"> พิมพ์ชื่อร้านบนฉลากยา</label>
+          <label class="lbl" for="sh-addr">ที่อยู่</label><input id="sh-addr" v-model="S.settings.shopAddress" class="inp mb-3" placeholder="ใช้พิมพ์ในแบบรายงาน ข.ย.">
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div><label class="lbl" for="sh-prov">จังหวัด</label><input id="sh-prov" v-model="S.settings.shopProvince" class="inp"></div>
+            <div><label class="lbl" for="sh-zip">รหัสไปรษณีย์</label><input id="sh-zip" v-model="S.settings.shopZip" class="inp" inputmode="numeric"></div>
+            <div><label class="lbl" for="sh-tel">โทรศัพท์</label><input id="sh-tel" v-model="S.settings.shopPhone" class="inp" inputmode="tel"></div>
+            <div><label class="lbl" for="sh-fax">โทรสาร</label><input id="sh-fax" v-model="S.settings.shopFax" class="inp" inputmode="tel"></div>
+            <div class="col-span-2"><label class="lbl" for="sh-tax">เลขประจำตัวผู้เสียภาษีอากร</label><input id="sh-tax" v-model="S.settings.shopTaxId" class="inp" inputmode="numeric"></div>
+            <div><label class="lbl" for="sh-open">เวลาเปิดทำการ</label><input id="sh-open" v-model="S.settings.openTime" type="time" class="inp"></div>
+            <div><label class="lbl" for="sh-close">ถึง</label><input id="sh-close" v-model="S.settings.closeTime" type="time" class="inp"></div>
+            <div><label class="lbl" for="sh-bc">รหัสสาขา</label><input id="sh-bc" v-model="S.settings.branchCode" class="inp"></div>
+            <div><label class="lbl" for="sh-bn">สาขา</label><input id="sh-bn" v-model="S.settings.branchName" class="inp"></div>
+          </div>
+          <label class="lbl" for="sh-exp">เตือนก่อนยาหมดอายุ (วัน)</label><input id="sh-exp" v-model.number="S.settings.nearExpiryDays" type="number" inputmode="numeric" class="inp">
         </div>
-        <label class="lbl">เตือนก่อนยาหมดอายุ (วัน)</label><input v-model.number="S.settings.nearExpiryDays" type="number" inputmode="numeric" class="inp">
+        <div class="card p-4">
+          <div class="font-bold mb-3">ข้อมูลเภสัชกรประจำร้าน</div>
+          <label class="lbl" for="sh-ph">ชื่อ - สกุล (เภสัชกร / ผู้รับอนุญาต)</label><input id="sh-ph" v-model="S.settings.pharmacistName" class="inp mb-3">
+          <label class="lbl" for="sh-lic">เลขที่ใบอนุญาต</label><input id="sh-lic" v-model="S.settings.licenseNo" class="inp" placeholder="เช่น ภ.0000">
+          <div class="text-xs text-slate-500 mt-3">ข้อมูลนี้ใช้พิมพ์ในแบบรายงาน ข.ย. 9-13 และบนฉลากยา การเปลี่ยนแปลงบันทึกอัตโนมัติ</div>
+        </div>
       </div>
 
+      <!-- ===== ตั้งค่าโปรแกรม ===== -->
+      <div v-if="setTab === 'prog' && isAdmin" class="grid gap-3 lg:grid-cols-2 lg:items-start">
+        <div class="card p-4">
+          <div class="font-bold mb-2">การคิดต้นทุนขายสินค้า</div>
+          <label v-for="o in [['actual', 'ใช้ต้นทุนที่เป็นจริง (ตามล็อตที่ตัดขาย)'], ['avg', 'ใช้ต้นทุนสินค้าแบบเฉลี่ย (ของที่คงเหลือ)'], ['last', 'ใช้ต้นทุนสินค้าล็อตล่าสุด']]" :key="o[0]" class="flex items-center gap-2 p-1">
+            <input type="radio" class="w-5 h-5" :checked="prog.costMethod === o[0]" @change="setProg('costMethod', o[0])"> {{ o[1] }}
+          </label>
+          <div class="text-xs text-slate-500 mt-1">มีผลกับต้นทุน/กำไรของบิลที่ขายต่อจากนี้ บิลเก่าไม่เปลี่ยน มูลค่าสต็อกยังคิดตามล็อตจริง</div>
+        </div>
+        <div class="card p-4">
+          <div class="font-bold mb-2">หน้าร้าน</div>
+          <div class="text-sm text-slate-600 mb-1">ค้นหาสินค้าหน้าร้านจาก</div>
+          <div class="grid grid-cols-2 gap-1 mb-3">
+            <label v-for="o in [['code', 'รหัสสินค้า'], ['barcode', 'บาร์โค้ด'], ['name', 'ชื่อทางการค้า'], ['generic', 'ชื่อสามัญทางยา'], ['category', 'กลุ่มสินค้า']]" :key="o[0]" class="flex items-center gap-2 p-1">
+              <input type="checkbox" class="w-5 h-5" :checked="prog.posSearch[o[0]]" @change="setProgSearch(o[0], $event.target.checked)"> {{ o[1] }}
+            </label>
+          </div>
+          <div class="text-sm text-slate-600 mb-1">แสดงต้นทุนที่ปุ่มสินค้า (เฉพาะผู้มีสิทธิ์เห็นต้นทุน)</div>
+          <label v-for="o in [['none', 'ไม่แสดง'], ['symbol', 'แสดงสัญลักษณ์ต้นทุน'], ['show', 'แสดงต้นทุนเป็นตัวเลข']]" :key="o[0]" class="flex items-center gap-2 p-1">
+            <input type="radio" class="w-5 h-5" :checked="prog.posCost === o[0]" @change="setProg('posCost', o[0])"> {{ o[1] }}
+          </label>
+          <div v-if="prog.posCost === 'symbol'" class="mt-2">
+            <label class="lbl" for="pg-sym">ตัวอักษรแทนเลข 0 1 2 3 4 5 6 7 8 9 (10 ตัว)</label>
+            <input id="pg-sym" class="inp" maxlength="10" :value="prog.costSymbols" @input="setProg('costSymbols', $event.target.value)">
+          </div>
+          <label class="flex items-center gap-2 p-1 mt-3"><input type="checkbox" class="w-5 h-5" :checked="prog.remindOnOpen" @change="setProg('remindOnOpen', $event.target.checked)"> เตือนรายการยาที่ใกล้หมด / หมดอายุเมื่อเปิดโปรแกรม</label>
+        </div>
+        <div class="card p-4">
+          <div class="font-bold mb-2">ใบเสร็จ ภาษี และภาษา</div>
+          <div class="text-sm text-slate-600 mb-1">ภาษีมูลค่าเพิ่ม (VAT)</div>
+          <label v-for="o in [['none', 'ไม่แสดง VAT บนใบเสร็จ'], ['included', 'ราคาขายรวม VAT แล้ว (แสดงยอดก่อนภาษีและภาษีบนใบเสร็จ)']]" :key="o[0]" class="flex items-center gap-2 p-1">
+            <input type="radio" class="w-5 h-5" :checked="prog.vatMode === o[0]" @change="setProg('vatMode', o[0])"> {{ o[1] }}
+          </label>
+          <div v-if="prog.vatMode === 'included'" class="flex items-center gap-2 mt-2">
+            <label class="lbl !mb-0" for="pg-vat">อัตราภาษี</label><input id="pg-vat" type="number" inputmode="decimal" class="inp !w-24 text-right" :value="prog.vatRate" @input="setProg('vatRate', Number($event.target.value) || 0)"> %
+          </div>
+          <div class="text-sm text-slate-600 mt-3 mb-1">ภาษาบนใบเสร็จ</div>
+          <div class="flex gap-4">
+            <label v-for="o in [['th', 'ไทย'], ['en', 'อังกฤษ']]" :key="o[0]" class="flex items-center gap-2 p-1"><input type="radio" class="w-5 h-5" :checked="prog.receiptLang === o[0]" @change="setProg('receiptLang', o[0])"> {{ o[1] }}</label>
+          </div>
+        </div>
+        <div class="card p-4">
+          <div class="font-bold mb-2">รหัสสินค้าอัตโนมัติ</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="lbl" for="pg-pre">ตัวอักษรนำหน้า</label><input id="pg-pre" class="inp" maxlength="6" autocapitalize="characters" :value="prog.codePrefix" @input="setProg('codePrefix', $event.target.value)"></div>
+            <div><label class="lbl" for="pg-dig">จำนวนหลักตัวเลข</label><input id="pg-dig" type="number" inputmode="numeric" min="1" max="10" class="inp" :value="prog.codeDigits" @input="setProg('codeDigits', Math.min(10, Math.max(1, Number($event.target.value) || 5)))"></div>
+          </div>
+          <div class="text-sm mt-3">รหัสถัดไปของสินค้าใหม่: <b class="num">{{ nextProductCode() }}</b></div>
+          <div class="text-xs text-slate-500 mt-2">สินค้าที่มีอยู่แล้วไม่ถูกเปลี่ยนรหัส</div>
+        </div>
+        <div class="text-xs text-slate-500 lg:col-span-2">การตั้งค่าเหล่านี้บันทึกอัตโนมัติทันทีที่เปลี่ยน</div>
+      </div>
+
+      <!-- ===== ผู้จำหน่าย ===== -->
+      <div v-if="setTab === 'vendors' && isAdmin" class="grid gap-3 lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start">
+        <div class="card p-3">
+          <div class="font-bold mb-2">รายชื่อผู้จำหน่าย ({{ (S.suppliers || []).length }})</div>
+          <input v-model="vsSearch" class="inp mb-2" placeholder="ค้นหาชื่อ / รหัส">
+          <div style="max-height:60vh;overflow-y:auto">
+            <button v-for="x in vsList" :key="x.id" class="w-full text-left p-2 border-b" style="border-color:var(--line)" :style="vsSel === x.id ? 'background:#eef7f5' : ''" @click="vsSelect(x)">
+              <div class="font-semibold truncate">{{ x.name }}</div><div class="text-xs text-slate-500">{{ x.code || '' }} {{ x.phone || '' }}</div>
+            </button>
+            <div v-if="vsList.length === 0" class="text-sm text-slate-400 py-3">ไม่พบผู้จำหน่าย</div>
+          </div>
+          <button class="btn btn-ghost w-full mt-3" @click="vsNew">+ เพิ่มผู้จำหน่าย</button>
+        </div>
+        <div class="min-w-0">
+          <div v-if="!vs" class="card p-8 text-center text-slate-400">เลือกผู้จำหน่ายจากรายการ หรือกด "+ เพิ่มผู้จำหน่าย"</div>
+          <div v-else>
+            <div class="flex gap-2 mb-3">
+              <button class="chip" :class="vsTab === 'gen' ? 'chip-on' : ''" @click="vsTab = 'gen'">ข้อมูลทั่วไป</button>
+              <button class="chip" :class="vsTab === 'items' ? 'chip-on' : ''" @click="vsTab = 'items'">สินค้าที่จัดจำหน่าย ({{ vsProducts.length }})</button>
+              <button class="chip" :class="vsTab === 'terms' ? 'chip-on' : ''" @click="vsTab = 'terms'">เงื่อนไขส่วนแถม ({{ vs.terms.length }})</button>
+            </div>
+            <div v-if="vsTab === 'gen'" class="card p-4 mb-3">
+              <div class="grid grid-cols-2 gap-3">
+                <div><label class="lbl" for="vs-code">รหัสผู้จำหน่าย</label><input id="vs-code" v-model="vs.code" class="inp"></div>
+                <div><label class="lbl" for="vs-name">ชื่อผู้จำหน่าย</label><input id="vs-name" v-model="vs.name" class="inp"></div>
+                <div class="col-span-2"><label class="lbl" for="vs-addr">ที่อยู่ / สถานที่ติดต่อ</label><input id="vs-addr" v-model="vs.address" class="inp"></div>
+                <div><label class="lbl" for="vs-prov">จังหวัด</label><input id="vs-prov" v-model="vs.province" class="inp"></div>
+                <div><label class="lbl" for="vs-zip">รหัสไปรษณีย์</label><input id="vs-zip" v-model="vs.zip" class="inp" inputmode="numeric"></div>
+                <div><label class="lbl" for="vs-tel">โทรศัพท์</label><input id="vs-tel" v-model="vs.phone" class="inp" inputmode="tel"></div>
+                <div><label class="lbl" for="vs-fax">โทรสาร</label><input id="vs-fax" v-model="vs.fax" class="inp" inputmode="tel"></div>
+                <div class="col-span-2"><label class="lbl" for="vs-tax">เลขประจำตัวผู้เสียภาษีอากร</label><input id="vs-tax" v-model="vs.taxId" class="inp" inputmode="numeric"></div>
+                <div><label class="lbl" for="vs-open">เวลาทำการ</label><input id="vs-open" v-model="vs.openTime" type="time" class="inp"></div>
+                <div><label class="lbl" for="vs-close">ถึง</label><input id="vs-close" v-model="vs.closeTime" type="time" class="inp"></div>
+                <div><label class="lbl" for="vs-ct">ชื่อผู้ติดต่อ</label><input id="vs-ct" v-model="vs.contact" class="inp"></div>
+                <div><label class="lbl" for="vs-cm">มือถือผู้ติดต่อ</label><input id="vs-cm" v-model="vs.contactMobile" class="inp" inputmode="tel"></div>
+                <div class="col-span-2"><label class="lbl" for="vs-note">หมายเหตุ</label><input id="vs-note" v-model="vs.note" class="inp"></div>
+              </div>
+            </div>
+            <div v-if="vsTab === 'items'" class="card p-4 mb-3">
+              <div class="text-xs text-slate-500 mb-2">รายการสินค้าที่ตั้งผู้จำหน่ายเป็นรายนี้ (ตั้งได้ที่ ระบบบริหารจัดการยา หรือแก้ไขสินค้า)</div>
+              <div v-if="vsProducts.length === 0" class="text-sm text-slate-400">ยังไม่มีสินค้าที่ผูกกับผู้จำหน่ายรายนี้</div>
+              <div style="max-height:50vh;overflow-y:auto">
+                <div v-for="p in vsProducts" :key="p.id" class="flex justify-between gap-2 py-1 border-b text-sm" style="border-color:var(--line)">
+                  <span class="min-w-0 truncate"><span class="text-slate-500">{{ p.code }}</span> {{ p.name }}</span>
+                  <span class="num whitespace-nowrap">คงเหลือ {{ stockMap[p.id] || 0 }} · ฿{{ money(p.price) }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="vsTab === 'terms'" class="card p-4 mb-3">
+              <div class="text-xs text-slate-500 mb-2">ใช้เป็นข้อมูลอ้างอิงตอนรับของ: ระบบจะแสดงเงื่อนไข "ซื้อ X แถม Y" ที่แถวสินค้าในหน้ารับเข้า</div>
+              <div class="relative mb-3">
+                <input v-model="vsTermSearch" class="inp" placeholder="ค้นหาสินค้าที่จะเพิ่มเงื่อนไข" autocomplete="off">
+                <div v-if="vsTermResults.length" class="absolute left-0 right-0 bg-white border shadow-xl rounded-xl mt-1 z-20 max-h-64 overflow-y-auto" style="border-color:var(--line)">
+                  <button v-for="p in vsTermResults" :key="p.id" class="w-full text-left p-3 border-b hover:bg-teal-50" style="border-color:var(--line)" @click="vsAddTerm(p)"><span class="text-slate-500 mr-2">{{ p.code }}</span>{{ p.name }}</button>
+                </div>
+              </div>
+              <div v-if="vs.terms.length === 0" class="text-sm text-slate-400">ยังไม่มีเงื่อนไข</div>
+              <div v-for="(t, i) in vs.terms" :key="t.pid" class="flex flex-wrap items-center gap-2 py-2 border-b" style="border-color:var(--line)">
+                <div class="flex-1 min-w-[10rem] font-semibold text-sm">{{ t.name }}</div>
+                <label class="text-sm">ซื้อ <input v-model.number="t.buy" type="number" inputmode="numeric" class="inp !w-20 !py-1 text-center"></label>
+                <label class="text-sm">แถม <input v-model.number="t.free" type="number" inputmode="numeric" class="inp !w-20 !py-1 text-center"></label>
+                <button class="text-red-500 px-2" @click="vs.terms.splice(i, 1)">ลบ</button>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 justify-end">
+              <button v-if="vs.id" class="btn btn-badline" @click="vsDelete">ลบผู้จำหน่าย</button>
+              <button class="btn btn-ghost" @click="vs = null; vsSel = null">ปิด</button>
+              <button class="btn btn-pri" @click="vsSave">บันทึก</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="setTab === 'general' || !isAdmin">
       <div class="card p-4 mb-3">
         <div class="font-bold mb-1">บัญชีผู้ใช้</div>
         <div class="text-sm text-slate-600 mb-3">เข้าสู่ระบบเป็น <b>{{ actor }}</b> · สถานะ: {{ syncLabel }}</div>
@@ -1189,7 +1336,7 @@
       </div>
     </div>
 
-      <div v-else class="grid gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
+      <div v-else-if="setTab === 'users' && isAdmin" class="grid gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
         <div class="card p-3">
           <div class="font-bold mb-2">ผู้ใช้โปรแกรม</div>
           <div v-if="!hasAdmin" class="p-3 rounded-xl text-sm mb-3" style="background:#fef3c7;color:#92400e">
@@ -1212,7 +1359,11 @@
               <div class="grid grid-cols-2 gap-3">
                 <div><label class="lbl" for="us-emp">รหัสพนักงาน</label><input id="us-emp" v-model="us.empId" class="inp"></div>
                 <div><label class="lbl" for="us-name">ชื่อพนักงาน</label><input id="us-name" v-model="us.name" class="inp"></div>
-                <div class="col-span-2"><label class="lbl" for="us-login">ชื่อ Login (ส่วนหน้าของอีเมลที่สร้างไว้ใน Supabase เช่น earth)</label><input id="us-login" v-model="us.login" class="inp" autocapitalize="none" autocomplete="off"></div>
+                <div class="col-span-2"><label class="lbl" for="us-login">ชื่อ Login (ใช้พิมพ์ตอนเข้าสู่ระบบ เช่น earth)</label><input id="us-login" v-model="us.login" class="inp" autocapitalize="none" autocomplete="off" :disabled="!!us.id"></div>
+                <template v-if="!us.id">
+                  <div><label class="lbl" for="us-pw">รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input id="us-pw" v-model="usPass" type="password" autocomplete="new-password" class="inp"></div>
+                  <div><label class="lbl" for="us-pw2">ยืนยันรหัสผ่าน</label><input id="us-pw2" v-model="usPass2" type="password" autocomplete="new-password" class="inp"></div>
+                </template>
                 <div><label class="lbl" for="us-ws">เวลาเข้างาน (เว้นว่าง = ไม่จำกัด)</label><input id="us-ws" v-model="us.workStart" type="time" class="inp"></div>
                 <div><label class="lbl" for="us-we">เวลาเลิกงาน</label><input id="us-we" v-model="us.workEnd" type="time" class="inp"></div>
               </div>
@@ -1220,7 +1371,7 @@
                 <label class="flex items-center gap-2"><input type="checkbox" v-model="us.active" class="w-5 h-5"> ใช้งาน</label>
                 <label class="flex items-center gap-2"><input type="checkbox" v-model="us.admin" class="w-5 h-5"> ผู้ดูแลระบบ (สิทธิ์เต็ม ไม่จำกัดเวลา)</label>
               </div>
-              <div class="text-xs text-slate-500 mt-2">รหัสผ่านเข้าระบบสร้างและเปลี่ยนที่ Supabase (Authentication, Users) ส่วนหน้านี้กำหนดว่าชื่อ Login นั้นทำอะไรได้บ้าง</div>
+              <div class="text-xs text-slate-500 mt-2">ผู้ใช้ใหม่: ระบบสร้างบัญชีเข้าสู่ระบบให้พร้อมรหัสผ่านที่ตั้งไว้ ผู้ใช้เปลี่ยนรหัสผ่านเองได้ที่ ตั้งค่า &gt; บัญชีและข้อมูล ส่วนหน้านี้กำหนดว่าชื่อ Login นั้นทำอะไรได้บ้าง</div>
             </div>
 
             <div class="card p-4 mb-3" :style="us.admin ? 'opacity:.55' : ''">
@@ -1240,7 +1391,7 @@
             <div class="flex flex-wrap gap-2 justify-end">
               <button v-if="us.id" class="btn btn-badline" @click="usDelete">ลบผู้ใช้</button>
               <button class="btn btn-ghost" @click="us = null; usSel = null">ปิด</button>
-              <button class="btn btn-pri" @click="usSave">บันทึก (ใส่รหัสผ่าน)</button>
+              <button class="btn btn-pri" @click="usSave">บันทึก</button>
             </div>
           </div>
           <div class="text-xs text-slate-500 mt-3">หมายเหตุ: สิทธิ์เหล่านี้ควบคุมที่หน้าจอของโปรแกรม ช่วยกันพนักงานกดผิดหรือเข้าส่วนที่ไม่เกี่ยวข้อง ยังไม่ใช่การป้องกันระดับฐานข้อมูล ซึ่งต้องย้ายไปฐานข้อมูลแบบตารางจริงก่อน</div>
@@ -1832,24 +1983,30 @@
   <div v-if="printDoc" id="print-area" :class="printDoc.kind ? 'print-wide' : ''">
     <div v-if="printDoc.receipt" :style="printDoc.lines.length ? 'page-break-after:always' : ''">
       <div style="text-align:center;font-weight:700;font-size:13pt">{{ S.settings.shopName }}</div>
-      <div style="text-align:center;font-size:9.5pt">ใบเสร็จรับเงิน {{ printDoc.sale.no }}</div>
+      <div v-if="S.settings.shopAddress" style="text-align:center;font-size:8.5pt">{{ S.settings.shopAddress }} {{ S.settings.shopProvince }} {{ S.settings.shopZip }}<span v-if="S.settings.shopPhone"> โทร {{ S.settings.shopPhone }}</span></div>
+      <div v-if="S.settings.shopTaxId" style="text-align:center;font-size:8.5pt">{{ rcT.taxId }} {{ S.settings.shopTaxId }}</div>
+      <div style="text-align:center;font-size:9.5pt">{{ rcT.title }} {{ printDoc.sale.no }}</div>
       <div style="text-align:center;font-size:9.5pt">{{ fmtDay(printDoc.sale.day) }} {{ fmtTime(printDoc.sale.ts) }}<span v-if="printDoc.sale.by"> · {{ printDoc.sale.by }}</span></div>
-      <div v-if="printDoc.sale.memberId" style="text-align:center;font-size:9.5pt">สมาชิก {{ memberName(printDoc.sale.memberId) }}</div>
+      <div v-if="printDoc.sale.memberId" style="text-align:center;font-size:9.5pt">{{ rcT.member }} {{ memberName(printDoc.sale.memberId) }}</div>
       <div class="rc-line"></div>
       <div v-for="(it, i) in printDoc.sale.items" :key="i" style="margin-bottom:1mm">
         <div>{{ it.name }}</div>
         <div class="rc-row" style="font-size:10pt"><span>{{ it.qty }} × {{ money(it.price) }}</span><span>{{ money(it.qty * it.price) }}</span></div>
       </div>
       <div class="rc-line"></div>
-      <div v-if="printDoc.sale.discount" class="rc-row"><span>ส่วนลด</span><span>-{{ money(printDoc.sale.discount) }}</span></div>
-      <div class="rc-row" style="font-weight:700;font-size:13pt"><span>รวม</span><span>฿{{ money(printDoc.sale.total) }}</span></div>
+      <div v-if="printDoc.sale.discount" class="rc-row"><span>{{ rcT.discount }}</span><span>-{{ money(printDoc.sale.discount) }}</span></div>
+      <div class="rc-row" style="font-weight:700;font-size:13pt"><span>{{ rcT.total }}</span><span>฿{{ money(printDoc.sale.total) }}</span></div>
+      <template v-if="vatInfo(printDoc.sale.total)">
+        <div class="rc-row" style="font-size:9.5pt"><span>{{ rcT.net }}</span><span>{{ money(vatInfo(printDoc.sale.total).net) }}</span></div>
+        <div class="rc-row" style="font-size:9.5pt"><span>{{ rcT.vat }} {{ vatInfo(printDoc.sale.total).rate }}%</span><span>{{ money(vatInfo(printDoc.sale.total).vat) }}</span></div>
+      </template>
       <div v-if="printDoc.sale.method === 'cash'">
-        <div class="rc-row"><span>รับเงินสด</span><span>{{ money(printDoc.sale.received) }}</span></div>
-        <div class="rc-row"><span>เงินทอน</span><span>{{ money(printDoc.sale.change) }}</span></div>
+        <div class="rc-row"><span>{{ rcT.cash }}</span><span>{{ money(printDoc.sale.received) }}</span></div>
+        <div class="rc-row"><span>{{ rcT.change }}</span><span>{{ money(printDoc.sale.change) }}</span></div>
       </div>
-      <div v-else class="rc-row"><span>ชำระโดย</span><span>โอนเงิน</span></div>
+      <div v-else class="rc-row"><span>{{ rcT.paidBy }}</span><span>{{ rcT.transfer }}</span></div>
       <div class="rc-line"></div>
-      <div style="text-align:center;font-size:10pt">ขอบคุณที่ใช้บริการ</div>
+      <div style="text-align:center;font-size:10pt">{{ rcT.thanks }}</div>
     </div>
     <ky-sheet v-if="printDoc.kind === 'ky'" :doc="printDoc.doc"></ky-sheet>
     <div v-if="printDoc.kind === 'sr'" class="sr-print">
@@ -1870,7 +2027,7 @@
     </div>
     <template v-if="printDoc.lines.length">
       <div v-for="(l, i) in printDoc.lines" :key="i" class="dl-page">
-        <div style="font-size:9pt">{{ S.settings.shopName }} · {{ fmtDay(printDoc.sale.day) }}<span v-if="printDoc.sale.memberId"> · {{ memberName(printDoc.sale.memberId) }}</span></div>
+        <div style="font-size:9pt"><template v-if="S.settings.printShopOnLabel !== false">{{ S.settings.shopName }} · </template>{{ fmtDay(printDoc.sale.day) }}<span v-if="printDoc.sale.memberId"> · {{ memberName(printDoc.sale.memberId) }}</span></div>
         <div style="font-weight:700;font-size:13pt">{{ l.name }}</div>
         <div v-if="l.generic" style="font-size:9.5pt">({{ l.generic }})</div>
         <div style="margin:1mm 0">จำนวน {{ l.qty }} {{ l.unit }}</div>
@@ -1884,6 +2041,20 @@
   </div>
 
   <!-- ล็อกหน้าจอ (ไม่มีสิทธิ์ / นอกเวลาทำงาน) -->
+  <div v-if="authed && !isLoading && !hasAdmin" class="fixed inset-0 flex items-center justify-center p-5 overflow-y-auto" style="z-index:140;background:#0f3f3a">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl my-auto">
+      <div class="text-xl font-bold mb-1">ตั้งค่าครั้งแรก</div>
+      <div class="text-sm text-slate-600 mb-4">สร้างผู้ดูแลระบบสำหรับบัญชี <b>{{ loginName }}</b> ก่อนเริ่มใช้งาน ผู้ดูแลเป็นคนเพิ่มพนักงานและกำหนดสิทธิ์ และรหัสยืนยัน (PIN) ใช้ยืนยันงานสำคัญ เช่น ยกเลิกบิล ปรับสต็อก</div>
+      <label class="lbl" for="fs-name">ชื่อ - สกุล</label><input id="fs-name" v-model="setup.name" class="inp mb-3" :placeholder="actor">
+      <label class="lbl" for="fs-emp">รหัสพนักงาน (ไม่บังคับ)</label><input id="fs-emp" v-model="setup.empId" class="inp mb-3">
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div><label class="lbl" for="fs-pin">ตั้ง PIN (ตัวเลข 4-8 หลัก)</label><input id="fs-pin" v-model="setup.pin" type="password" inputmode="numeric" autocomplete="new-password" class="inp"></div>
+        <div><label class="lbl" for="fs-pin2">ยืนยัน PIN</label><input id="fs-pin2" v-model="setup.pin2" type="password" inputmode="numeric" autocomplete="new-password" class="inp"></div>
+      </div>
+      <button class="btn btn-pri w-full" @click="firstSetup">สร้างผู้ดูแลและเริ่มใช้งาน</button>
+      <button class="w-full mt-2 py-2 text-sm underline text-slate-500" @click="doLogout">ออกจากระบบ</button>
+    </div>
+  </div>
   <div v-if="lockReason" class="fixed inset-0 flex flex-col items-center justify-center p-6 text-center" style="z-index:150;background:#0f3f3a;color:#fff">
     <div class="text-2xl font-bold mb-2">ไม่สามารถใช้งานได้</div>
     <div class="mb-5" style="color:#b9dcd7">{{ lockReason }}</div>
@@ -1916,6 +2087,13 @@ const DRUG_FLAGS = [
   { k: 'ky13', label: 'ขย.13', style: 'background:#fae8ff;color:#86198f' },
   { k: 'special', label: 'ยาใช้เฉพาะ', style: 'background:#dcfce7;color:#166534' }
 ]
+const PROG_DEFAULT = { costMethod: 'actual', posCost: 'none', costSymbols: 'ABCDEFGHIJ', posSearch: { code: true, barcode: true, name: true, generic: true, category: false },
+  remindOnOpen: false, vatMode: 'none', vatRate: 7, receiptLang: 'th', codePrefix: '', codeDigits: 5 }
+const progOf = S => { const p = (S && S.settings && S.settings.prog) || {}; return { ...PROG_DEFAULT, ...p, posSearch: { ...PROG_DEFAULT.posSearch, ...(p.posSearch || {}) } } }
+const RCPT_TEXT = {
+  th: { title: 'ใบเสร็จรับเงิน', member: 'สมาชิก', discount: 'ส่วนลด', total: 'รวม', cash: 'รับเงินสด', change: 'เงินทอน', paidBy: 'ชำระโดย', transfer: 'โอนเงิน', thanks: 'ขอบคุณที่ใช้บริการ', net: 'ราคาไม่รวมภาษี', vat: 'ภาษีมูลค่าเพิ่ม', taxId: 'เลขประจำตัวผู้เสียภาษี' },
+  en: { title: 'Receipt', member: 'Member', discount: 'Discount', total: 'Total', cash: 'Cash', change: 'Change', paidBy: 'Paid by', transfer: 'Bank transfer', thanks: 'Thank you', net: 'Price before VAT', vat: 'VAT', taxId: 'Tax ID' }
+}
 const PERM_GROUPS = [
   { title: 'หน้าจอ', items: [['pos', 'หน้าจอหน้าร้าน (ขาย)'], ['members', 'หน้าจอลูกค้า / สมาชิก'], ['stock', 'หน้าจอคลังสินค้า / เบิกวัสดุ'], ['manage', 'ระบบบริหารจัดการยา (แก้ไขข้อมูลยา)'], ['receive', 'หน้าจอสั่งซื้อ / รับเข้า / ส่งคืน'], ['report', 'หน้าจอปิดวัน / บิลการขาย'], ['reports', 'รายงานการขาย ยอดขาย กำไร'], ['forms', 'แบบรายงาน ข.ย. (9-13)'], ['settings', 'หน้าจอตั้งค่า']] },
   { title: 'การขาย', items: [['sellOtc', 'ขาย OTC'], ['sellRx', 'ขายยาอันตราย / ควบคุม (Prescription)'], ['editPrice', 'แก้ไขราคาขายที่หน้าร้าน'], ['voidSale', 'ยกเลิกบิลขาย'], ['billsView', 'แสดงรายการบิลขายที่หน้าร้าน']] },
@@ -2316,12 +2494,17 @@ const Logic = {
     if (this.stockOf(S, pid) < qty) throw new Error('สต็อกไม่พอ')
     let need = qty, costTotal = 0
     const allocs = []
+    // วิธีคิดต้นทุน (ตั้งค่า > ตั้งค่าโปรแกรม): actual = ต้นทุนของล็อตที่ตัดจริง, avg = เฉลี่ยของที่เหลือ, last = ล็อตที่รับเข้าล่าสุด
+    const method = progOf(S).costMethod
+    let unit = null
+    if (method === 'avg') { let tq = 0, tv = 0; for (const l of S.lots) if (l.pid === pid && l.qtyLeft > 0) { tq += l.qtyLeft; tv += l.qtyLeft * l.cost } if (tq > 0) unit = tv / tq }
+    else if (method === 'last') { const ls = S.lots.filter(l => l.pid === pid && l.receivedAt).sort((a, b) => a.receivedAt.localeCompare(b.receivedAt)); if (ls.length) unit = ls[ls.length - 1].cost }
     for (const lot of this.lotsFEFO(S, pid)) {
       if (need <= 0) break
       const q = Math.min(lot.qtyLeft, need)
       lot.qtyLeft -= q; need -= q
       allocs.push({ lotId: lot.id, qty: q, cost: lot.cost, pid })
-      costTotal += q * lot.cost
+      costTotal += q * (unit === null ? lot.cost : unit)
       S.movements.push({ id: uid(), ts: ctx.ts, pid, type: ctx.type, qty: -q, lotId: lot.id, ref: ctx.ref || '', note: ctx.note || '', by: ACTOR })
     }
     return { allocs, costTotal: R2(costTotal) }
@@ -2414,7 +2597,7 @@ const Logic = {
   },
   buildKy(S, form, o) {
     const st = S.settings || {}
-    const shop = { name: st.shopName || '', address: st.shopAddress || '', pharmacist: st.pharmacistName || '', license: st.licenseNo || '' }
+    const shop = { name: st.shopName || '', address: [st.shopAddress, st.shopProvince, st.shopZip].filter(Boolean).join(' '), pharmacist: st.pharmacistName || '', license: st.licenseNo || '' }
     const d0 = dayKey(new Date(o.from)), d1 = dayKey(new Date(o.to))
     const inRange = d => d >= d0 && d <= d1
     const doc = { form, shop, period: this.beDay(d0) + ' - ' + this.beDay(d1), rows: [], pages: [], warn: [] }
@@ -2995,7 +3178,8 @@ const app = createApp({
       kyForm: '11', kyFrom: '', kyTo: '', kyPreset: 'month', kyOnly9n: false, kyManual: false, kyPids: [], kyQ: '',
       srPreset: 'month', srFrom: '', srTo: '', srTf: '00:00', srTt: '23:59', srStaff: '', srCat: '', srFlag: '', srMethod: '', srQ: '', srGroup: 'day', srLimit: 100,
       posLimit: 120, imp: { busy: false, pct: 0, msg: '', days: 365, result: null, backup: true },
-      loginName: '', nowTick: Date.now(), setTab: 'general', usSel: null, us: null,
+      loginName: '', nowTick: Date.now(), setTab: 'general', usSel: null, us: null, usPass: '', usPass2: '', vs: null, vsSel: null, vsTab: 'gen', vsSearch: '', vsTermSearch: '',
+      setup: { name: '', empId: '', pin: '', pin2: '', busy: false },
       mgMode: 'edit', bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
       mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
       DRUG_FLAGS,
@@ -3138,11 +3322,29 @@ const app = createApp({
       }
       return new Set(Object.keys(q).sort((a, b) => q[b] - q[a]).slice(0, 16))
     },
+    prog() { return progOf(this.S) },
+    rcT() { return RCPT_TEXT[this.prog.receiptLang] || RCPT_TEXT.th },
     posList() {
       const q = this.search.trim().toLowerCase()
+      const f = this.prog.posSearch
       return this.sellProducts.filter(p =>
         (this.cat === 'ทั้งหมด' || (this.cat === 'ขายบ่อย' ? this.hotIds.has(p.id) : p.category === this.cat)) &&
-        (!q || p.name.toLowerCase().includes(q) || p.generic.toLowerCase().includes(q) || p.code.includes(q) || (p.barcode || '').includes(q)))
+        (!q || (f.name && p.name.toLowerCase().includes(q)) || (f.generic && (p.generic || '').toLowerCase().includes(q)) || (f.code && String(p.code).toLowerCase().includes(q)) ||
+         (f.barcode && (p.barcode || '').includes(q)) || (f.category && (p.category || '').toLowerCase().includes(q))))
+    },
+    vsList() {
+      const q = this.vsSearch.trim().toLowerCase()
+      return (this.S.suppliers || []).filter(x => !q || (x.name || '').toLowerCase().includes(q) || (x.code || '').toLowerCase().includes(q)).slice().sort((a, b) => a.name.localeCompare(b.name, 'th'))
+    },
+    vsProducts() {
+      if (!this.vs || !this.vs.name) return []
+      const k = Logic.supplierKey(this.vs.name)
+      return this.S.products.filter(p => Logic.supplierKey(p.supplier) === k)
+    },
+    vsTermResults() {
+      const q = this.vsTermSearch.trim().toLowerCase()
+      if (!q) return []
+      return this.S.products.filter(p => p.type !== 'supply' && (p.name.toLowerCase().includes(q) || String(p.code).toLowerCase().includes(q))).slice(0, 8)
     },
     cartCount() { return this.cart.reduce((s, i) => s + i.qty, 0) },
     subtotal() { return R2(this.cart.reduce((s, i) => s + (Number(i.price) || 0) * i.qty, 0)) },
@@ -3352,6 +3554,7 @@ const app = createApp({
     refreshStash() { const st = Storage.loadStash(); this.stashAt = st ? new Date(st.at).toLocaleString('th-TH') : '' },
     async startApp(user) {
       this.isLoading = true
+      this.remindPending = true
       const dn = user.user_metadata && user.user_metadata.display_name
       this.actor = dn || userNameOf(user.email); ACTOR = this.actor; this.nameForm.name = dn || ''
       this.loginName = userNameOf(user.email).toLowerCase()
@@ -3383,6 +3586,7 @@ const app = createApp({
       Storage.saveLocal(this.S, this.cloudRev, this.dirty); this.storageOk = Storage.ok
       this.loadClosing()
       if (this.dirty) this.saveNow()
+      if (this.prog.remindOnOpen && this.alertCount > 0) this.toast('มีรายการที่ต้องดู ' + this.alertCount + ' รายการ (ใกล้หมด / หมดอายุ) ดูที่คลังสินค้า', 'bad')
     },
     async doLogin(ev) {
       const f = ev && ev.target && ev.target.elements
@@ -3590,7 +3794,7 @@ const app = createApp({
       })
     },
     usBlank() { return { id: '', empId: '', name: '', login: '', role: '', active: true, admin: false, workStart: '', workEnd: '', perms: { ...PERM_PRESETS.cashier.perms } } },
-    usNew() { this.usSel = 'new'; this.us = this.usBlank() },
+    usNew() { this.usSel = 'new'; this.us = this.usBlank(); this.usPass = ''; this.usPass2 = '' },
     usSelect(u) { this.usSel = u.id; this.us = { ...this.usBlank(), ...JSON.parse(JSON.stringify(u)), perms: { ...this.usBlank().perms, ...(u.perms || {}) } } },
     usPreset(k) { this.us.perms = { ...PERM_PRESETS[k].perms }; this.us.role = PERM_PRESETS[k].label },
     usMakeMeAdmin() {
@@ -3610,7 +3814,18 @@ const app = createApp({
       if (this.S.users.some(u => String(u.login).toLowerCase() === login && u.id !== d.id)) return this.toast('มีชื่อ Login นี้แล้ว', 'bad')
       const others = this.S.users.filter(u => u.id !== d.id && u.active !== false && u.admin)
       if (this.hasAdmin && !others.length && !(d.admin && d.active)) return this.toast('ต้องมีผู้ดูแลที่ใช้งานอยู่อย่างน้อย 1 คน', 'bad')
-      this.askPin('บันทึกสิทธิ์ผู้ใช้ ' + login, () => {
+      const isNewUser = !d.id
+      if (isNewUser) {
+        if (String(this.usPass || '').length < 6) return this.toast('รหัสผ่านต้องมีอย่างน้อย 6 ตัว', 'bad')
+        if (this.usPass !== this.usPass2) return this.toast('รหัสผ่านสองช่องไม่ตรงกัน', 'bad')
+      }
+      this.askPin('บันทึกสิทธิ์ผู้ใช้ ' + login, async () => {
+        if (isNewUser) {
+          const r = await this.createAuthUser(login, this.usPass, d.name.trim())
+          if (r.error) return this.toast('สร้างบัญชีเข้าระบบไม่สำเร็จ: ' + r.error, 'bad')
+          if (r.exists) this.toast('ชื่อ Login นี้มีบัญชีอยู่แล้ว ผูกสิทธิ์ให้กับบัญชีเดิม (รหัสผ่านไม่เปลี่ยน)')
+          this.usPass = ''; this.usPass2 = ''
+        }
         const rec = { id: d.id || uid(), empId: String(d.empId || '').trim(), name: d.name.trim(), login, role: d.role || '', active: !!d.active, admin: !!d.admin, workStart: d.workStart || '', workEnd: d.workEnd || '', perms: { ...d.perms }, updatedAt: new Date().toISOString(), updatedBy: ACTOR }
         const i = this.S.users.findIndex(u => u.id === rec.id)
         if (i >= 0) this.S.users.splice(i, 1, rec); else this.S.users.push(rec)
@@ -3942,7 +4157,7 @@ const app = createApp({
                                 unpackPid: p.unpack ? p.unpack.pid : '', unpackRatio: p.unpack ? p.unpack.ratio : '' }
       else {
         const max = this.S.products.reduce((m, x) => Math.max(m, parseInt(x.code, 10) || 0), 0)
-        this.formModal = { isNew: true, id: '', code: pad(max + 1), name: '', generic: '', category: CATS[0], unit: 'แผง', price: '', cost: '', reorder: 1, note: '', isBundle: false, parts: [], openQty: '',
+        this.formModal = { isNew: true, id: '', code: this.nextProductCode(), name: '', generic: '', category: CATS[0], unit: 'แผง', price: '', cost: '', reorder: 1, note: '', isBundle: false, parts: [], openQty: '',
                           type: presetType || 'sell', barcode: '', location: '', supplier: '', flags: Object.fromEntries(DRUG_FLAGS.map(f => [f.k, false])), usage: '', indication: '', warning: '', storage: '', unpackPid: '', unpackRatio: '' }
         if (presetType === 'supply') { this.formModal.unit = 'ชิ้น'; this.formModal.category = 'อื่นๆ' }
       }
@@ -4062,6 +4277,87 @@ const app = createApp({
     pickOrderForReceive(id) { const o = (this.S.orders || []).find(x => x.id === id); if (o) this.receiveFromOrder(o); else this.rcv.orderId = '' },
     doCloseOrder(o) { this.askConfirm('ปิดใบสั่งซื้อ ' + o.no + '?', 'ใช้เมื่อผู้จำหน่ายส่งไม่ครบและไม่รอของที่เหลือแล้ว', 'ปิดใบสั่งซื้อ', () => { try { Logic.closeOrder(this.S, o.id); this.toast('ปิดใบสั่งซื้อแล้ว') } catch (e) { this.toast(e.message, 'bad') } }) },
     doCancelOrder(o) { this.askConfirm('ยกเลิกใบสั่งซื้อ ' + o.no + '?', 'ยกเลิกได้เฉพาะใบที่ยังไม่ได้รับของ', 'ยกเลิกใบสั่งซื้อ', () => { try { Logic.cancelOrder(this.S, o.id); this.toast('ยกเลิกใบสั่งซื้อแล้ว') } catch (e) { this.toast(e.message, 'bad') } }) },
+    posCostText(p) {
+      const m = this.prog.posCost
+      if (m === 'none' || !this.can('viewCost') || !p || p.bundle) return ''
+      const c = Number(p.cost) || 0
+      if (m === 'show') return money(c)
+      const sym = String(this.prog.costSymbols || '').padEnd(10, '?')
+      return String(Math.round(c * 100) / 100).split('').map(ch => /\d/.test(ch) ? sym[Number(ch)] : ch).join('')
+    },
+    vatInfo(total) {
+      const pr = this.prog, r = Number(pr.vatRate) || 0
+      if (pr.vatMode !== 'included' || r <= 0) return null
+      const vat = R2(total * r / (100 + r))
+      return { rate: r, vat, net: R2(total - vat) }
+    },
+    nextProductCode() {
+      const pr = this.prog, pre = String(pr.codePrefix || ''), w = Math.max(1, Number(pr.codeDigits) || 5)
+      const re = new RegExp('^' + pre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$')
+      let max = 0
+      for (const x of this.S.products) { const m = re.exec(String(x.code)); if (m) max = Math.max(max, parseInt(m[1], 10)) }
+      return pre + String(max + 1).padStart(w, '0')
+    },
+    setProg(k, v) { this.S.settings.prog = { ...progOf(this.S), [k]: v } },
+    setProgSearch(k, v) { const c = progOf(this.S); this.S.settings.prog = { ...c, posSearch: { ...c.posSearch, [k]: v } } },
+    vsBlank() { return { id: '', code: '', name: '', address: '', province: '', zip: '', phone: '', fax: '', taxId: '', openTime: '', closeTime: '', contact: '', contactMobile: '', note: '', terms: [] } },
+    vsNew() { this.vsSel = 'new'; this.vs = this.vsBlank(); this.vsTab = 'gen' },
+    vsSelect(x) { this.vsSel = x.id; this.vs = { ...this.vsBlank(), ...JSON.parse(JSON.stringify(x)), terms: JSON.parse(JSON.stringify(x.terms || [])) } },
+    vsAddTerm(p) { if (!this.vs.terms.some(t => t.pid === p.id)) this.vs.terms.push({ pid: p.id, name: p.name, buy: 10, free: 1 }); this.vsTermSearch = '' },
+    vsSave() {
+      const d = this.vs
+      const name = String(d.name || '').trim().replace(/\s+/g, ' ')
+      if (!name) return this.toast('ใส่ชื่อผู้จำหน่ายก่อน', 'bad')
+      if (this.S.suppliers.some(x => x.id !== d.id && Logic.supplierKey(x.name) === Logic.supplierKey(name))) return this.toast('มีผู้จำหน่ายชื่อนี้แล้ว', 'bad')
+      const terms = (d.terms || []).map(t => ({ pid: t.pid, name: t.name, buy: Math.floor(Number(t.buy) || 0), free: Math.floor(Number(t.free) || 0) })).filter(t => t.buy > 0 && t.free > 0)
+      const rec = { ...d, name, terms }
+      if (rec.id) {
+        const i = this.S.suppliers.findIndex(x => x.id === rec.id)
+        const old = i >= 0 ? this.S.suppliers[i] : null
+        if (old && Logic.supplierKey(old.name) !== Logic.supplierKey(name)) {
+          const ok = Logic.supplierKey(old.name)
+          for (const p of this.S.products) if (Logic.supplierKey(p.supplier) === ok) p.supplier = name
+          for (const arr of [this.S.receipts, this.S.orders, this.S.returns]) for (const r of (arr || [])) if (Logic.supplierKey(r.supplier) === ok) r.supplier = name
+        }
+        if (i >= 0) this.S.suppliers.splice(i, 1, rec); else this.S.suppliers.push(rec)
+      } else { rec.id = uid(); this.S.suppliers.push(rec) }
+      this.vsSel = rec.id; this.vs = { ...this.vsBlank(), ...JSON.parse(JSON.stringify(rec)) }; this.toast('บันทึกผู้จำหน่ายแล้ว')
+    },
+    vsDelete() {
+      const d = this.vs
+      if (!d || !d.id) return
+      const row = this.vendorRows.find(r => r.sp.id === d.id)
+      if (row && (row.count || row.orders)) return this.toast('ผู้จำหน่ายนี้มีประวัติรับเข้า/สั่งซื้อ ลบไม่ได้', 'bad')
+      this.askConfirm('ลบผู้จำหน่าย ' + d.name + '?', 'ลบแล้วกู้คืนไม่ได้', 'ลบ', () => { this.S.suppliers = this.S.suppliers.filter(x => x.id !== d.id); this.vs = null; this.vsSel = null })
+    },
+    termHint(it) {
+      const sp = (this.S.suppliers || []).find(x => Logic.supplierKey(x.name) === Logic.supplierKey(this.rcv.supplier))
+      const t = sp && (sp.terms || []).find(x => x.pid === it.pid)
+      return t ? 'เงื่อนไขแถม: ซื้อ ' + t.buy + ' แถม ' + t.free : ''
+    },
+    async createAuthUser(login, pass, name) {
+      try {
+        const c = supabase.createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } })
+        const { data, error } = await c.auth.signUp({ email: toEmail(login), password: pass, options: { data: { display_name: name } } })
+        if (error) return { error: error.message }
+        if (data && data.user && Array.isArray(data.user.identities) && !data.user.identities.length) return { exists: true }
+        return {}
+      } catch (e) { return { error: 'เชื่อมต่อไม่ได้' } }
+    },
+    async firstSetup() {
+      const f = this.setup
+      if (!String(f.name || '').trim()) return this.toast('ใส่ชื่อผู้ดูแลก่อน', 'bad')
+      if (!/^\d{4,8}$/.test(f.pin || '')) return this.toast('รหัสยืนยัน (PIN) ต้องเป็นตัวเลข 4-8 หลัก', 'bad')
+      if (f.pin === '1234') return this.toast('ห้ามใช้ PIN 1234 ซึ่งเป็นค่าเริ่มต้น', 'bad')
+      if (f.pin !== f.pin2) return this.toast('PIN สองช่องไม่ตรงกัน', 'bad')
+      const ex = this.S.users.find(u => String(u.login).toLowerCase() === this.loginName)
+      const rec = { ...this.usBlank(), id: ex ? ex.id : uid(), name: f.name.trim(), empId: String(f.empId || '').trim(), login: this.loginName, admin: true, active: true, role: 'ผู้ดูแล', perms: { ...PERM_PRESETS.admin.perms }, updatedAt: new Date().toISOString(), updatedBy: ACTOR }
+      if (ex) this.S.users.splice(this.S.users.indexOf(ex), 1, rec); else this.S.users.push(rec)
+      this.S.settings.pin = f.pin
+      this.actor = rec.name; ACTOR = rec.name
+      this.setup = { name: '', empId: '', pin: '', pin2: '', busy: false }
+      this.toast('สร้างผู้ดูแลระบบแล้ว เพิ่มพนักงานและกำหนดสิทธิ์ได้ที่ ตั้งค่า > ผู้ใช้และสิทธิ์')
+    },
     addVendor() {
       const n = this.vendorNew.trim()
       if (!n) return
@@ -4352,7 +4648,7 @@ app.component('ky-sheet', {
     </template>
   </div>`
 })
-app.mount('#app')
+window.__vm = app.mount('#app')
 { const b = document.getElementById('boot'); if (b) b.remove() }
 </script>
 </body>

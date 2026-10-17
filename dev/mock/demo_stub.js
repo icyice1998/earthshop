@@ -16,6 +16,7 @@
       try { localStorage.setItem(USERKEY, login) } catch (e) { /* ignore */ }
       return { data: { session: { user: mkUser(login) }, user: mkUser(login) }, error: null }
     },
+    signUp: async function (c) { window.__lastSignUp = c; return { data: { user: { identities: [{}] } }, error: null } },
     signOut: async function () { try { localStorage.setItem(USERKEY, '') } catch (e) { /* ignore */ } return {} },
     updateUser: async function () { return { data: { user: curUser() }, error: null } }
   }
