@@ -17,6 +17,8 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   const pPara = await prod({ code: 'P001', name: 'พาราเซตามอล 500', generic_name: 'Paracetamol', category: 'แก้ปวด', unit: 'แผง', price1: 20, reorder_point: 5, drug_types: ['otc'], latest_cost: 8 })
   const pAmox = await prod({ code: 'P002', name: 'อะม็อกซี่ 500', generic_name: 'Amoxicillin', category: 'ยาปฏิชีวนะ', unit: 'แผง', price1: 60, drug_types: ['danger'], latest_cost: 30 })
   const pKy = await prod({ code: 'P003', name: 'ยา ขย.11 ตัวอย่าง', category: 'อื่นๆ', unit: 'ขวด', price1: 100, drug_types: ['ky11'], manufacturer: 'ผู้ผลิต X', pack_size: '60 มล.', latest_cost: 60 })
+  const sid = await prod({ code: 'SUP1', name: 'ถุงมือ', category: 'วัสดุ', unit: 'กล่อง', is_supply: true, price1: 0, latest_cost: 50 })
+  await q('select open_stock($1, 10, 50)', [sid])
   await q(`select receive_goods(jsonb_build_object('supplier_name','ซัพพลายเออร์ A','invoice_no','INV-1','items',jsonb_build_array(
      jsonb_build_object('product_id',$1::bigint,'qty',50,'unit_cost',8,'lot_no','LP1','exp_date',(current_date+400)::text),
      jsonb_build_object('product_id',$2::bigint,'qty',20,'unit_cost',30,'lot_no','LA1','exp_date',(current_date+300)::text),
@@ -49,7 +51,7 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   // ---------------- admin ----------------
   let pg = await open('earth', 'secret1')
   let st = await vm(pg, () => { const v = window.__vm; return { n: v.S.products.length, lots: v.S.lots.length, admin: v.me && v.me.admin, hasAdmin: v.hasAdmin, sup: v.S.suppliers.length, mem: v.S.members.length, flags: v.S.products.find(p => p.code === 'P002').danger, cost: v.S.products.find(p => p.code === 'P001').cost } })
-  ok(st.n === 4 && st.lots === 4 && st.admin && st.hasAdmin && st.sup === 1 && st.mem === 1, 'loads products, lots, supplier, customers and admin rights: ' + JSON.stringify(st))
+  ok(st.n === 5 && st.lots === 5 && st.admin && st.hasAdmin && st.sup === 1 && st.mem === 1, 'loads products, lots, supplier, customers and admin rights: ' + JSON.stringify(st))
   ok(st.flags === true && st.cost === 8, 'drug types and cost come through')
 
   // sell: OTC item, then dangerous item with member, via the real pay flow
@@ -62,9 +64,9 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
 
   // void through PIN
   await vm(pg, () => { const v = window.__vm; v.saleDetailId = v.resultSale.id; v.voidReason = 'ทดสอบ'; v.voidFromHistory() }); await pg.waitForTimeout(200)
-  await pg.fill('.modal input[type=password]', '0000'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(500)
+  await pg.fill('.modal input.pw-mask', '0000'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(500)
   ok(await pg.locator('text=รหัสผ่านไม่ถูกต้อง').count() > 0, 'wrong PIN is rejected by the database')
-  await pg.fill('.modal input[type=password]', '482913'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(900)
+  await pg.fill('.modal input.pw-mask', '482913'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(900)
   ok((await q(`select status from sales order by id desc limit 1`))[0].status === 'void', 'bill voided with the right PIN')
   ok((await vm(pg, () => { const v = window.__vm; return v.stockMap[v.S.products.find(p => p.code === 'P001').id] })) === 50, 'stock restored after void')
 
@@ -90,7 +92,7 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   await vm(pg, () => { const v = window.__vm; const p = v.S.products.find(x => x.code === 'P001'); v.tab = 'manage'; v.mgMode = 'grid'; v.gset(p, 'price', '22'); v.gset(p, 'otc', false); v.gset(p, 'controlled', true); v.gset(p, 'stock', '40') })
   await pg.waitForTimeout(200)
   await vm(pg, () => window.__vm.gridSave()); await pg.waitForTimeout(200)
-  await pg.fill('.modal input[type=password]', '482913'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(1200)
+  await pg.fill('.modal input.pw-mask', '482913'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(1200)
   const gp = (await q(`select p.price1, (select array_agg(type_code order by type_code) from product_drug_types where product_id=p.id) t, app.stock_of(p.id) s from products p where code='P001'`))[0]
   ok(Number(gp.price1) === 22 && gp.t.join() === 'controlled' && Number(gp.s) === 40, 'management grid saved price, drug types and stock adjustment together: ' + JSON.stringify(gp))
 
@@ -149,7 +151,7 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   await vm(pg, async () => { const v = window.__vm; for (let i = 1; i <= 5; i++) await Db.saveProduct(v.S, null, { code: 'MD' + i, name: 'ลบหลายตัว ' + i, unit: 'ชิ้น', price: 1, cost: 1, category: 'อื่นๆ', type: 'sell', reorder: 0, note: '' })
     v.tab = 'manage'; v.mgMode = 'grid'; v.mgQ = ''; const sel = {}; for (const p of v.S.products.filter(x => x.code.startsWith('MD') || x.code === 'P002')) sel[p.id] = true; v.gridSel = sel; v.gridDeleteSelected() })
   await pg.waitForTimeout(200); await pg.click('.modal button.btn-bad:has-text("ลบ")'); await pg.waitForTimeout(200)
-  await pg.fill('.modal input[type=password]', '482913'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(1500)
+  await pg.fill('.modal input.pw-mask', '482913'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(1500)
   const bd = await vm(pg, () => { const v = window.__vm; return { left: v.S.products.filter(p => p.code.startsWith('MD')).length, asked: !!(v.confirmBox && v.confirmBox.open && /ปิดใช้งาน/.test(v.confirmBox.okText)) } })
   ok(bd.left === 0 && bd.asked, 'bulk delete removed 5 unused products and offered to switch off the one with history: ' + JSON.stringify(bd))
   await pg.click('.modal button.btn-bad'); await pg.waitForTimeout(1200)
@@ -201,12 +203,12 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   const shop = (await q('select name, phone, settings from shop'))[0]
   ok(shop.name === 'ร้านทดสอบ DB' && shop.phone === '029999999' && shop.settings.prog.costMethod === 'avg', 'shop settings auto-saved to the database')
   await vm(pg, async () => { const v = window.__vm; v.usNew(); v.us.name = 'พนักงานใหม่'; v.us.login = 'newbie'; v.usPass = 'abc123'; v.usPass2 = 'abc123'; v.us.perms = { pos: true, billsView: true }; v.usSave() })
-  await pg.waitForTimeout(200); await pg.fill('.modal input[type=password]', '482913'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(1000)
+  await pg.waitForTimeout(200); await pg.fill('.modal input.pw-mask', '482913'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(1000)
   const nb = (await q(`select s.login, s.active, (select array_agg(perm_code order by perm_code) from staff_permissions where staff_id=s.id) p from staff s where login='newbie'`))[0]
   ok(nb && nb.p.join() === 'billsView,pos' && authUsers['newbie@mypharm.com'], 'new user: auth account created and staff privileges saved: ' + JSON.stringify(nb))
   // an account that already exists in Supabase Auth is given admin by the admin, then that person logs in
   await vm(pg, async () => { const v = window.__vm; v.usNew(); v.us.name = 'ผู้ดูแลคนที่สอง'; v.us.login = 'late'; v.us.admin = true; v.usPass = 'whatever1'; v.usPass2 = 'whatever1'; v.usSave() })
-  await pg.waitForTimeout(200); await pg.fill('.modal input[type=password]', '482913'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(1000)
+  await pg.waitForTimeout(200); await pg.fill('.modal input.pw-mask', '482913'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(1000)
   const late = (await q(`select login, is_admin, auth_user_id from staff where login='late'`))[0]
   ok(late && late.is_admin && late.auth_user_id === null, 'admin can give admin to an account that already exists (not yet linked): ' + JSON.stringify(late))
   await pg.context().close()
@@ -231,6 +233,13 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
     try { await Logic.adjust(v.S, v.S.products[0].id, 1, 'x', ''); out.adj = 'done' } catch (e) { out.adj = e.message }
     const ok1 = await Logic.commitSale(v.S, { items: [{ pid: v.S.products.find(p => p.code === 'P005').id, name: 'x', qty: 1, price: 22 }], discount: 0, method: 'cash', received: 22 }).then(() => 'sold', e => e.message); out.otc = ok1; return out })
   ok(/ไม่มีสิทธิ์/.test(cs.danger) && /ไม่มีสิทธิ์/.test(cs.adj) && cs.otc === 'sold', 'database blocks dangerous sale and stock adjust for cashier; OTC sale works: ' + JSON.stringify(cs))
+  const spl = await vm(pg, async () => { const v = window.__vm; const p = v.S.products.find(x => x.code === 'SUP1'); const out = { can: v.can('supplies'), tab: v.allowedTab('supplies'), stock: p ? Logic.stockOf(v.S, p.id) : -1 }
+    const rec = await Logic.issueSupply(v.S, p.id, 3, 'ใช้ในร้าน'); out.rec = rec.qty; out.after = Logic.stockOf(v.S, p.id); out.issues = v.S.issues.length; out.cost = rec.costTotal
+    await Logic.voidIssue(v.S, rec.id); out.back = Logic.stockOf(v.S, p.id); out.status = v.S.issues[0].status
+    try { await Logic.issueSupply(v.S, p.id, 99, ''); out.over = 'done' } catch (e) { out.over = e.message }
+    try { await Logic.issueSupply(v.S, v.S.products.find(x => x.code === 'P001').id, 1, ''); out.drug = 'done' } catch (e) { out.drug = e.message }
+    return out })
+  ok(spl.can && spl.tab && spl.stock === 10 && spl.rec === 3 && spl.after === 7 && spl.back === 10 && spl.status === 'void' && spl.cost === 0 && /สต็อกไม่พอ/.test(spl.over) && /เฉพาะวัสดุ/.test(spl.drug), 'non-admin cashier can issue and void supplies, cost hidden, drugs and over-issue refused: ' + JSON.stringify(spl))
   await pg.context().close()
 
   // staff row tied to a deleted/old auth account (e.g. email domain changed): the new login with the same name takes it over
