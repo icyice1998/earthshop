@@ -13,17 +13,20 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root { --ink:#10302c; --pine:#0f766e; --pine-d:#0b5a54; --paper:#f2f6f5; --line:#d8e2e0; --warn:#b45309; --bad:#b91c1c; }
+    html { font-size: 14px; }
+    html[data-ui="s"] { font-size: 12.5px; }
+    html[data-ui="l"] { font-size: 16px; }
     html, body { height: 100%; }
     /* ภาษาไทยมีสระ/วรรณยุกต์ซ้อนบน-ล่าง ต้องเว้นบรรทัดให้พอ ไม่งั้นตัวอักษรเหลื่อมกัน */
     #app, #app * { line-height: 1.55 !important; }
     #app .text-xs { font-size: .82rem !important; }
     #app .text-sm { font-size: .95rem !important; }
-    body { font-family: 'IBM Plex Sans Thai','Sarabun','Noto Sans Thai','Thonburi',system-ui,sans-serif; font-size: 16px; background: var(--paper); color: var(--ink);
+    body { font-family: 'IBM Plex Sans Thai','Sarabun','Noto Sans Thai','Thonburi',system-ui,sans-serif; font-size: 1rem; background: var(--paper); color: var(--ink);
            -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
     button { touch-action: manipulation; cursor: pointer; }
     .num { font-variant-numeric: tabular-nums; }
     .hdr { background: #0f3f3a; color: #fff; padding-top: calc(.75rem + env(safe-area-inset-top, 0px)); padding-left: max(1rem, env(safe-area-inset-left, 0px)); padding-right: max(1rem, env(safe-area-inset-right, 0px)); }
-    .tab { padding: .65rem 1.1rem; font-size: 1rem; border-radius: .6rem; font-weight: 600; white-space: nowrap; color: #b9dcd7; position: relative; }
+    .tab { padding: .45rem .9rem; font-size: 1rem; border-radius: .6rem; font-weight: 600; white-space: nowrap; color: #b9dcd7; position: relative; }
     .tab-on { background: #fff; color: #0f3f3a; }
     @media (max-width: 639px) { .tab { padding: .55rem .15rem; font-size: .8rem; text-align: center; white-space: normal; line-height: 1.25 !important; } .badge { top: -8px; right: 0; } }
     /* responsive table: all columns on PC, fewer on iPad, stacked cards on phone */
@@ -34,7 +37,7 @@
     @media (max-width: 639px) {
       .rt, .rt tbody, .rt tr, .rt td { display:block; }
       .rt thead { display:none; }
-      .rt tr { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:.15rem .75rem; padding:.7rem .8rem; }
+      .rt tr { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:.1rem .6rem; padding:.45rem .6rem; }
       .rt td { padding:0 !important; text-align:left !important; }
       .rt td[data-l]::before { content:attr(data-l); display:block; font-size:.7rem; color:#5b6f6b; font-weight:400; }
       .rt td.c-code { order:-2; grid-column:1 / -1; font-size:.78rem; color:#5b6f6b; }
@@ -81,14 +84,15 @@
       #print-area .ky-page { border:0; border-radius:0; padding:0 0 4mm; margin:0; max-width:none; page-break-after:always; font-size:10pt; }
       #print-area .ky-page:last-child { page-break-after:auto; }
     }
-    .sub { min-height: 40px; padding: .35rem .9rem; font-size: .92rem; border-radius: 999px; font-weight: 600; white-space: nowrap; color: #b9dcd7; border: 1.5px solid #2f6b64; }
+    .sub { min-height: 2rem; padding: .2rem .8rem; font-size: .9rem; border-radius: 999px; font-weight: 600; white-space: nowrap; color: #b9dcd7; border: 1.5px solid #2f6b64; }
     .sub-on { background: #b9dcd7; color: #0f3f3a; border-color: #b9dcd7; }
     .badge { position:absolute; top:-4px; right:-2px; background:#dc2626; color:#fff; font-size:11px; min-width:18px; height:18px;
              border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
-    .inp { width:100%; padding:.7rem .8rem; border:1.5px solid var(--line); border-radius:.6rem; font-size:16px; background:#fff; color: var(--ink); }
+    .inp { width:100%; padding:.45rem .65rem; border:1.5px solid var(--line); border-radius:.5rem; font-size:1rem; background:#fff; color: var(--ink); }
+    @supports (-webkit-touch-callout: none) { .inp { font-size: 16px; } }   /* iPhone ซูมหน้าจอเองถ้าช่องกรอกเล็กกว่า 16px */
     .inp:focus { outline:none; border-color: var(--pine); box-shadow: 0 0 0 3px rgba(15,118,110,.15); }
     .lbl { display:block; font-size:.85rem; color:#5b6f6b; margin-bottom:.25rem; }
-    .btn { padding:.7rem 1rem; border-radius:.65rem; font-weight:600; font-size:1rem; min-height:48px; transition: transform .05s; }
+    .btn { padding:.45rem .9rem; border-radius:.55rem; font-weight:600; font-size:1rem; min-height:2.4rem; transition: transform .05s; }
     .btn:active { transform: scale(.97); }
     .btn:disabled { opacity:.4; cursor:not-allowed; }
     .btn-pri { background: var(--pine); color:#fff; }
@@ -97,9 +101,9 @@
     .btn-bad { background: var(--bad); color:#fff; }
     .btn-badline { background:#fff; border:1.5px solid #fecaca; color: var(--bad); }
     .card { background:#fff; border:1px solid var(--line); border-radius:.9rem; }
-    .chip { padding:.45rem .9rem; border-radius:999px; border:1.5px solid var(--line); background:#fff; font-size:.9rem; font-weight:500; white-space:nowrap; }
+    .chip { padding:.3rem .75rem; border-radius:999px; border:1.5px solid var(--line); background:#fff; font-size:.9rem; font-weight:500; white-space:nowrap; }
     .chip-on { background: var(--pine); color:#fff; border-color: var(--pine); }
-    .tile { text-align:left; padding:.9rem; border:1.5px solid var(--line); border-radius:.8rem; background:#fff; min-height:116px; font-size:1rem;
+    .tile { text-align:left; padding:.6rem; border:1.5px solid var(--line); border-radius:.65rem; background:#fff; min-height:5.4rem; font-size:1rem;
             display:flex; flex-direction:column; justify-content:space-between; }
     .tile:active:not(.tile-out) { transform: scale(.97); border-color: var(--pine); }
     .tile-out { background:#f1f5f4; color:#9aaba8; }
@@ -134,6 +138,7 @@
 </div>
 <script>
 (function () {
+  try { var u = localStorage.getItem('knockdown_ui_size'); if (u === 's' || u === 'l') document.documentElement.setAttribute('data-ui', u) } catch (e) { /* ignore */ }
   var msg = function (t) { var e = document.getElementById('boot-msg'); if (e) e.textContent += t + ' ' }
   window.addEventListener('error', function (ev) { msg('ผิดพลาด: ' + (ev.message || (ev.target && ev.target.src) || '')) }, true)
   setTimeout(function () {
@@ -145,7 +150,7 @@
   }, 8000)
 })()
 </script>
-<div id="app" v-cloak style="height:100vh; height:100dvh;" class="flex flex-col max-w-7xl mx-auto relative">
+<div id="app" v-cloak style="height:100vh; height:100dvh;" class="flex flex-col max-w-[96rem] mx-auto relative">
 
   <!-- หน้าจอโหลดข้อมูลจาก Supabase -->
   <div v-if="isLoading" class="fixed inset-0 bg-white flex flex-col items-center justify-center" style="z-index:100">
@@ -223,7 +228,7 @@
         </div>
         <div class="flex-1 overflow-y-auto p-3 pb-24 md:pb-3">
           <div v-if="posList.length === 0" class="text-center text-slate-400 py-10">ไม่พบรายการ ลองพิมพ์คำอื่น</div>
-          <div class="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2">
+          <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
             <button v-for="p in posList.slice(0, posLimit)" :key="p.id" class="tile" :class="availFor(p) <= 0 || p.banned ? 'tile-out' : ''" @click="addToCart(p)">
               <div>
                 <div class="text-xs text-slate-500">{{ p.code }}</div>
@@ -1258,6 +1263,13 @@
       </div>
 
       <div v-if="setTab === 'general' || !isAdmin">
+      <div class="card p-4 mb-3">
+        <div class="font-bold mb-1">ขนาดหน้าจอ (เฉพาะเครื่องนี้)</div>
+        <div class="flex gap-2">
+          <button v-for="o in [['s', 'เล็ก'], ['m', 'กลาง'], ['l', 'ใหญ่']]" :key="o[0]" class="chip" :class="uiSize === o[0] ? 'chip-on' : ''" @click="setUiSize(o[0])">{{ o[1] }}</button>
+        </div>
+      </div>
+
       <div class="card p-4 mb-3">
         <div class="font-bold mb-1">บัญชีผู้ใช้</div>
         <div class="text-sm text-slate-600 mb-3">เข้าสู่ระบบเป็น <b>{{ actor }}</b> · สถานะ: {{ syncLabel }}</div>
@@ -3178,7 +3190,7 @@ const app = createApp({
       kyForm: '11', kyFrom: '', kyTo: '', kyPreset: 'month', kyOnly9n: false, kyManual: false, kyPids: [], kyQ: '',
       srPreset: 'month', srFrom: '', srTo: '', srTf: '00:00', srTt: '23:59', srStaff: '', srCat: '', srFlag: '', srMethod: '', srQ: '', srGroup: 'day', srLimit: 100,
       posLimit: 120, imp: { busy: false, pct: 0, msg: '', days: 365, result: null, backup: true },
-      loginName: '', nowTick: Date.now(), setTab: 'general', usSel: null, us: null, usPass: '', usPass2: '', vs: null, vsSel: null, vsTab: 'gen', vsSearch: '', vsTermSearch: '',
+      loginName: '', nowTick: Date.now(), uiSize: (() => { try { const u = localStorage.getItem('knockdown_ui_size'); return u === 's' || u === 'l' ? u : 'm' } catch (e) { return 'm' } })(), setTab: 'general', usSel: null, us: null, usPass: '', usPass2: '', vs: null, vsSel: null, vsTab: 'gen', vsSearch: '', vsTermSearch: '',
       setup: { name: '', empId: '', pin: '', pin2: '', busy: false },
       mgMode: 'edit', bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
       mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
@@ -4277,6 +4289,11 @@ const app = createApp({
     pickOrderForReceive(id) { const o = (this.S.orders || []).find(x => x.id === id); if (o) this.receiveFromOrder(o); else this.rcv.orderId = '' },
     doCloseOrder(o) { this.askConfirm('ปิดใบสั่งซื้อ ' + o.no + '?', 'ใช้เมื่อผู้จำหน่ายส่งไม่ครบและไม่รอของที่เหลือแล้ว', 'ปิดใบสั่งซื้อ', () => { try { Logic.closeOrder(this.S, o.id); this.toast('ปิดใบสั่งซื้อแล้ว') } catch (e) { this.toast(e.message, 'bad') } }) },
     doCancelOrder(o) { this.askConfirm('ยกเลิกใบสั่งซื้อ ' + o.no + '?', 'ยกเลิกได้เฉพาะใบที่ยังไม่ได้รับของ', 'ยกเลิกใบสั่งซื้อ', () => { try { Logic.cancelOrder(this.S, o.id); this.toast('ยกเลิกใบสั่งซื้อแล้ว') } catch (e) { this.toast(e.message, 'bad') } }) },
+    setUiSize(v) {
+      this.uiSize = v
+      if (v === 'm') document.documentElement.removeAttribute('data-ui'); else document.documentElement.setAttribute('data-ui', v)
+      try { localStorage.setItem('knockdown_ui_size', v) } catch (e) { /* ignore */ }
+    },
     posCostText(p) {
       const m = this.prog.posCost
       if (m === 'none' || !this.can('viewCost') || !p || p.bundle) return ''
