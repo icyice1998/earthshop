@@ -97,11 +97,11 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   // CSV import in database mode (products + members)
   const csv = await vm(pg, async () => { const v = window.__vm; let text = ''; v.csvDownload = (n, t) => { text = t }; v.exportProductsCsv(); const rows = Csv.parse(text); const h = rows[0], col = k => h.indexOf(k)
     rows[1][col('price')] = '31'; const nr = h.map(() => ''); nr[col('code')] = 'CSV1'; nr[col('name')] = 'สินค้าจาก CSV'; nr[col('price')] = '9.5'; nr[col('stock')] = '6'; nr[col('danger')] = '1'; rows.push(nr)
-    v.csvPrepare('products', Csv.parse(Csv.encode(rows)), 'p.csv'); const counts = { ...v.csvImp.counts }; for (const r of v.csvImp.rows.filter(x => x.status === 'new' || x.status === 'change')) await v.csvApplyProduct(r)
+    v.csvPrepare('products', Csv.parse(Csv.encode(rows)), 'p.csv'); const counts = { ...v.csvImp.counts }; await v.csvRun(v.csvImp.rows.filter(x => x.pick))
     const np = v.S.products.find(x => x.code === 'CSV1'); return { counts, np: np && { price: np.price, danger: np.danger, stock: v.stockMap[np.id] } } })
   ok(csv.counts.new === 1 && csv.counts.change === 1 && csv.np && csv.np.price === 9.5 && csv.np.danger && csv.np.stock === 6, 'CSV import (products) saved to the database: ' + JSON.stringify(csv))
   const mem = await vm(pg, async () => { const v = window.__vm; let t = ''; v.csvDownload = (n, x) => { t = x }; v.exportMembersCsv(); const rows = Csv.parse(t); rows[1][rows[0].indexOf('phone')] = '0822223333'; rows.push(['M9001', 'สมาชิกจาก CSV', '0844445555', 'Sulfa:ผื่น', 'x'])
-    v.csvPrepare('members', Csv.parse(Csv.encode(rows)), 'm.csv'); for (const r of v.csvImp.rows.filter(x => x.status !== 'same')) await v.csvApplyMember(r)
+    v.csvPrepare('members', Csv.parse(Csv.encode(rows)), 'm.csv'); await v.csvRun(v.csvImp.rows.filter(x => x.pick))
     const m = v.S.members.find(x => x.code === 'M9001'); return { n: v.S.members.length, ph: v.S.members[0].phone, al: m && m.allergies.length } })
   ok(mem.n === 2 && mem.al === 1 && mem.ph === '0822223333', 'CSV import (members) saved to the database: ' + JSON.stringify(mem))
 
@@ -109,6 +109,32 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
     v.restoreFile = { at: '-', t }; v.dbRestorePrep('products'); const a = { ...v.csvImp.counts }
     t.products[0].price1 = 99; t.customers[0].phone = '0000'; v.dbRestorePrep('products'); const b = { ...v.csvImp.counts }; v.dbRestorePrep('members'); return { a, b, m: { ...v.csvImp.counts } } })
   ok(rs.a.change === 0 && rs.a.error === 0 && rs.b.change === 1 && rs.m.change === 1, 'restore from a backup file previews only the real differences: ' + JSON.stringify(rs))
+
+  // 3,800 products in one upload: progress, retry after a dropped request, compare afterwards, repeat is harmless
+  const big = await vm(pg, async () => {
+    const v = window.__vm; const h = ['code', 'name', 'unit', 'price', 'cost', 'stock', 'danger', 'supplier']
+    const rows = [h]; for (let i = 1; i <= 3800; i++) rows.push(['BIG' + String(i).padStart(5, '0'), 'สินค้าทดสอบ ' + i, 'แผง', String(10 + (i % 90)), String(5 + (i % 40)), String(i % 17), i % 50 === 0 ? '1' : '0', i % 2 ? 'ผู้จำหน่ายใหญ่' : ''])
+    v.csvPrepare('products', Csv.parse(Csv.encode(rows)), 'big.csv'); const c0 = { ...v.csvImp.counts }
+    let calls = 0, failedOnce = false; const orig = Db.rpc.bind(Db)
+    Db.rpc = async (fn, a) => { if (fn === 'bulk_save_products') { calls++; if (!failedOnce && calls === 3) { failedOnce = true; throw new Error('network dropped') } } return orig(fn, a) }
+    const seen = []; const t0 = Date.now(); const todo = v.csvImp.rows.filter(r => r.pick)
+    const timer = setInterval(() => { if (v.csvImp && v.csvImp.prog) seen.push(v.csvImp.prog.done) }, 50)
+    await v.csvRun(todo); clearInterval(timer); Db.rpc = orig
+    const im = v.csvImp
+    return { c0, secs: (Date.now() - t0) / 1000, ok: im.prog.ok, fail: im.prog.fail, stage: im.stage, after: im.after.counts, calls, retried: failedOnce, progressSteps: new Set(seen).size, n: v.S.products.filter(p => p.code.startsWith('BIG')).length } })
+  ok(big.c0.new === 3800 && big.ok === 3800 && big.fail === 0 && big.stage === 'done' && big.retried && big.n === 3800, '3,800-product upload finished in ' + big.secs.toFixed(1) + ' s, one request dropped and retried: ' + JSON.stringify({ ok: big.ok, fail: big.fail, calls: big.calls, steps: big.progressSteps }))
+  ok(big.after.new === 0 && big.after.change === 0 && big.after.same === 3800, 'compare after upload: file and database match: ' + JSON.stringify(big.after))
+  const dbn = (await q(`select count(*) c, coalesce(sum(app.stock_of(id)),0) s from products where code like 'BIG%'`))[0]
+  ok(Number(dbn.c) === 3800 && Number(dbn.s) > 0, 'database holds 3,800 products with stock: ' + JSON.stringify(dbn))
+  const rep2 = await vm(pg, async () => {
+    const v = window.__vm; let text = ''; v.csvDownload = (n, t) => { text = t }; v.exportProductsCsv(); const rows = Csv.parse(text), h = rows[0]; const pi = h.indexOf('price'), ci = h.indexOf('code')
+    let changed = 0; for (const r of rows.slice(1)) if (r[ci].startsWith('BIG') && Number(r[ci].slice(3)) % 4 === 0) { r[pi] = String(Number(r[pi]) + 1); changed++ }
+    v.csvPrepare('products', Csv.parse(Csv.encode(rows)), 'edit.csv'); const c1 = { ...v.csvImp.counts }
+    v.csvPickAll('none'); const some = v.csvImp.rows.filter(r => r.status === 'change').slice(0, 100); for (const r of some) r.pick = true
+    await v.csvRun(v.csvImp.rows.filter(r => r.pick)); const im = v.csvImp; const left = im.after.counts.change
+    v.csvRecheck(); const again = v.csvImp.rows.filter(r => r.pick).length
+    await v.csvRun(v.csvImp.rows.filter(r => r.pick)); return { changed, c1, first: im.prog.ok, left, again, final: v.csvImp.after.counts } })
+  ok(rep2.c1.change === rep2.changed && rep2.first === 100 && rep2.left === rep2.changed - 100 && rep2.again === rep2.changed - 100 && rep2.final.change === 0, 'repeat decision: apply 100 now, compare, apply the rest later: ' + JSON.stringify(rep2))
 
   // reports and forms via the database
   const rep = await vm(pg, async () => { const v = window.__vm; const to = Date.now() + 864e5, from = to - 5 * 864e5; const r = await Db.reportSales({ from, to, group: 'flag' }); const k = await Db.kyData('11', { from, to }); const doc = Logic.buildKyFromRows(v.S, '11', { from, to }, k.rows); const k9 = await Db.kyData('9', { from, to }); return { total: r.totals.sales, flags: r.rows.map(x => x.key).join(), pages: doc.pages.length, rows: doc.pages[0] && doc.pages[0].rows.length, buyer: doc.pages[0] && doc.pages[0].rows[0] && doc.pages[0].rows[0].buyer, k9: k9.rows.length } })

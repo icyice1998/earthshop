@@ -115,7 +115,7 @@ async function freshDb(name) {
   const pool = admin(name)
   const dir = path.join(__dirname, '..', '..', 'db')
   await pool.query('create schema if not exists auth; create table if not exists auth.users (id uuid primary key, email text)')
-  for (const f of ['01_schema', '02_functions', '03_security', '04_reports', '05_api', '06_import']) await pool.query(fs.readFileSync(path.join(dir, f + '.sql'), 'utf8'))
+  for (const f of ['01_schema', '02_functions', '03_security', '04_reports', '05_api', '06_import', '07_bulk']) await pool.query(fs.readFileSync(path.join(dir, f + '.sql'), 'utf8'))
   return pool
 }
 
