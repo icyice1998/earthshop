@@ -185,6 +185,8 @@
       <div class="text-center mb-5">
         <div class="text-2xl font-bold">{{ S.settings.shopName }}</div>
         <div class="text-sm text-slate-500">เข้าสู่ระบบเพื่อใช้งาน</div>
+        <div v-if="dbMode" class="text-xs mt-1" :style="'color:' + (dbCfg.status === 'fail' ? '#b91c1c' : '#0f766e')">{{ dbCfg.status === 'fail' ? 'เชื่อมต่อฐานข้อมูลไม่ได้: ' + dbCfg.err : 'ฐานข้อมูลใหม่ · ล็อกอินด้วย ชื่อผู้ใช้@mypharm.com' }}</div>
+        <div v-else class="text-xs mt-1" style="color:#b45309">เครื่องนี้ยังไม่ได้เชื่อมต่อฐานข้อมูลใหม่ (กำลังใช้ระบบเดิม) · กดตั้งค่าการเชื่อมต่อด้านล่าง หรือเปิดจากลิงก์ตั้งค่า</div>
       </div>
       <form @submit.prevent="doLogin($event)">
         <label class="lbl">ชื่อผู้ใช้</label>
@@ -4085,7 +4087,7 @@ const app = createApp({
       kyForm: '11', kyFrom: '', kyTo: '', kyPreset: 'month', kyOnly9n: false, kyManual: false, kyPids: [], kyQ: '',
       srPreset: 'month', srFrom: '', srTo: '', srTf: '00:00', srTt: '23:59', srStaff: '', srCat: '', srFlag: '', srMethod: '', srQ: '', srGroup: 'day', srLimit: 100,
       posLimit: 120, imp: { busy: false, pct: 0, msg: '', days: 365, result: null, backup: true },
-      loginName: '', nowTick: Date.now(), dbMode: DB_MODE, dbHasAdmin: false, dbMe: null, dbUid: '', dbCfg: { url: '', key: '', open: false }, paying: false, dbSr: { rows: [], totals: { bills: 0, qty: 0, sales: 0, cost: 0, profit: 0 }, lines: [] }, dbKy: null, dbLoading: false, uiSize: (() => { try { const u = localStorage.getItem('knockdown_ui_size'); return u === 's' || u === 'l' ? u : 'm' } catch (e) { return 'm' } })(), setTab: 'general', usSel: null, us: null, usPass: '', usPass2: '', vs: null, vsSel: null, vsTab: 'gen', vsSearch: '', vsTermSearch: '',
+      loginName: '', nowTick: Date.now(), dbMode: DB_MODE, dbHasAdmin: false, dbMe: null, dbUid: '', dbCfg: { url: '', key: '', open: false, status: '', err: '' }, paying: false, dbSr: { rows: [], totals: { bills: 0, qty: 0, sales: 0, cost: 0, profit: 0 }, lines: [] }, dbKy: null, dbLoading: false, uiSize: (() => { try { const u = localStorage.getItem('knockdown_ui_size'); return u === 's' || u === 'l' ? u : 'm' } catch (e) { return 'm' } })(), setTab: 'general', usSel: null, us: null, usPass: '', usPass2: '', vs: null, vsSel: null, vsTab: 'gen', vsSearch: '', vsTermSearch: '',
       setup: { name: '', empId: '', pin: '', pin2: '', busy: false },
       dbBackup: { from: '', to: '', busy: false, msg: '', error: '' }, dbImp: null, lanMsg: { busy: false, text: '', ok: null }, tt: { text: 'ทดสอบพิมพ์ข้อความ\nสวัสดีครับ 123 ราคา ฿99.50', size: 24, align: 'l', bold: false },  bridgeUrl: Slip.bridgeUrl(), restoreFile: null, csvFail: [], csvImp: null, csvProg: '', memMode: 'cards', memEdits: {}, memLimit: 100, mgMode: 'grid', labelAsk: null, menuFor: '', memSel: {}, gridEdits: {}, gridSel: {}, gridLimit: 100, bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
       mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
@@ -4461,7 +4463,7 @@ const app = createApp({
     if (DB_MODE) {
       // ชื่อร้านบนหน้าล็อกอิน: ใช้ชื่อที่จำไว้ในเครื่องก่อน แล้วถามฐานข้อมูล (ฟังก์ชันนี้เปิดเผยเฉพาะชื่อร้าน)
       try { const c = localStorage.getItem('earthshop_shop_name'); if (c) this.S.settings.shopName = c } catch (e) { /* ignore */ }
-      Db.rpc('shop_public').then(n => { if (n && !this.authed) { this.S.settings.shopName = n; try { localStorage.setItem('earthshop_shop_name', n) } catch (e) { /* ignore */ } } }).catch(() => {})
+      Db.rpc('shop_public').then(n => { if (n && !this.authed) { this.S.settings.shopName = n; try { localStorage.setItem('earthshop_shop_name', n) } catch (e) { /* ignore */ } } this.dbCfg.status = 'ok' }).catch(e => { this.dbCfg.status = 'fail'; this.dbCfg.err = (e && e.message) || 'ไม่ทราบสาเหตุ' })
     }
     try {
       const { data } = await _supabase.auth.getSession()
