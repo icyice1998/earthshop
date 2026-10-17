@@ -21,6 +21,8 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
      jsonb_build_object('product_id',$1::bigint,'qty',50,'unit_cost',8,'lot_no','LP1','exp_date',(current_date+400)::text),
      jsonb_build_object('product_id',$2::bigint,'qty',20,'unit_cost',30,'lot_no','LA1','exp_date',(current_date+300)::text),
      jsonb_build_object('product_id',$3::bigint,'qty',10,'unit_cost',60,'lot_no','LK1','exp_date',(current_date+200)::text))))`, [pPara, pAmox, pKy])
+  const pOtc = await prod({ code: 'P005', name: 'วิตามินซี', category: 'อื่นๆ', unit: 'กระปุก', price1: 22, drug_types: ['otc'], latest_cost: 10 })
+  await q(`select open_stock($1::bigint, 5, 10)`, [pOtc])
   await q(`select save_customer('{"name":"สมหญิง ใจดี","phone":"0811111111","allergies":[{"drug":"Penicillin","reaction":"ผื่น"}]}')`)
 
   const authUsers = { 'earth@knockdown-shop.com': { id: U.admin, pw: 'secret1' }, 'cash@knockdown-shop.com': { id: U.cashier, pw: 'secret2' } }
@@ -47,7 +49,7 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   // ---------------- admin ----------------
   let pg = await open('earth', 'secret1')
   let st = await vm(pg, () => { const v = window.__vm; return { n: v.S.products.length, lots: v.S.lots.length, admin: v.me && v.me.admin, hasAdmin: v.hasAdmin, sup: v.S.suppliers.length, mem: v.S.members.length, flags: v.S.products.find(p => p.code === 'P002').danger, cost: v.S.products.find(p => p.code === 'P001').cost } })
-  ok(st.n === 3 && st.lots === 3 && st.admin && st.hasAdmin && st.sup === 1 && st.mem === 1, 'loads products, lots, supplier, customers and admin rights: ' + JSON.stringify(st))
+  ok(st.n === 4 && st.lots === 4 && st.admin && st.hasAdmin && st.sup === 1 && st.mem === 1, 'loads products, lots, supplier, customers and admin rights: ' + JSON.stringify(st))
   ok(st.flags === true && st.cost === 8, 'drug types and cost come through')
 
   // sell: OTC item, then dangerous item with member, via the real pay flow
@@ -80,7 +82,7 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   const adj = await vm(pg, async () => { const v = window.__vm; const p = v.S.products.find(x => x.code === 'P001'); const d = await Logic.adjust(v.S, p.id, 45, 'นับสต็อกไม่ตรง', ''); return { d, stock: v.stockMap[p.id] } })
   ok(adj.d === -5 && adj.stock === 45, 'adjust stock -5')
   const po = await vm(pg, async () => { const v = window.__vm; const p = v.S.products.find(x => x.code === 'P001'); const o = await Logic.createOrder(v.S, { supplier: 'ซัพพลายเออร์ A', day: '2026-02-01', note: 'ทดสอบ', items: [{ pid: p.id, qty: 30, unitCost: 8 }] }); const rr = await Logic.receive(v.S, { invoice: 'INV-PO', supplier: 'ซัพพลายเออร์ A', day: '2026-02-02', orderId: o.id, items: [{ pid: p.id, qty: 30, unitCost: 8 }] }); const o2 = v.S.orders.find(x => x.id === o.id); return { no: o.no, got: o2.items[0].got, status: o2.status, closed: o2.closed } })
-  ok(po.no === 'PO00001' && po.got === 30 && po.status === 'open', 'purchase order created and received against: ' + JSON.stringify(po))
+  ok(po.no === 'PO00001' && po.got === 30 && po.status === 'closed' && po.closed, 'purchase order created and received against: ' + JSON.stringify(po))
 
   // product save + bulk drug type + grid
   const sp = await vm(pg, async () => { const v = window.__vm; const id = await Db.saveProduct(v.S, null, { code: 'P004', name: 'สินค้าใหม่', generic: '', category: 'อื่นๆ', unit: 'ชิ้น', price: 15, cost: 5, reorder: 2, note: '', type: 'sell', supplier: 'ซัพพลายเออร์ A', barcode: '8851234567890', location: 'A1', danger: true }); await Db.openStock(v.S, id, 12, 5); const p = v.S.products.find(x => x.id === id); return { id, danger: p.danger, sup: p.supplier, stock: v.stockMap[id], bar: p.barcode } })
@@ -115,7 +117,7 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   ok(!c.admin && !c.canVoid && !c.canCost && c.cost === 0 && c.users === 1, 'cashier: limited rights, cost hidden by the database: ' + JSON.stringify(c))
   const cs = await vm(pg, async () => { const v = window.__vm; const out = {}; try { await Logic.commitSale(v.S, { items: [{ pid: v.S.products.find(p => p.code === 'P002').id, name: 'x', qty: 1, price: 60 }], discount: 0, method: 'cash', received: 60 }); out.danger = 'sold' } catch (e) { out.danger = e.message }
     try { await Logic.adjust(v.S, v.S.products[0].id, 1, 'x', ''); out.adj = 'done' } catch (e) { out.adj = e.message }
-    const ok1 = await Logic.commitSale(v.S, { items: [{ pid: v.S.products.find(p => p.code === 'P004').id ? v.S.products.find(p => p.code === 'P001').id : null, name: 'x', qty: 1, price: 22 }], discount: 0, method: 'cash', received: 22 }).then(() => 'sold', e => e.message); out.otc = ok1; return out })
+    const ok1 = await Logic.commitSale(v.S, { items: [{ pid: v.S.products.find(p => p.code === 'P005').id, name: 'x', qty: 1, price: 22 }], discount: 0, method: 'cash', received: 22 }).then(() => 'sold', e => e.message); out.otc = ok1; return out })
   ok(/ไม่มีสิทธิ์/.test(cs.danger) && /ไม่มีสิทธิ์/.test(cs.adj) && cs.otc === 'sold', 'database blocks dangerous sale and stock adjust for cashier; OTC sale works: ' + JSON.stringify(cs))
   await pg.context().close()
 

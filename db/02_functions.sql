@@ -58,7 +58,7 @@ end $$;
 create trigger stock_movements_apply after insert on stock_movements
   for each row execute function app.apply_movement();
 
-create or replace function app.stock_of(p_product bigint) returns int language sql stable as $$
+create or replace function app.stock_of(p_product bigint) returns int language sql stable security definer set search_path = public as $$
   select case
     when exists (select 1 from product_bundles where bundle_id = p_product)
       then (select coalesce(min(floor(app.stock_of(b.part_id)::numeric / b.qty))::int, 0) from product_bundles b where b.bundle_id = p_product)

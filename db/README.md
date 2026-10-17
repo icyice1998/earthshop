@@ -34,3 +34,22 @@ Reports (call as supabase.rpc or select * from ...)
 Verified against Python recomputation on the real history: month, staff and drug-type groups,
 ข.ย.10 (69 sale rows) and ข.ย.11 (2 sale rows) including remaining quantity after each sale.
 The imported history contains no prescription fields, so ข.ย.12 is empty until new bills carry them.
+
+Connect the app to your own Supabase project (database mode)
+  A. Create the project (Supabase dashboard). Authentication > Providers > Email: turn OFF "Confirm email".
+  B. SQL Editor: paste the whole of deploy_all.sql and run it once.
+  C. Authentication > Users > Add user: email  <your login name>@knockdown-shop.com  and a password
+     (tick "Auto Confirm User"). The part before @ is the login name you type in the app.
+  D. Load the SmartDrugstore history (optional, from your own computer; keep the DB password private):
+       python3 -I migrate_drgstr.py DRGSTR.sql OUTDIR
+       cd OUTDIR
+       psql "postgresql://postgres:<DB-PASSWORD>@db.<project-ref>.supabase.co:5432/postgres" -v ON_ERROR_STOP=1 -f load.sql
+     Do this before the first login so the imported staff rows exist; then step E.
+  E. Open the app, on the login screen choose "ตั้งค่าการเชื่อมต่อฐานข้อมูลใหม่", paste the Project URL and the
+     anon / publishable key (Settings > API). Log in. The first login creates the administrator and the PIN.
+  The anon key is public by design (the database rules protect the data). Never paste the service_role key
+  or the database password into the app, GitHub or a chat.
+
+Tests
+  psql -f tests/test_functions.sql / test_security.sql / test_reports.sql on a fresh database with 01-05 applied
+  cd ../dev/dbtest && npm install && node test_app_db.js   (the real app against local PostgreSQL, 23 checks)
