@@ -2512,7 +2512,7 @@ function migrate(S) {
 function makeSeed() {
   const ts = new Date().toISOString()
   const S = { products: [], lots: [], movements: [], sales: [], receipts: [], closings: [],
-              seq: { sale: 0 }, settings: { pin: '1234', shopName: 'บ้านยาต้นปู๋', nearExpiryDays: 90 } }
+              seq: { sale: 0 }, settings: { pin: '1234', shopName: DB_MODE ? 'ร้านยา' : 'บ้านยาต้นปู๋', nearExpiryDays: 90 } }
   for (const r of SEED) {
     const p = { id: 'p' + r[0], code: r[0], name: r[1], generic: r[2], category: r[3], unit: r[4],
                 cost: r[5], price: r[6], reorder: r[8], note: r[9], active: true }
