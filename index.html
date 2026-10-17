@@ -487,6 +487,8 @@ Check your Browserslist config to be sure that your targets are set up correctly
       <div class="flex gap-2 mb-3">
         <input v-model="invSearch" class="inp" placeholder="ค้นหาชื่อ / ชื่อสามัญ / รหัส / บาร์โค้ด / ผู้จำหน่าย / ที่เก็บ">
         <button class="btn btn-ghost whitespace-nowrap" @click="toggleInvView">{{ invView === 'table' ? 'มุมมองการ์ด' : 'มุมมองตาราง' }}</button>
+        <button class="btn btn-ghost whitespace-nowrap" @click="exportProductsCsv">ส่งออก CSV</button>
+        <label v-if="isAdmin" class="btn btn-ghost whitespace-nowrap cursor-pointer inline-flex items-center">นำเข้า CSV<input type="file" accept=".csv,text/csv" class="hidden" @change="pickCsv('products', $event)"></label>
         <button v-if="can('manage')" class="btn btn-pri whitespace-nowrap" @click="openForm(null)">+ เพิ่มสินค้า</button>
       </div>
       <div class="flex gap-2 overflow-x-auto pb-2 mb-1">
@@ -941,6 +943,8 @@ Check your Browserslist config to be sure that your targets are set up correctly
           <span v-if="gridCount" class="tag" style="background:#fef9c3;color:#854d0e">แก้ไขแล้ว {{ gridCount }} รายการ</span>
           <button class="btn btn-ghost" :disabled="!gridCount" @click="gridReset">ยกเลิกการแก้</button>
           <button class="btn btn-pri" :disabled="!gridCount || paying" @click="gridSave">บันทึกที่แก้ไข</button>
+          <button class="btn btn-ghost" @click="exportProductsCsv">ส่งออก CSV</button>
+          <label v-if="isAdmin" class="btn btn-ghost cursor-pointer inline-flex items-center">นำเข้า CSV<input type="file" accept=".csv,text/csv" class="hidden" @change="pickCsv('products', $event)"></label>
           <button class="btn btn-ghost" @click="openForm(null)">+ เพิ่มสินค้า</button>
         </div>
         <div class="text-xs text-slate-500 mb-2">คลิกที่ช่องเพื่อแก้ไข Tab เลื่อนไปช่องถัดไป Enter ลงแถวถัดไป ช่องที่แก้ไขจะเป็นสีเหลือง การบันทึกต้องมีสิทธิ์และยืนยันด้วยรหัส PIN ก่อนเสมอ ช่อง "คงเหลือ" ที่แก้ไขคือการปรับสต็อก (ต้องมีสิทธิ์ปรับสต็อก) ช่องราคาทุนต้องมีสิทธิ์เห็นต้นทุน</div>
@@ -1185,8 +1189,22 @@ Check your Browserslist config to be sure that your targets are set up correctly
 
     <!-- ============ สมาชิก ============ -->
     <section v-else-if="tab === 'members'" class="h-full overflow-y-auto p-3">
-      <div class="flex gap-2 mb-3">
-        <input v-model="memSearch" class="inp" placeholder="ค้นหาชื่อหรือเบอร์โทร">
+      <div class="flex flex-wrap gap-2 mb-2">
+        <button class="chip" :class="memMode === 'cards' ? 'chip-on' : ''" @click="memMode = 'cards'">รายชื่อ (การ์ด)</button>
+        <button class="chip" :class="memMode === 'table' ? 'chip-on' : ''" @click="memMode = 'table'">ตาราง</button>
+        <button v-if="can('members')" class="chip" :class="memMode === 'grid' ? 'chip-on' : ''" @click="memMode = 'grid'">ตารางจัดการ (แก้ไขหลายคน)</button>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-3">
+        <input v-model="memSearch" class="inp !w-72" placeholder="ค้นหาชื่อ รหัส หรือเบอร์โทร">
+        <span class="text-sm text-slate-500 self-center">{{ memberList.length }} / {{ S.members.length }} คน</span>
+        <span class="flex-1"></span>
+        <template v-if="memMode === 'grid'">
+          <span v-if="Object.keys(memEdits).length" class="tag self-center" style="background:#fef9c3;color:#854d0e">แก้ไขแล้ว {{ Object.keys(memEdits).length }} คน</span>
+          <button class="btn btn-ghost" :disabled="!Object.keys(memEdits).length" @click="memReset">ยกเลิกการแก้</button>
+          <button class="btn btn-pri" :disabled="!Object.keys(memEdits).length || paying" @click="memSave">บันทึกที่แก้ไข</button>
+        </template>
+        <button class="btn btn-ghost whitespace-nowrap" @click="exportMembersCsv">ส่งออก CSV</button>
+        <label v-if="isAdmin" class="btn btn-ghost whitespace-nowrap cursor-pointer inline-flex items-center">นำเข้า CSV<input type="file" accept=".csv,text/csv" class="hidden" @change="pickCsv('members', $event)"></label>
         <button class="btn btn-pri whitespace-nowrap" @click="openMemberForm(null)">+ เพิ่ม</button>
       </div>
       <div v-if="followupList.length" class="card p-3 mb-3">
@@ -1197,11 +1215,42 @@ Check your Browserslist config to be sure that your targets are set up correctly
         </button>
       </div>
       <div v-if="memberList.length === 0" class="text-center text-slate-400 py-12">{{ S.members.length ? 'ไม่พบสมาชิก' : 'ยังไม่มีสมาชิก กด + เพิ่ม' }}</div>
-      <button v-for="m in memberList" :key="m.id" class="card w-full text-left p-3 mb-2" @click="openMember(m)">
+      <div v-if="memMode === 'cards'" class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+      <button v-for="m in memberList.slice(0, memLimit)" :key="m.id" class="card w-full text-left p-3 mb-2" @click="openMember(m)">
         <div class="flex justify-between gap-2"><div class="font-semibold">{{ memberLabel(m) }} <span v-if="m.name" class="text-xs text-slate-400">{{ m.code }}</span></div><div class="text-sm text-slate-500">{{ m.phone }}</div></div>
         <div v-if="m.allergies.length" class="text-sm mt-1" style="color:#b91c1c">แพ้ยา: {{ allergyText(m) }}</div>
         <div class="text-xs text-slate-500 mt-1">ซื้อล่าสุด: {{ lastBuy(m) }}</div>
       </button>
+      </div>
+      <div v-if="memMode === 'table'" class="card overflow-x-auto">
+        <table class="rt text-sm">
+          <thead><tr class="text-left text-slate-500" style="border-bottom:1.5px solid var(--line)"><th class="p-2">รหัส</th><th class="p-2">ชื่อ</th><th class="p-2">โทรศัพท์</th><th class="p-2 col-lg">แพ้ยา</th><th class="p-2 col-lg">ซื้อล่าสุด</th><th class="p-2 col-xl">หมายเหตุ</th></tr></thead>
+          <tbody>
+            <tr v-for="m in memberList.slice(0, memLimit)" :key="m.id" class="cursor-pointer hover:bg-teal-50" style="border-bottom:1px solid var(--line)" @click="openMember(m)">
+              <td class="p-2 whitespace-nowrap">{{ m.code }}</td><td class="p-2 font-semibold">{{ m.name || '-' }}</td><td class="p-2 whitespace-nowrap">{{ m.phone }}</td>
+              <td class="p-2 col-lg" style="color:#b91c1c">{{ allergyText(m) }}</td><td class="p-2 col-lg whitespace-nowrap">{{ lastBuy(m) }}</td><td class="p-2 col-xl text-slate-500">{{ m.note }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-if="memMode === 'grid'">
+        <div class="text-xs text-slate-500 mb-2">คลิกที่ช่องเพื่อแก้ไข Tab เลื่อนช่อง Enter ลงแถวถัดไป ช่องที่แก้ไขเป็นสีเหลือง การบันทึกต้องยืนยันด้วย PIN แพ้ยาคั่นด้วย ; เช่น Penicillin:ผื่น; Aspirin</div>
+        <div class="gwrap">
+          <table class="gtbl mtbl">
+            <thead><tr><th class="gstick">รหัส</th><th>ชื่อ</th><th>โทรศัพท์</th><th>แพ้ยา</th><th>หมายเหตุ</th></tr></thead>
+            <tbody>
+              <tr v-for="(m, ri) in memberList.slice(0, memLimit)" :key="m.id">
+                <td class="gstick" style="padding:.25rem .5rem;color:#5b6f6b">{{ m.code }}</td>
+                <td :class="mchg(m, 'name') ? 'gchg' : ''"><input class="gin" style="width:14rem" :value="mv(m, 'name')" data-c="name" :data-r="ri" @input="mset(m, 'name', $event.target.value)" @keydown.enter.prevent="memNext($event)"></td>
+                <td :class="mchg(m, 'phone') ? 'gchg' : ''"><input class="gin" style="width:9rem" :value="mv(m, 'phone')" data-c="phone" :data-r="ri" @input="mset(m, 'phone', $event.target.value)" @keydown.enter.prevent="memNext($event)"></td>
+                <td :class="mchg(m, 'allergies') ? 'gchg' : ''"><input class="gin" style="width:18rem" :value="mv(m, 'allergies')" data-c="allergies" :data-r="ri" @input="mset(m, 'allergies', $event.target.value)" @keydown.enter.prevent="memNext($event)"></td>
+                <td :class="mchg(m, 'note') ? 'gchg' : ''"><input class="gin" style="width:20rem" :value="mv(m, 'note')" data-c="note" :data-r="ri" @input="mset(m, 'note', $event.target.value)" @keydown.enter.prevent="memNext($event)"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div v-if="memberList.length > memLimit" class="text-center py-3"><button class="btn btn-ghost" @click="memLimit += 100">แสดงเพิ่ม ({{ memLimit }} / {{ memberList.length }})</button></div>
       <div class="text-xs text-slate-400 text-center mt-4">เก็บเท่าที่จำเป็น ตั้งชื่อเป็นชื่อเล่นหรือรหัสที่จำได้ก็ได้ ไม่ต้องใช้ชื่อจริง ไม่ต้องกรอกทุกช่อง</div>
     </section>
 
@@ -1423,8 +1472,12 @@ Check your Browserslist config to be sure that your targets are set up correctly
         <div v-if="dbBackup.error" class="text-sm mt-2" style="color:var(--bad)">{{ dbBackup.error }}</div>
       </div>
       <div v-if="dbMode" class="card p-4 mb-3">
-        <div class="font-bold mb-1">กู้คืนข้อมูล</div>
-        <div class="text-sm text-slate-600">การกู้คืนทับฐานข้อมูลทำที่ฝั่งฐานข้อมูล ไม่ทำจากหน้าจอนี้ เพื่อกันการกดผิดแล้วข้อมูลหาย: ใน Supabase ไปที่ Database &gt; Backups (แผน Pro มีสำรองอัตโนมัติรายวัน และกู้คืนย้อนหลังได้) หรือใช้ไฟล์ SQL ในโฟลเดอร์ db ของโปรเจกต์ ไฟล์ .json ด้านบนใช้เก็บเป็นหลักฐานและเปิดอ่านหรือนำไปประมวลผลต่อได้</div>
+        <div class="font-bold mb-1">กู้คืนข้อมูลหลักจากไฟล์สำรอง</div>
+        <div class="text-sm text-slate-600 mb-3">เลือกไฟล์ .json ที่ดาวน์โหลดไว้ ระบบจะแสดงสิ่งที่จะเปลี่ยนให้ตรวจก่อน แล้วกู้คืน สินค้า (รวมชนิดยา ราคา คงเหลือ) และ สมาชิก (รวมประวัติแพ้ยา) โดยจับคู่ด้วยรหัส รายการที่ไม่มีในไฟล์จะไม่ถูกลบ ส่วนบิลขาย ใบรับเข้า และล็อตเป็นข้อมูลประวัติ กู้คืนทับจากหน้านี้ไม่ได้ ให้ใช้ Supabase &gt; Database &gt; Backups (แผน Pro มีสำรองรายวัน)</div>
+        <label class="btn btn-ghost cursor-pointer inline-flex items-center">เลือกไฟล์สำรอง (.json)<input type="file" accept=".json,application/json" class="hidden" @change="dbRestorePick"></label>
+        <div v-if="restoreFile" class="mt-3 text-sm">ไฟล์ของ {{ restoreFile.at }}: สินค้า {{ (restoreFile.t.products || []).length }} · สมาชิก {{ (restoreFile.t.customers || []).length }}
+          <div class="flex gap-2 mt-2"><button class="btn btn-pri" @click="dbRestorePrep('products')">ตรวจสินค้า</button><button class="btn btn-pri" @click="dbRestorePrep('members')">ตรวจสมาชิก</button></div>
+        </div>
       </div>
       <div v-if="!dbMode" class="card p-4 mb-3">
         <div class="font-bold mb-1">นำเข้าข้อมูลจาก SmartDrugstore</div>
@@ -2155,6 +2208,32 @@ Check your Browserslist config to be sure that your targets are set up correctly
       <button class="btn btn-pri w-full mb-2" @click="conflictUseCloud">โหลดข้อมูลล่าสุดจากคลาวด์ (แนะนำ)</button>
       <button class="btn btn-ghost w-full mb-2" @click="conflictCopyLocal">คัดลอกข้อมูลของเครื่องนี้เก็บไว้ก่อน</button>
       <button class="btn btn-badline w-full" @click="conflictForce">ใช้ข้อมูลเครื่องนี้ทับคลาวด์ (ต้องใส่รหัสผ่าน)</button>
+    </div>
+  </div>
+
+  <!-- ตรวจไฟล์ CSV ก่อนนำเข้า -->
+  <div v-if="csvImp" class="modal-bg" @click.self="!csvImp.busy && (csvImp = null)">
+    <div class="modal modal-lg p-5">
+      <div class="flex justify-between items-start mb-2"><div class="font-bold text-lg">ตรวจไฟล์ {{ csvImp.fname }} ({{ csvImp.kind === 'products' ? 'สินค้า' : 'สมาชิก' }})</div><button class="text-slate-400 text-2xl leading-none" :disabled="csvImp.busy" @click="csvImp = null">&times;</button></div>
+      <div class="grid grid-cols-4 gap-2 text-center mb-3">
+        <div class="rounded-lg p-2" style="background:#dcfce7"><div class="text-xs">ใหม่</div><div class="font-bold num">{{ csvImp.counts.new }}</div></div>
+        <div class="rounded-lg p-2" style="background:#fef9c3"><div class="text-xs">แก้ไข</div><div class="font-bold num">{{ csvImp.counts.change }}</div></div>
+        <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs">ไม่เปลี่ยน</div><div class="font-bold num">{{ csvImp.counts.same }}</div></div>
+        <div class="rounded-lg p-2" style="background:#fee2e2"><div class="text-xs">ผิดพลาด</div><div class="font-bold num">{{ csvImp.counts.error }}</div></div>
+      </div>
+      <div v-if="csvImp.ignored.length" class="text-xs text-slate-500 mb-2">คอลัมน์ที่ระบบไม่รู้จัก (ข้าม): {{ csvImp.ignored.join(', ') }}</div>
+      <div style="max-height:40vh;overflow-y:auto" class="text-sm">
+        <div v-for="r in csvImp.rows.filter(x => x.err || x.status !== 'same').slice(0, 60)" :key="r.line" class="py-1 border-b" style="border-color:var(--line)">
+          <span class="tag mr-1" :style="r.err ? 'background:#fee2e2;color:#b91c1c' : (r.status === 'new' ? 'background:#dcfce7;color:#166534' : 'background:#fef9c3;color:#854d0e')">{{ r.err ? 'ผิดพลาด' : (r.status === 'new' ? 'ใหม่' : 'แก้ไข') }}</span>
+          <b>{{ r.code }}</b> {{ r.name }} <span class="text-slate-500">{{ r.err || r.changes.join(' · ') }}</span>
+        </div>
+        <div v-if="csvImp.rows.filter(x => x.err || x.status !== 'same').length > 60" class="text-xs text-slate-500 pt-1">และอีกหลายรายการ</div>
+      </div>
+      <div class="text-xs text-slate-500 mt-3">รายการที่หายไปจากไฟล์จะไม่ถูกลบ รายการที่มีข้อผิดพลาดจะถูกข้าม การนำเข้าต้องยืนยันด้วย PIN</div>
+      <div class="flex gap-2 mt-3 justify-end">
+        <button class="btn btn-ghost" :disabled="csvImp.busy" @click="csvImp = null">ยกเลิก</button>
+        <button class="btn btn-pri" :disabled="csvImp.busy || (csvImp.counts.new + csvImp.counts.change) === 0" @click="csvApply">{{ csvImp.busy ? 'กำลังบันทึก ' + csvProg : 'นำเข้า ' + (csvImp.counts.new + csvImp.counts.change) + ' รายการ' }}</button>
+      </div>
     </div>
   </div>
 
@@ -3746,7 +3825,9 @@ const DB_OPS = {
     if (l) await Db.reloadLots(S, [l.pid])
   },
   async addMember(S, f) {
-    const id = await Db.rpc('save_customer', { p: { name: f.name, phone: f.phone || '', note: f.note || '', allergies: (f.allergies || []).map(a => ({ drug: a.drug, reaction: a.reaction || '' })) } })
+    let code = f.code || ''
+    if (!code) { let mx = 0; for (const m of S.members) { const n = /^M(\d+)$/.exec(m.code || ''); if (n) mx = Math.max(mx, Number(n[1])) } code = 'M' + String(mx + 1).padStart(4, '0') }
+    const id = await Db.rpc('save_customer', { p: { code, name: f.name, phone: f.phone || '', note: f.note || '', allergies: (f.allergies || []).map(a => ({ drug: a.drug, reaction: a.reaction || '' })) } })
     return await DB_OPS.reloadMember(S, id)
   },
   async updateMember(S, id, f) {
@@ -3768,6 +3849,36 @@ if (DB_MODE) {
   for (const k of ['returnGoods', 'voidReturn', 'issueSupply', 'voidIssue', 'unpack', 'editReceipt', 'openStock', 'clearHistory', 'deleteMember', 'addMemberNote', 'deleteMemberNote', 'addFollowup', 'doneFollowup', 'deleteFollowup']) Logic[k] = DB_UNSUPPORTED
   Logic.openStock = (S, pid, qty, cost) => Db.openStock(S, pid, qty, cost)
 }
+
+/* =====================================================================
+   ส่วนที่ 4c: ไฟล์ CSV (ส่งออก / แก้ใน Excel / นำเข้ากลับ) ของสินค้าและสมาชิก
+   ===================================================================== */
+const Csv = {
+  encode(rows) {
+    const q = v => { v = v === null || v === undefined ? '' : String(v); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v }
+    return '﻿' + rows.map(r => r.map(q).join(',')).join('\r\n') + '\r\n'
+  },
+  parse(text) {
+    if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
+    const rows = []; let row = [], f = '', i = 0, inq = false
+    for (; i < text.length; i++) {
+      const c = text[i]
+      if (inq) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++ } else inq = false } else f += c }
+      else if (c === '"') inq = true
+      else if (c === ',') { row.push(f); f = '' }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(f); f = ''; if (row.length > 1 || row[0] !== '') rows.push(row); row = [] }
+      else f += c
+    }
+    if (f !== '' || row.length) { row.push(f); if (row.length > 1 || row[0] !== '') rows.push(row) }
+    return rows
+  }
+}
+const PROD_CSV = ['code', 'name', 'generic', 'category', 'unit', 'type', 'barcode', 'supplier', 'location', 'regNo', 'manufacturer', 'packSize', 'cost', 'price', 'reorder', 'orderQty', 'expWarnDays', 'stock', 'active', ...DRUG_FLAGS.map(f => f.k)]
+const MEM_CSV = ['code', 'name', 'phone', 'allergies', 'note', 'id']
+const prodCsvRow = (p, stock) => PROD_CSV.map(k => k === 'stock' ? stock : k === 'active' ? (p.active === false ? 0 : 1) : k === 'type' ? (p.type || 'sell') : DRUG_FLAGS.some(f => f.k === k) ? (p[k] ? 1 : 0) : (p[k] === undefined || p[k] === null ? '' : p[k]))
+const allergyToText = m => (m.allergies || []).map(a => a.drug + (a.reaction ? ':' + a.reaction : '')).join('; ')
+const allergyFromText = t => String(t || '').split(/[;\n]+/).map(x => x.trim()).filter(Boolean).map(x => { const i = x.indexOf(':'); return i < 0 ? { drug: x, reaction: '' } : { drug: x.slice(0, i).trim(), reaction: x.slice(i + 1).trim() } })
+const csvBool = v => ['1', 'true', 'yes', 'y', 'ใช่'].includes(String(v).trim().toLowerCase())
 
 const { createApp } = Vue
 const app = createApp({
@@ -3816,7 +3927,7 @@ const app = createApp({
       posLimit: 120, imp: { busy: false, pct: 0, msg: '', days: 365, result: null, backup: true },
       loginName: '', nowTick: Date.now(), dbMode: DB_MODE, dbHasAdmin: false, dbMe: null, dbUid: '', dbCfg: { url: '', key: '', open: false }, paying: false, dbSr: { rows: [], totals: { bills: 0, qty: 0, sales: 0, cost: 0, profit: 0 }, lines: [] }, dbKy: null, dbLoading: false, uiSize: (() => { try { const u = localStorage.getItem('knockdown_ui_size'); return u === 's' || u === 'l' ? u : 'm' } catch (e) { return 'm' } })(), setTab: 'general', usSel: null, us: null, usPass: '', usPass2: '', vs: null, vsSel: null, vsTab: 'gen', vsSearch: '', vsTermSearch: '',
       setup: { name: '', empId: '', pin: '', pin2: '', busy: false },
-      dbBackup: { from: '', to: '', busy: false, msg: '', error: '' }, mgMode: 'grid', gridEdits: {}, gridLimit: 100, bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
+      dbBackup: { from: '', to: '', busy: false, msg: '', error: '' }, restoreFile: null, csvFail: [], csvImp: null, csvProg: '', memMode: 'cards', memEdits: {}, memLimit: 100, mgMode: 'grid', gridEdits: {}, gridLimit: 100, bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
       mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
       DRUG_FLAGS, FLAG_SHORT,
       rcvDupOk: false,
@@ -4144,6 +4255,7 @@ const app = createApp({
     search() { this.posLimit = 120 },
     cat() { this.posLimit = 120 },
     mgQ() { this.mgLimit = 50; this.gridLimit = 100 },
+    memSearch() { this.memLimit = 100 },
     mgFilter() { this.mgLimit = 50; this.gridLimit = 100 },
     invSearch() { this.invLimit = 50 },
     invFilter() { this.invLimit = 50 },
@@ -4771,6 +4883,201 @@ const app = createApp({
           this.toast('ปรับสต็อกแล้ว (' + (d > 0 ? '+' : '') + d + ')')
           this.adj = { counted, reason: 'นับสต็อกไม่ตรง', note: '' }
         } catch (e) { this.toast(e.message, 'bad') }
+      })
+    },
+    dbRestorePick(ev) {
+      const f = ev.target.files && ev.target.files[0]; ev.target.value = ''
+      if (!f) return
+      if (!this.isAdmin) return this.deny('กู้คืนข้อมูล (เฉพาะผู้ดูแลระบบ)')
+      const r = new FileReader()
+      r.onload = () => { try { const o = JSON.parse(String(r.result)); if (!o || !o.tables) throw new Error('ไม่ใช่ไฟล์สำรองของระบบนี้'); this.restoreFile = { at: o.exportedAt ? new Date(o.exportedAt).toLocaleString('th-TH') : '-', t: o.tables } } catch (e) { this.toast('อ่านไฟล์ไม่ได้: ' + e.message, 'bad') } }
+      r.readAsText(f, 'utf-8')
+    },
+    dbRestorePrep(kind) {
+      const t = this.restoreFile.t
+      if (kind === 'products') {
+        const supById = {}; for (const x of (t.suppliers || [])) supById[String(x.id)] = { name: x.name }
+        const bundles = {}, unpack = {}
+        const rows = [PROD_CSV].concat((t.products || []).map(r => { const p = Db.mapProduct(r, { supById, bundles, unpack }); const lotSum = (t.lots || []).filter(l => l.product_id === r.id).reduce((a, l) => a + l.qty_left, 0); return prodCsvRow(p, r.is_supply || false ? lotSum : lotSum) }))
+        this.csvPrepare('products', rows, 'ไฟล์สำรอง (สินค้า)')
+      } else {
+        const al = {}; for (const a of (t.customer_allergies || [])) (al[a.customer_id] || (al[a.customer_id] = [])).push(a)
+        const rows = [MEM_CSV].concat((t.customers || []).map(c => { const m = Db.mapMember(c, al[c.id]); return [m.code, m.name, m.phone, allergyToText(m), m.note, m.id] }))
+        this.csvPrepare('members', rows, 'ไฟล์สำรอง (สมาชิก)')
+      }
+    },
+    // ===== CSV: ส่งออก / นำเข้า =====
+    csvDownload(name, text) {
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }))
+      a.download = name; a.click()
+    },
+    exportProductsCsv() {
+      const rows = [PROD_CSV].concat(this.S.products.slice().sort((a, b) => String(a.code).localeCompare(String(b.code), 'th', { numeric: true })).map(p => prodCsvRow(p, p.bundle ? '' : (this.stockMap[p.id] || 0))))
+      this.csvDownload('products-' + dayKey(new Date()) + '.csv', Csv.encode(rows)); this.toast('ส่งออกสินค้า ' + (rows.length - 1) + ' รายการ')
+    },
+    exportMembersCsv() {
+      const rows = [MEM_CSV].concat(this.S.members.slice().sort((a, b) => String(a.code).localeCompare(String(b.code), 'th', { numeric: true })).map(m => [m.code, m.name, m.phone, allergyToText(m), m.note, m.id]))
+      this.csvDownload('members-' + dayKey(new Date()) + '.csv', Csv.encode(rows)); this.toast('ส่งออกสมาชิก ' + (rows.length - 1) + ' คน')
+    },
+    pickCsv(kind, ev) {
+      const f = ev.target.files && ev.target.files[0]; ev.target.value = ''
+      if (!f) return
+      if (!this.isAdmin) return this.deny('นำเข้าไฟล์ CSV (เฉพาะผู้ดูแลระบบ)')
+      const r = new FileReader()
+      r.onload = () => { try { this.csvPrepare(kind, Csv.parse(String(r.result)), f.name) } catch (e) { this.toast('อ่านไฟล์ไม่ได้: ' + e.message, 'bad') } }
+      r.readAsText(f, 'utf-8')
+    },
+    csvPrepare(kind, table, fname) {
+      if (table.length < 2) return this.toast('ไฟล์ไม่มีข้อมูล', 'bad')
+      const head = table[0].map(h => String(h).trim()), idx = {}; head.forEach((h, i) => { idx[h] = i })
+      const known = kind === 'products' ? PROD_CSV : MEM_CSV
+      if (idx.code === undefined || idx.name === undefined) return this.toast('หัวตารางต้องมีคอลัมน์ code และ name (ส่งออกไฟล์จากระบบแล้วแก้ไขต่อจะถูกต้องที่สุด)', 'bad')
+      const cols = head.filter(h => known.includes(h))
+      const ignored = head.filter(h => h && !known.includes(h))
+      const has = k => idx[k] !== undefined
+      const get = (r, k) => has(k) ? String(r[idx[k]] === undefined ? '' : r[idx[k]]).trim() : undefined
+      const out = [], seen = new Set()
+      const exist = {}, byId = {}; for (const x of (kind === 'products' ? this.S.products : this.S.members)) { if (x.code) exist[String(x.code)] = x; byId[String(x.id)] = x }
+      for (let n = 1; n < table.length; n++) {
+        const r = table[n], code = get(r, 'code'), name = get(r, 'name')
+        const row = { line: n + 1, code, name, status: 'same', changes: [], err: '' }
+        if (!code && !name) continue
+        if (!name) row.err = 'ไม่มีชื่อ'
+        else if (!code && kind === 'products') row.err = 'ไม่มีรหัสสินค้า'
+        else if (code && seen.has(code)) row.err = 'รหัสซ้ำในไฟล์'
+        if (code) seen.add(code)
+        if (kind === 'products') {
+          const d = {}
+          for (const k of cols) {
+            if (k === 'code' || k === 'stock') continue
+            const v = get(r, k)
+            if (['cost', 'price', 'reorder', 'orderQty', 'expWarnDays'].includes(k)) { if (v === '') { if (k === 'price') d[k] = 0; continue } const x = Number(v); if (!(x >= 0)) { row.err = row.err || 'ตัวเลขไม่ถูกต้อง (' + k + ')'; continue } d[k] = ['cost', 'price'].includes(k) ? x : Math.floor(x) }
+            else if (k === 'active' || DRUG_FLAGS.some(f => f.k === k)) d[k] = csvBool(v)
+            else if (k === 'type') d[k] = v === 'supply' ? 'supply' : 'sell'
+            else d[k] = v
+          }
+          if (has('stock')) { const v = get(r, 'stock'); if (v !== '') { const x = Math.floor(Number(v)); if (!(x >= 0)) row.err = row.err || 'จำนวนคงเหลือไม่ถูกต้อง'; else row.stock = x } }
+          row.data = d
+          const ex = exist[code]
+          if (!row.err) {
+            if (!ex) { row.status = 'new'; row.changes = ['สินค้าใหม่' + (row.stock > 0 ? ' สต็อก ' + row.stock : '')] }
+            else {
+              for (const k of Object.keys(d)) { const a = ex[k] === undefined || ex[k] === null ? (typeof d[k] === 'boolean' ? false : typeof d[k] === 'number' ? 0 : k === 'type' ? 'sell' : '') : ex[k]; const same = typeof d[k] === 'boolean' ? (k === 'active' ? (ex.active !== false) === d[k] : !!ex[k] === d[k]) : String(a) === String(d[k]); if (!same) row.changes.push(k + ': ' + (a === '' ? '-' : a) + ' → ' + (d[k] === '' ? '-' : d[k])) }
+              if (row.stock !== undefined && !ex.bundle && row.stock !== (this.stockMap[ex.id] || 0)) row.changes.push('คงเหลือ: ' + (this.stockMap[ex.id] || 0) + ' → ' + row.stock)
+              if (row.changes.length) row.status = 'change'
+            }
+          }
+        } else {
+          const d = { name, phone: get(r, 'phone'), note: get(r, 'note'), allergies: has('allergies') ? allergyFromText(get(r, 'allergies')) : undefined }
+          row.data = d
+          const ex = (code ? exist[code] : null) || (has('id') && get(r, 'id') ? byId[get(r, 'id')] : null)
+          row.ex = ex ? ex.id : ''
+          if (!row.err) {
+            if (!ex) { row.status = 'new'; row.changes = ['สมาชิกใหม่'] }
+            else {
+              if (d.name !== ex.name) row.changes.push('ชื่อ: ' + ex.name + ' → ' + d.name)
+              if (d.phone !== undefined && d.phone !== (ex.phone || '')) row.changes.push('โทร: ' + (ex.phone || '-') + ' → ' + (d.phone || '-'))
+              if (d.note !== undefined && d.note !== (ex.note || '')) row.changes.push('หมายเหตุ')
+              if (d.allergies !== undefined && allergyToText({ allergies: d.allergies }) !== allergyToText(ex)) row.changes.push('แพ้ยา: ' + (allergyToText(ex) || '-') + ' → ' + (allergyToText({ allergies: d.allergies }) || '-'))
+              if (row.changes.length) row.status = 'change'
+            }
+          }
+        }
+        out.push(row)
+      }
+      const c = { new: 0, change: 0, same: 0, error: 0 }
+      for (const r of out) c[r.status === 'same' && r.err ? 'error' : r.err ? 'error' : r.status]++
+      this.csvImp = { kind, fname, rows: out, counts: c, ignored, busy: false }
+    },
+    csvApply() {
+      const im = this.csvImp
+      if (!im || im.busy) return
+      if (!this.isAdmin) return this.deny('นำเข้าไฟล์ CSV')
+      const todo = im.rows.filter(r => !r.err && (r.status === 'new' || r.status === 'change'))
+      if (!todo.length) return this.toast('ไม่มีรายการที่ต้องบันทึก', 'bad')
+      this.askPin('นำเข้า CSV: ' + todo.length + ' รายการ', async () => {
+        im.busy = true
+        let ok = 0; const fail = []
+        for (const r of todo) {
+          this.csvProg = (ok + fail.length + 1) + ' / ' + todo.length
+          try {
+            if (im.kind === 'products') await this.csvApplyProduct(r); else await this.csvApplyMember(r)
+            ok++
+          } catch (e) { fail.push('บรรทัด ' + r.line + ' (' + r.code + '): ' + e.message) }
+          if ((ok + fail.length) % 25 === 0) await new Promise(res => setTimeout(res, 0))
+        }
+        this.csvProg = ''; im.busy = false
+        this.csvImp = null
+        if (fail.length) { this.csvFail = fail; this.toast('นำเข้าแล้ว ' + ok + ' รายการ ไม่สำเร็จ ' + fail.length + ': ' + fail[0], 'bad') }
+        else this.toast('นำเข้าแล้ว ' + ok + ' รายการ')
+      })
+    },
+    async csvApplyProduct(r) {
+      const ex = this.S.products.find(x => String(x.code) === String(r.code))
+      const d = { ...r.data }
+      if (d.supplier && !DB_MODE && this.S.suppliers) Logic.ensureSupplier(this.S, d.supplier)
+      if (!ex) {
+        const base = { code: r.code, name: r.name, generic: '', category: 'อื่นๆ', unit: 'ชิ้น', price: 0, cost: 0, reorder: 0, note: '', type: 'sell', active: true, ...d }
+        if (DB_MODE) { const id = await Db.saveProduct(this.S, null, base); if (r.stock > 0) await Db.openStock(this.S, id, r.stock, base.cost) }
+        else {
+          const id = 'p' + uid(); this.S.products.push({ id, ...base })
+          if (r.stock > 0) Logic.openStock(this.S, id, r.stock, base.cost)
+        }
+        return
+      }
+      if (Object.keys(d).length) {
+        if (DB_MODE) await Db.saveProduct(this.S, ex, d)
+        else { Object.assign(ex, d); if (!ex.log) ex.log = []; ex.log.push({ ts: new Date().toISOString(), by: ACTOR, text: r.changes.join('; ') + ' (นำเข้า CSV)' }) }
+      }
+      if (r.stock !== undefined && !ex.bundle && r.stock !== (this.stockMap[ex.id] || 0)) await Logic.adjust(this.S, ex.id, r.stock, 'ปรับจากไฟล์ CSV', '')
+    },
+    async csvApplyMember(r) {
+      const ex = r.ex ? this.S.members.find(x => x.id === r.ex) : (r.code ? this.S.members.find(x => String(x.code) === String(r.code)) : null)
+      const d = r.data
+      if (ex) {
+        await Logic.updateMember(this.S, ex.id, { name: d.name, phone: d.phone === undefined ? ex.phone : d.phone, note: d.note === undefined ? ex.note : d.note, allergies: d.allergies === undefined ? ex.allergies : d.allergies })
+      } else {
+        const m = await Logic.addMember(this.S, { code: r.code, name: d.name, phone: d.phone || '', note: d.note || '', allergies: d.allergies || [] })
+        if (r.code && !DB_MODE) m.code = r.code
+      }
+    },
+
+    // ===== สมาชิก: ตารางจัดการ =====
+    mv(m, f) { const e = this.memEdits[m.id]; if (e && f in e) return e[f]; return f === 'allergies' ? allergyToText(m) : (m[f] === undefined || m[f] === null ? '' : m[f]) },
+    mchg(m, f) { const e = this.memEdits[m.id]; return !!(e && f in e) },
+    mset(m, f, v) {
+      const orig = f === 'allergies' ? allergyToText(m) : (m[f] === undefined || m[f] === null ? '' : m[f])
+      const cur = { ...(this.memEdits[m.id] || {}) }
+      if (String(v) === String(orig)) delete cur[f]; else cur[f] = v
+      const all = { ...this.memEdits }
+      if (Object.keys(cur).length) all[m.id] = cur; else delete all[m.id]
+      this.memEdits = all
+    },
+    memNext(ev) {
+      const el = ev.target, c = el.getAttribute('data-c'), r = Number(el.getAttribute('data-r')) + 1
+      const nx = document.querySelector('.mtbl input[data-c="' + c + '"][data-r="' + r + '"]')
+      if (nx) { nx.focus(); nx.select && nx.select() }
+    },
+    memReset() { this.memEdits = {} },
+    memSave() {
+      const ids = Object.keys(this.memEdits)
+      if (!ids.length) return
+      if (!this.can('members')) return this.deny('แก้ไขสมาชิก')
+      const list = ids.map(id => this.S.members.find(x => x.id === id)).filter(Boolean)
+      for (const m of list) { const e = this.memEdits[m.id]; if ('name' in e && !String(e.name).trim()) return this.toast('ชื่อสมาชิกห้ามว่าง: ' + m.code, 'bad') }
+      this.askPin('บันทึกการแก้ไขสมาชิก ' + list.length + ' คน', async () => {
+        this.paying = true
+        let ok = 0; const fail = []
+        for (const m of list) {
+          const e = this.memEdits[m.id]
+          try {
+            await Logic.updateMember(this.S, m.id, { name: 'name' in e ? e.name : m.name, phone: 'phone' in e ? e.phone : m.phone, note: 'note' in e ? e.note : m.note, allergies: 'allergies' in e ? allergyFromText(e.allergies) : m.allergies })
+            const rest = { ...this.memEdits }; delete rest[m.id]; this.memEdits = rest; ok++
+          } catch (err) { fail.push(m.name + ': ' + err.message) }
+        }
+        this.paying = false
+        this.toast(fail.length ? 'บันทึกแล้ว ' + ok + ' คน ไม่สำเร็จ ' + fail.length + ': ' + fail[0] : 'บันทึกแล้ว ' + ok + ' คน', fail.length ? 'bad' : undefined)
       })
     },
     // ===== ตารางจัดการ =====
