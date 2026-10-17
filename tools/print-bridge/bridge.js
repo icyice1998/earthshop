@@ -83,6 +83,17 @@ const server = http.createServer(async (req, res) => {
     send(res, 404, { ok: false, error: 'not found' })
   } catch (e) { send(res, 200, { ok: false, error: e.message }) }
 })
+// node bridge.js --selftest 192.168.1.146 9100  -> sends a small test slip straight to the printer (no browser, no app) to tell a printer/network problem from an app problem
+if (argv.includes('--selftest')) {
+  const i = argv.indexOf('--selftest'), host = argv[i + 1], port = Number(argv[i + 2]) || 9100
+  if (!host) { console.error('usage: node bridge.js --selftest PRINTER_IP [PORT]'); process.exit(1) }
+  const W = 72, rows = 40, img = Buffer.alloc(W * rows)     // 576 dots wide, stripes and a border so you can see the full printable width
+  for (let y = 0; y < rows; y++) for (let b = 0; b < W; b++) img[y * W + b] = y < 3 || y >= rows - 3 || b === 0 || b === W - 1 ? 0xff : (Math.floor(b / 6) % 2 ? 0xaa : 0x00)
+  const data = Buffer.concat([Buffer.from([0x1b, 0x40]), Buffer.from('Earthshop printer test\n' + new Date().toISOString().slice(0, 19).replace('T', ' ') + '\nIf you can read this, the network and port are fine.\n', 'ascii'),
+    Buffer.from([0x1d, 0x76, 0x30, 0x00, W, 0, rows, 0]), img, Buffer.from([0x1b, 0x64, 0x04, 0x1d, 0x56, 0x42, 0x00])])
+  toPrinter(host, port, data).then(() => { console.log('Sent ' + data.length + ' bytes to ' + host + ':' + port + '. Check the printer: text, then a striped box that touches both edges of the paper.'); process.exit(0) },
+    e => { console.error('FAILED: ' + e.message); process.exit(2) })
+} else start()
 function download(url, to) {
   return new Promise((ok, bad) => https.get(url, r => {
     if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location) return download(new URL(r.headers.location, url).href, to).then(ok, bad)
@@ -97,5 +108,4 @@ async function start() {
     if (SERVE) { const ips = []; for (const l of Object.values(require('os').networkInterfaces())) for (const a of l || []) if (a.family === 'IPv4' && !a.internal) ips.push(a.address); console.log('Open on the phone:  ' + ips.map(i => 'http://' + i + ':' + PORT + '/').join('   ')) }
   })
 }
-start()
 server.on('error', e => { console.error(e.code === 'EADDRINUSE' ? 'พอร์ต ' + PORT + ' ถูกใช้อยู่ ลองเลือกพอร์ตอื่น: node bridge.js --port 9102' : e.message); process.exit(1) })
