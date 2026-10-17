@@ -25,7 +25,7 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   await q(`select open_stock($1::bigint, 5, 10)`, [pOtc])
   await q(`select save_customer('{"name":"สมหญิง ใจดี","phone":"0811111111","allergies":[{"drug":"Penicillin","reaction":"ผื่น"}]}')`)
 
-  const authUsers = { 'earth@knockdown-shop.com': { id: U.admin, pw: 'secret1' }, 'cash@knockdown-shop.com': { id: U.cashier, pw: 'secret2' } }
+  const authUsers = { 'earth@mypharm.com': { id: U.admin, pw: 'secret1' }, 'cash@mypharm.com': { id: U.cashier, pw: 'secret2' }, 'late@mypharm.com': { id: '33333333-3333-3333-3333-333333333333', pw: 'secret3' } }
   const browser = await chromium.launch()
   const errs = []
   const open = async (user, pw) => {
@@ -146,7 +146,12 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   await vm(pg, async () => { const v = window.__vm; v.usNew(); v.us.name = 'พนักงานใหม่'; v.us.login = 'newbie'; v.usPass = 'abc123'; v.usPass2 = 'abc123'; v.us.perms = { pos: true, billsView: true }; v.usSave() })
   await pg.waitForTimeout(200); await pg.fill('.modal input[type=password]', '482913'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(1000)
   const nb = (await q(`select s.login, s.active, (select array_agg(perm_code order by perm_code) from staff_permissions where staff_id=s.id) p from staff s where login='newbie'`))[0]
-  ok(nb && nb.p.join() === 'billsView,pos' && authUsers['newbie@knockdown-shop.com'], 'new user: auth account created and staff privileges saved: ' + JSON.stringify(nb))
+  ok(nb && nb.p.join() === 'billsView,pos' && authUsers['newbie@mypharm.com'], 'new user: auth account created and staff privileges saved: ' + JSON.stringify(nb))
+  // an account that already exists in Supabase Auth is given admin by the admin, then that person logs in
+  await vm(pg, async () => { const v = window.__vm; v.usNew(); v.us.name = 'ผู้ดูแลคนที่สอง'; v.us.login = 'late'; v.us.admin = true; v.usPass = 'whatever1'; v.usPass2 = 'whatever1'; v.usSave() })
+  await pg.waitForTimeout(200); await pg.fill('.modal input[type=password]', '482913'); await pg.click('.modal button:has-text("ยืนยัน")'); await pg.waitForTimeout(1000)
+  const late = (await q(`select login, is_admin, auth_user_id from staff where login='late'`))[0]
+  ok(late && late.is_admin && late.auth_user_id === null, 'admin can give admin to an account that already exists (not yet linked): ' + JSON.stringify(late))
   await pg.context().close()
 
   // ---------------- cashier ----------------
@@ -158,6 +163,11 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
     const ok1 = await Logic.commitSale(v.S, { items: [{ pid: v.S.products.find(p => p.code === 'P005').id, name: 'x', qty: 1, price: 22 }], discount: 0, method: 'cash', received: 22 }).then(() => 'sold', e => e.message); out.otc = ok1; return out })
   ok(/ไม่มีสิทธิ์/.test(cs.danger) && /ไม่มีสิทธิ์/.test(cs.adj) && cs.otc === 'sold', 'database blocks dangerous sale and stock adjust for cashier; OTC sale works: ' + JSON.stringify(cs))
   await pg.context().close()
+
+  const pl = await open('late', 'secret3')
+  const lt = await vm(pl, () => { const v = window.__vm; return { admin: v.me && v.me.admin, can: v.can('voidSale'), name: v.actor } })
+  ok(lt.admin && lt.can, 'after the first login the account is linked and has admin rights: ' + JSON.stringify(lt))
+  await pl.context().close()
 
   ok(errs.length === 0, 'no page errors ' + JSON.stringify(errs.slice(0, 3)))
   await browser.close(); await pool.end()

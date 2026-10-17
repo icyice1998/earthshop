@@ -26,7 +26,8 @@ const STUB = `(function () {
       },
       signUp: async function (c) {
         var r = await call('signup', { email: c.email, password: c.password })
-        return { data: { user: { id: r.id, identities: r.exists ? [] : [{}] } }, error: null }
+        if (r.exists) return { data: { user: null }, error: { message: 'User already registered', status: 422 } }
+        return { data: { user: { id: r.id, identities: [{}] } }, error: null }
       },
       signOut: async function () { localStorage.removeItem(SK); return {} },
       updateUser: async function () { return { data: {}, error: null } }
