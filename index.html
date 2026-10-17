@@ -1290,7 +1290,12 @@
         <div class="card p-4">
           <div class="font-bold mb-2">เครื่องพิมพ์สลิป (LAN)</div>
           <label class="flex items-center gap-2 p-1 mb-2"><input type="checkbox" class="w-5 h-5" :checked="prog.lanPrint" @change="setProg('lanPrint', $event.target.checked)"> พิมพ์ใบเสร็จไปเครื่องพิมพ์สลิปทางเครือข่าย (แทนหน้าต่างพิมพ์ของเบราว์เซอร์)</label>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="text-sm text-slate-600 mb-1">วิธีส่งไปเครื่องพิมพ์</div>
+          <label v-for="o in [['bridge', 'ผ่านโปรแกรมสะพานพิมพ์ bridge.js (คอม / แท็บเล็ต / โทรศัพท์ที่เปิดแอปจากสะพานพิมพ์)'], ['rawbt', 'ผ่านแอป RawBT (โทรศัพท์ Android ไม่ต้องมีคอม)']]" :key="o[0]" class="flex items-center gap-2 p-1">
+            <input type="radio" class="w-5 h-5" :checked="(prog.lanMode || 'bridge') === o[0]" @change="setProg('lanMode', o[0])"> {{ o[1] }}
+          </label>
+          <div v-if="prog.lanMode === 'rawbt'" class="text-xs text-slate-500 mb-2">ติดตั้งแอป RawBT จาก Play Store แล้วเพิ่มเครื่องพิมพ์แบบ Network (TCP/IP) ใส่ IP และพอร์ตด้านล่าง ครั้งแรกที่พิมพ์ระบบจะถามให้เลือกเปิดด้วย RawBT ช่องที่อยู่สะพานพิมพ์และปุ่มตรวจสอบใช้กับวิธีสะพานพิมพ์เท่านั้น</div>
+          <div class="grid grid-cols-2 gap-3 mt-2">
             <div><label class="lbl" for="lan-host">IP เครื่องพิมพ์ (เช่น D300H)</label><input id="lan-host" class="inp" inputmode="decimal" :value="prog.lanHost" @input="setProg('lanHost', $event.target.value.trim())" placeholder="192.168.1.146"></div>
             <div><label class="lbl" for="lan-port">พอร์ตเครื่องพิมพ์ (ปกติ 9100)</label><input id="lan-port" class="inp" type="number" inputmode="numeric" :value="prog.lanPort" @input="setProg('lanPort', Number($event.target.value) || 9100)"></div>
             <div class="col-span-2"><label class="lbl" for="lan-bridge">ที่อยู่โปรแกรมสะพานพิมพ์ในเครื่องนี้ (พอร์ตที่สะพานรับ ตั้งตอนเปิด bridge.js เช่น 9101)</label><input id="lan-bridge" class="inp" autocapitalize="none" :value="bridgeUrl" @input="setBridge($event.target.value)" placeholder="http://localhost:9101"></div>
@@ -2315,7 +2320,7 @@ const DRUG_FLAGS = [
   { k: 'special', label: 'ยาใช้เฉพาะ', style: 'background:#dcfce7;color:#166534' }
 ]
 const PROG_DEFAULT = { costMethod: 'actual', posCost: 'none', costSymbols: 'ABCDEFGHIJ', posSearch: { code: true, barcode: true, name: true, generic: true, category: false },
-  remindOnOpen: false, lanPrint: false, lanHost: '192.168.1.146', lanPort: 9100, lanDots: 576, lanCut: true, paperReceipt: '80', labelW: 80, labelH: 50, vatMode: 'none', vatRate: 7, receiptLang: 'th', codePrefix: '', codeDigits: 5 }
+  remindOnOpen: false, lanPrint: false, lanMode: 'bridge', lanHost: '192.168.1.146', lanPort: 9100, lanDots: 576, lanCut: true, paperReceipt: '80', labelW: 80, labelH: 50, vatMode: 'none', vatRate: 7, receiptLang: 'th', codePrefix: '', codeDigits: 5 }
 const progOf = S => { const p = (S && S.settings && S.settings.prog) || {}; return { ...PROG_DEFAULT, ...p, posSearch: { ...PROG_DEFAULT.posSearch, ...(p.posSearch || {}) } } }
 const RCPT_TEXT = {
   th: { title: 'ใบเสร็จรับเงิน', member: 'สมาชิก', discount: 'ส่วนลด', total: 'รวม', cash: 'รับเงินสด', change: 'เงินทอน', paidBy: 'ชำระโดย', transfer: 'โอนเงิน', thanks: 'ขอบคุณที่ใช้บริการ', net: 'ราคาไม่รวมภาษี', vat: 'ภาษีมูลค่าเพิ่ม', taxId: 'เลขประจำตัวผู้เสียภาษี' },
@@ -3816,7 +3821,8 @@ const csvBool = v => ['1', 'true', 'yes', 'y', 'ใช่'].includes(String(v).t
 const BRIDGE_KEY = 'earthshop_bridge'
 const Slip = {
   font: "'IBM Plex Sans Thai','Sarabun','Noto Sans Thai',Tahoma,'Leelawadee UI',sans-serif",
-  bridgeUrl() { try { return (localStorage.getItem(BRIDGE_KEY) || 'http://localhost:9101').replace(/\/+$/, '') } catch (e) { return 'http://localhost:9101' } },
+  // ถ้าเปิดแอปจากสะพานพิมพ์เอง (http://IP:พอร์ต/) ใช้ที่อยู่นั้นอัตโนมัติ ไม่งั้นใช้ที่ตั้งไว้ในเครื่องนี้ หรือ localhost:9101
+  bridgeUrl() { let d = 'http://localhost:9101'; try { if (location.protocol === 'http:' && location.hostname && !/^(localhost|127\.)/.test(location.hostname)) d = location.origin } catch (e) { /* ignore */ } try { return (localStorage.getItem(BRIDGE_KEY) || d).replace(/\/+$/, '') } catch (e) { return d } },
   setBridgeUrl(u) { try { localStorage.setItem(BRIDGE_KEY, String(u || '').trim()) } catch (e) { /* ignore */ } },
   // lines: [{ t, r, a: 'l'|'c'|'r', s: ขนาด px, b: ตัวหนา, dash: true, gap: px }]
   async render(lines, dots) {
@@ -3888,9 +3894,12 @@ const Slip = {
   },
   async status() { return await Slip.call('/status') },
   async check(prog) { return await Slip.call('/check', { host: prog.lanHost, port: Number(prog.lanPort) || 9100 }) },
+  openUrl(u) { window.location.href = u },
   async print(prog, lines) {
     const cv = await Slip.render(lines, Number(prog.lanDots) || 576)
     const bytes = Slip.escpos(cv, prog.lanCut !== false)
+    // โทรศัพท์ Android: ส่งให้แอป RawBT (ตั้งเครื่องพิมพ์เป็น TCP/IP ในแอปนั้น) ไม่ต้องมีสะพานพิมพ์
+    if (prog.lanMode === 'rawbt') { Slip.openUrl('rawbt:base64,' + Slip.b64(bytes)); return { ok: true } }
     return await Slip.call('/print', { host: prog.lanHost, port: Number(prog.lanPort) || 9100, data: Slip.b64(bytes) })
   }
 }
@@ -4906,6 +4915,7 @@ const app = createApp({
       catch (e) { this.toast('พิมพ์สลิปไม่สำเร็จ: ' + e.message, 'bad'); return false }
     },
     async lanCheck() {
+      if (this.prog.lanMode === 'rawbt') { this.lanMsg = { busy: false, text: 'วิธี RawBT ตรวจสอบจากหน้านี้ไม่ได้ ให้กด ทดสอบพิมพ์ ได้เลย', ok: null }; return }
       this.lanMsg = { busy: true, text: 'กำลังตรวจสอบ...', ok: null }
       try { await Slip.status() } catch (e) { this.lanMsg = { busy: false, text: e.message, ok: false }; return }
       try { await Slip.check(this.prog); this.lanMsg = { busy: false, text: 'สะพานพิมพ์ทำงาน และต่อเครื่องพิมพ์ ' + this.prog.lanHost + ':' + this.prog.lanPort + ' ได้', ok: true } }

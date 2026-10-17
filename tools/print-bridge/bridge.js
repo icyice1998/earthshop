@@ -8,12 +8,16 @@
      --port    the port this bridge listens on (the same number goes in the app: Settings > Program > Slip printer)
      --lan     listen on the whole network instead of this PC only (not needed when the app runs on this PC)
      --origin  extra web address allowed to use the bridge (the default list already has https://icyice1998.github.io)
+     --serve   also serve the app itself from this PC (for phones: open http://<this PC's IP>:PORT/ on the phone; implies --lan).
+               The app file is downloaded once into app.html next to this program; add --update to download the newest version.
    No packages to install. Needs Node.js 16 or newer. */
-const http = require('http'), net = require('net')
+const http = require('http'), https = require('https'), net = require('net'), fs = require('fs'), path = require('path')
 const argv = process.argv.slice(2)
 const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 && argv[i + 1] ? argv[i + 1] : d }
 const PORT = Number(opt('--port', process.env.PORT || 9101))
-const BIND = argv.includes('--lan') ? '0.0.0.0' : '127.0.0.1'
+const SERVE = argv.includes('--serve'), UPDATE = argv.includes('--update')
+const BIND = (argv.includes('--lan') || SERVE) ? '0.0.0.0' : '127.0.0.1'
+const APP_URL = 'https://icyice1998.github.io/earthshop/app/', APP_FILE = path.join(__dirname, 'app.html')
 const ORIGINS = new Set(['https://icyice1998.github.io', 'null', 'http://localhost', 'http://127.0.0.1', 'https://localhost'])
 for (let i = 0; i < argv.length; i++) if (argv[i] === '--origin' && argv[i + 1]) ORIGINS.add(argv[i + 1].replace(/\/+$/, ''))
 const PRIVATE = /^(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|127\.\d+\.\d+\.\d+|localhost)$/
@@ -21,7 +25,7 @@ const MAX_BODY = 4 * 1024 * 1024
 
 function cors(req, res) {
   const o = req.headers.origin
-  const okOrigin = !o || ORIGINS.has(o) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(o)
+  const okOrigin = !o || ORIGINS.has(o) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(o) || (SERVE && o === 'http://' + req.headers.host)
   if (o && okOrigin) { res.setHeader('Access-Control-Allow-Origin', o); res.setHeader('Vary', 'Origin') }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
@@ -63,8 +67,26 @@ const server = http.createServer(async (req, res) => {
       console.log(new Date().toLocaleTimeString(), 'printed', data.length, 'bytes ->', host + ':' + port)
       return send(res, 200, { ok: true, bytes: data.length })
     }
+    if (SERVE && req.method === 'GET' && (req.url === '/' || req.url.split('?')[0] === '/index.html')) {
+      if (!fs.existsSync(APP_FILE)) { res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('ยังไม่มีไฟล์แอป ลองรีสตาร์ท bridge.js ด้วย --update') }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' }); return res.end(fs.readFileSync(APP_FILE))
+    }
     send(res, 404, { ok: false, error: 'not found' })
   } catch (e) { send(res, 200, { ok: false, error: e.message }) }
 })
-server.listen(PORT, BIND, () => console.log('Earthshop print bridge listening on ' + BIND + ':' + PORT + '  (Ctrl+C to stop)'))
+function download(url, to) {
+  return new Promise((ok, bad) => https.get(url, r => {
+    if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location) return download(new URL(r.headers.location, url).href, to).then(ok, bad)
+    if (r.statusCode !== 200) return bad(new Error('HTTP ' + r.statusCode))
+    const f = fs.createWriteStream(to + '.tmp'); r.pipe(f); f.on('finish', () => f.close(() => { fs.renameSync(to + '.tmp', to); ok() }))
+  }).on('error', bad))
+}
+async function start() {
+  if (SERVE && (UPDATE || !fs.existsSync(APP_FILE))) { try { await download(APP_URL, APP_FILE); console.log('downloaded the app to', APP_FILE) } catch (e) { console.error('ดาวน์โหลดแอปไม่สำเร็จ: ' + e.message + (fs.existsSync(APP_FILE) ? ' (ใช้ไฟล์เดิม)' : '')) } }
+  server.listen(PORT, BIND, () => {
+    console.log('Earthshop print bridge listening on ' + BIND + ':' + PORT + '  (Ctrl+C to stop)')
+    if (SERVE) { const ips = []; for (const l of Object.values(require('os').networkInterfaces())) for (const a of l || []) if (a.family === 'IPv4' && !a.internal) ips.push(a.address); console.log('Open on the phone:  ' + ips.map(i => 'http://' + i + ':' + PORT + '/').join('   ')) }
+  })
+}
+start()
 server.on('error', e => { console.error(e.code === 'EADDRINUSE' ? 'พอร์ต ' + PORT + ' ถูกใช้อยู่ ลองเลือกพอร์ตอื่น: node bridge.js --port 9102' : e.message); process.exit(1) })

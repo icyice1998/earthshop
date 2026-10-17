@@ -31,6 +31,27 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   // bridge refuses a public address
   const bad = await pg.evaluate(async () => { try { await Slip.call('/print', { host: '8.8.8.8', port: 9100, data: 'AA==' }); return 'accepted' } catch (e) { return e.message } })
   ok(/วงแลน/.test(bad), 'bridge refuses addresses outside the shop network')
+  // phone modes -------------------------------------------------------
+  // (1) Android + RawBT app: the app hands the ESC/POS bytes to the rawbt: link
+  const rb = await pg.evaluate(async () => { const v = window.__vm; let url = ''; Slip.openUrl = u => { url = u }; v.S.settings.prog = { ...v.S.settings.prog, lanMode: 'rawbt' }; await v.lanTest(); return { url, msg: v.lanMsg } })
+  const raw = Buffer.from((rb.url.split(',')[1] || ''), 'base64')
+  ok(rb.url.startsWith('rawbt:base64,') && raw[0] === 0x1b && raw[1] === 0x40 && raw.indexOf(Buffer.from([0x1d, 0x76, 0x30, 0x00])) > 0, 'RawBT mode: opens a rawbt:base64 link with the ESC/POS bytes (' + raw.length + ' bytes)')
+  // (2) phone opens the app from the bridge itself (bridge --serve): same address is used for printing
+  const ip = process.env.LANIP
+  if (ip) {
+    const fs = require('fs'); fs.copyFileSync(process.env.PAGE, path.join(__dirname, '..', '..', 'tools', 'print-bridge', 'app.html'))
+    const b2 = spawn('node', [path.join(__dirname, '..', '..', 'tools', 'print-bridge', 'bridge.js'), '--port', '19102', '--serve'], { stdio: 'pipe' })
+    await new Promise(r => setTimeout(r, 800))
+    const ph = await browser.newPage({ viewport: { width: 390, height: 800 } }); const perr = []; ph.on('pageerror', e => perr.push(e.message))
+    await ph.goto('http://' + ip + ':19102/'); await ph.waitForSelector('nav button.tab', { timeout: 60000 }); await ph.waitForTimeout(600)
+    const before = got.length
+    const r2 = await ph.evaluate(async () => { const v = window.__vm; v.S.settings.prog = { lanPrint: true, lanHost: '127.0.0.1', lanPort: 19100, lanDots: 384 }; const url = Slip.bridgeUrl(); await v.lanTest(); return { url, ok: v.lanMsg.ok, text: v.lanMsg.text } })
+    await new Promise(r => setTimeout(r, 800))
+    ok(r2.url === 'http://' + ip + ':19102' && r2.ok === true && got.length === before + 1, 'phone opened from the bridge (' + r2.url + ') prints through it: ' + r2.text)
+    const last = got[got.length - 1]; const at = last.indexOf(Buffer.from([0x1d, 0x76, 0x30, 0x00])); ok(last[at + 4] === 48, 'phone slip is 58 mm wide (48 bytes)')
+    ok(perr.length === 0, 'no errors on the phone page')
+    b2.kill(); fs.unlinkSync(path.join(__dirname, '..', '..', 'tools', 'print-bridge', 'app.html'))
+  } else console.log('skip - no LAN address on this machine for the phone test')
   ok(errs.length === 0, 'no page errors ' + JSON.stringify(errs.slice(0, 2)))
   await browser.close(); bridge.kill(); printer.close()
 })().catch(e => { console.error('CRASH', e); process.exit(1) })

@@ -16,3 +16,19 @@ Notes
 - If the app runs on a tablet or phone, start the bridge with `--lan` on the shop PC and use `http://<that PC's IP>:9101` as the bridge address.
   A page served over https may be blocked from calling plain http on another device by the browser; use the shop PC's browser for slip printing in that case.
 - Chrome may ask once to allow the site to connect to devices on your local network. Choose Allow.
+
+## Printing from a mobile phone
+
+Two ways, pick one.
+
+**A. Phone opens the app from the shop PC (works on Android and iPhone)**
+1. On the shop PC run `start-bridge-phone.bat` (or `node bridge.js --port 9101 --serve`). The first run downloads the app; add `--update` later to refresh it.
+2. The window prints the addresses, for example `http://192.168.1.50:9101/`. Open that address in the phone's browser (the phone must be on the shop Wi-Fi). Give the shop PC a fixed IP in the router so the address never changes.
+3. Log in as usual. The first time on a phone, press the small link under the login button, paste the project address and key once.
+4. Settings > Program > เครื่องพิมพ์สลิป: turn on, keep "ผ่านโปรแกรมสะพานพิมพ์". The bridge address is filled in automatically. Receipts now print on the D300H.
+   Windows Firewall may ask to allow Node.js on the private network the first time. Choose Allow.
+
+**B. Android phone with the RawBT app (no PC needed)**
+1. Install RawBT from Play Store, add the printer as a Network (TCP/IP) printer: IP 192.168.1.146, port 9100.
+2. In the app choose "ผ่านแอป RawBT" in the slip printer setting. The first print asks which app should open the link; choose RawBT.
+iPhone has no equivalent of RawBT, so use way A.
