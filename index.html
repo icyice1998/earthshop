@@ -2705,6 +2705,14 @@ const Importer = {
 const supabaseUrl = 'https://snzhaqfffsueowqznqmm.supabase.co'
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNuemhhcWZmZnN1ZW93cXpucW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3ODQ0MTEsImV4cCI6MjEwNTM2MDQxMX0.fnpvOwJntI5x1Ss5sA8MG5ZR8wLq1TBu7b8t-qbcBDI'
 // โหมดฐานข้อมูลใหม่: ถ้าตั้งค่าการเชื่อมต่อไว้ (เก็บในเครื่องนี้เท่านั้น) จะใช้โปรเจกต์ Supabase ที่ตั้งไว้แทนระบบเดิม
+// ลิงก์ตั้งค่าเครื่องใหม่: เปิดแอปด้วย #dburl=https://xxxx.supabase.co&dbkey=anon-key จะจำการเชื่อมต่อไว้ในเครื่องนั้นเอง
+try {
+  const h = new URLSearchParams(location.hash.replace(/^#/, '')), u = (h.get('dburl') || '').trim().replace(/\/+$/, ''), k = (h.get('dbkey') || '').trim()
+  if (u && k) {
+    if (/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(u) && k.length >= 20 && !/service_role/.test(k)) localStorage.setItem('earthshop_db', JSON.stringify({ url: u, key: k }))
+    history.replaceState(null, '', location.pathname + location.search)
+  }
+} catch (e) { /* ignore */ }
 const DBCFG = (() => { try { const o = JSON.parse(localStorage.getItem('earthshop_db')); return o && o.url && o.key ? o : null } catch (e) { return null } })()
 const DB_MODE = !!DBCFG
 const SB_URL = DBCFG ? DBCFG.url : supabaseUrl, SB_KEY = DBCFG ? DBCFG.key : supabaseKey
