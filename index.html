@@ -70,7 +70,8 @@
     .ky-sign { margin-top:1rem; text-align:right; line-height:2.2; }
     @media (max-width: 767px) { .ky-page { overflow-x:auto; } .ky-table { min-width:640px; } .ky-hd { grid-template-columns:1fr; } }
     [v-cloak] { display: none !important; }
-    #print-area { display: none; }
+    #print-area { display: none; color: #000; background: #fff; font-size: 11pt; line-height: 1.35; }
+    #print-area.measure { display: block !important; position: absolute; left: -9999px; top: 0; visibility: hidden; }
     @page wide { size: A4 landscape; margin: 10mm; }
     #print-area .prt { width: 100%; border-collapse: collapse; font-size: 10pt; }
     #print-area .prt th, #print-area .prt td { border: 1px solid #000; padding: 1.2mm 1.8mm; text-align: left; vertical-align: top; }
@@ -78,18 +79,18 @@
     #print-area .prt td.n { text-align: right; }
     #print-area .prt thead { display: table-header-group; }
     #print-area .prt tr { page-break-inside: avoid; }
+    #print-area .rc-wrap { page: receipt; box-sizing: border-box; padding: 2mm; }
+    #print-area .dl-page { page: label; box-sizing: border-box; padding: 2mm; overflow: hidden; font-size: 9pt; line-height: 1.3; page-break-after: always; }
+    #print-area .dl-page:last-child { page-break-after: auto; }
+    #print-area .rc-row { display: flex; justify-content: space-between; gap: 2mm; }
+    #print-area .rc-line { border-top: 1px dashed #000; margin: 1.5mm 0; }
+    #print-area .ky-page { border:0; border-radius:0; padding:0 0 4mm; margin:0; max-width:none; page-break-after:always; font-size:10pt; }
+    #print-area .ky-page:last-child { page-break-after:auto; }
+    #print-area.print-wide { page: wide; }
     @media print {
-      @page { margin: 3mm; }
-      body * { visibility: hidden !important; }
-      #print-area, #print-area * { visibility: visible !important; }
-      #print-area.print-wide { page: wide; width: auto !important; right: 0; }
-      #print-area { display: block; position: absolute; left: 0; top: 0; width: 76mm; color: #000; background: #fff; font-size: 11pt; line-height: 1.35; }
-      #print-area .dl-page { page-break-after: always; border: 1px solid #000; padding: 2.5mm; margin-bottom: 2mm; }
-      #print-area .dl-page:last-child { page-break-after: auto; }
-      #print-area .rc-row { display: flex; justify-content: space-between; gap: 2mm; }
-      #print-area .rc-line { border-top: 1px dashed #000; margin: 1.5mm 0; }
-      #print-area .ky-page { border:0; border-radius:0; padding:0 0 4mm; margin:0; max-width:none; page-break-after:always; font-size:10pt; }
-      #print-area .ky-page:last-child { page-break-after:auto; }
+      html, body { height: auto !important; background: #fff !important; }
+      body > *:not(#print-area) { display: none !important; }
+      #print-area { display: block !important; position: static; width: auto; }
     }
     .sub { min-height: 2rem; padding: .2rem .8rem; font-size: .9rem; border-radius: 999px; font-weight: 600; white-space: nowrap; color: #b9dcd7; border: 1.5px solid #2f6b64; }
     .sub-on { background: #b9dcd7; color: #0f3f3a; border-color: #b9dcd7; }
@@ -140,6 +141,7 @@
   </style>
 </head>
 <body>
+<style id="print-page-css"></style>
 <div id="boot" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;background:#0f3f3a;color:#b9dcd7;font-family:system-ui,sans-serif;text-align:center;padding:1.5rem;z-index:300">
   <div style="font-size:1.1rem">กำลังโหลด...</div><div id="boot-msg" style="font-size:.85rem;max-width:26rem"></div>
 </div>
@@ -1286,6 +1288,23 @@
           </div>
         </div>
         <div class="card p-4">
+          <div class="font-bold mb-2">กระดาษพิมพ์</div>
+          <div class="text-sm text-slate-600 mb-1">ใบเสร็จ</div>
+          <label v-for="o in [['80', 'ม้วนความร้อน 80 มม. (ความยาวพอดีเนื้อหา)'], ['58', 'ม้วนความร้อน 58 มม.'], ['a5', 'A5'], ['a4', 'A4']]" :key="o[0]" class="flex items-center gap-2 p-1">
+            <input type="radio" class="w-5 h-5" :checked="prog.paperReceipt === o[0]" @change="setProg('paperReceipt', o[0])"> {{ o[1] }}
+          </label>
+          <div class="text-sm text-slate-600 mt-3 mb-1">ฉลากยา (สติกเกอร์) กว้าง x สูง มม.</div>
+          <div class="flex flex-wrap gap-2 mb-2">
+            <button v-for="sz in [[80, 50], [75, 50], [100, 70], [50, 30]]" :key="sz.join('x')" class="chip" :class="Number(prog.labelW) === sz[0] && Number(prog.labelH) === sz[1] ? 'chip-on' : ''" @click="setProg('labelW', sz[0]); setProg('labelH', sz[1])">{{ sz[0] }} x {{ sz[1] }}</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <input class="inp !w-24 text-right" type="number" inputmode="numeric" :value="prog.labelW" @input="setProg('labelW', Number($event.target.value) || 80)"> x <input class="inp !w-24 text-right" type="number" inputmode="numeric" :value="prog.labelH" @input="setProg('labelH', Number($event.target.value) || 50)"> มม.
+          </div>
+          <div class="text-xs text-slate-500 mt-3">ตอนพิมพ์ ในหน้าต่างพิมพ์ของเบราว์เซอร์ให้เลือกเครื่องพิมพ์ที่ถูกต้อง ปิดหัวกระดาษ/ท้ายกระดาษ (Headers and footers) และเลือก Margins เป็น None ใบเสร็จกับฉลากยาจะพิมพ์แยกกันทีละงาน</div>
+          <button class="btn btn-ghost w-full mt-3" @click="testPrint('receipt')">ทดสอบพิมพ์ใบเสร็จ</button>
+          <button class="btn btn-ghost w-full mt-2" @click="testPrint('label')">ทดสอบพิมพ์ฉลากยา</button>
+        </div>
+        <div class="card p-4">
           <div class="font-bold mb-2">รหัสสินค้าอัตโนมัติ</div>
           <div class="grid grid-cols-2 gap-3">
             <div><label class="lbl" for="pg-pre">ตัวอักษรนำหน้า</label><input id="pg-pre" class="inp" maxlength="6" autocapitalize="characters" :value="prog.codePrefix" @input="setProg('codePrefix', $event.target.value)"></div>
@@ -2174,8 +2193,8 @@
   </div>
 
   <!-- พื้นที่พิมพ์ (แสดงเฉพาะตอนสั่งพิมพ์) -->
-  <div v-if="printDoc" id="print-area" :class="printDoc.kind ? 'print-wide' : ''">
-    <div v-if="printDoc.receipt" :style="printDoc.lines.length ? 'page-break-after:always' : ''">
+  <teleport to="body"><div v-if="printDoc" id="print-area" :class="printDoc.kind ? 'print-wide' : ''">
+    <div v-if="printDoc.receipt" class="rc-wrap">
       <div style="text-align:center;font-weight:700;font-size:13pt">{{ S.settings.shopName }}</div>
       <div v-if="S.settings.shopAddress" style="text-align:center;font-size:8.5pt">{{ S.settings.shopAddress }} {{ S.settings.shopProvince }} {{ S.settings.shopZip }}<span v-if="S.settings.shopPhone"> โทร {{ S.settings.shopPhone }}</span></div>
       <div v-if="S.settings.shopTaxId" style="text-align:center;font-size:8.5pt">{{ rcT.taxId }} {{ S.settings.shopTaxId }}</div>
@@ -2222,17 +2241,17 @@
     <template v-if="printDoc.lines.length">
       <div v-for="(l, i) in printDoc.lines" :key="i" class="dl-page">
         <div style="font-size:9pt"><template v-if="S.settings.printShopOnLabel !== false">{{ S.settings.shopName }} · </template>{{ fmtDay(printDoc.sale.day) }}<span v-if="printDoc.sale.memberId"> · {{ memberName(printDoc.sale.memberId) }}</span></div>
-        <div style="font-weight:700;font-size:13pt">{{ l.name }}</div>
+        <div style="font-weight:700;font-size:11pt">{{ l.name }}</div>
         <div v-if="l.generic" style="font-size:9.5pt">({{ l.generic }})</div>
         <div style="margin:1mm 0">จำนวน {{ l.qty }} {{ l.unit }}</div>
-        <div v-if="l.usage || l.meal" style="font-weight:700;font-size:12pt">วิธีใช้: {{ l.usage }}<span v-if="l.meal"> ({{ l.meal }})</span></div>
+        <div v-if="l.usage || l.meal" style="font-weight:700;font-size:10pt">วิธีใช้: {{ l.usage }}<span v-if="l.meal"> ({{ l.meal }})</span></div>
         <div v-if="l.indication">ข้อบ่งใช้: {{ l.indication }}</div>
         <div v-if="l.warning" style="font-weight:600">คำเตือน: {{ l.warning }}</div>
         <div v-if="l.storage" style="font-size:9.5pt">เก็บ: {{ l.storage }}</div>
         <div v-if="l.exp" style="font-size:9.5pt">หมดอายุ: {{ fmtExp(l.exp) }}</div>
       </div>
     </template>
-  </div>
+  </div></teleport>
 
   <!-- ล็อกหน้าจอ (ไม่มีสิทธิ์ / นอกเวลาทำงาน) -->
   <div v-if="authed && !isLoading && !hasAdmin" class="fixed inset-0 flex items-center justify-center p-5 overflow-y-auto" style="z-index:140;background:#0f3f3a">
@@ -2282,7 +2301,7 @@ const DRUG_FLAGS = [
   { k: 'special', label: 'ยาใช้เฉพาะ', style: 'background:#dcfce7;color:#166534' }
 ]
 const PROG_DEFAULT = { costMethod: 'actual', posCost: 'none', costSymbols: 'ABCDEFGHIJ', posSearch: { code: true, barcode: true, name: true, generic: true, category: false },
-  remindOnOpen: false, vatMode: 'none', vatRate: 7, receiptLang: 'th', codePrefix: '', codeDigits: 5 }
+  remindOnOpen: false, paperReceipt: '80', labelW: 80, labelH: 50, vatMode: 'none', vatRate: 7, receiptLang: 'th', codePrefix: '', codeDigits: 5 }
 const progOf = S => { const p = (S && S.settings && S.settings.prog) || {}; return { ...PROG_DEFAULT, ...p, posSearch: { ...PROG_DEFAULT.posSearch, ...(p.posSearch || {}) } } }
 const RCPT_TEXT = {
   th: { title: 'ใบเสร็จรับเงิน', member: 'สมาชิก', discount: 'ส่วนลด', total: 'รวม', cash: 'รับเงินสด', change: 'เงินทอน', paidBy: 'ชำระโดย', transfer: 'โอนเงิน', thanks: 'ขอบคุณที่ใช้บริการ', net: 'ราคาไม่รวมภาษี', vat: 'ภาษีมูลค่าเพิ่ม', taxId: 'เลขประจำตัวผู้เสียภาษี' },
@@ -4186,7 +4205,7 @@ const app = createApp({
     window.addEventListener('keydown', this.onKey)
     this.srSetPreset('month'); this.kySetPreset('month')
     setInterval(() => { this.nowTick = Date.now() }, 30000)
-    window.addEventListener('afterprint', () => { this.printDoc = null })
+    window.addEventListener('afterprint', () => { const nx = (this.printQueue || []).shift(); this.printDoc = nx || null; if (nx) setTimeout(() => this.runPrint(), 300) })
     this.remoteTimer = setInterval(() => { if (this.authed && !document.hidden) this.checkRemote() }, 45000)
     _supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT' && this.authed) { this.authed = false; this.loginForm.error = 'หมดเวลาการเข้าสู่ระบบ กรุณาเข้าใหม่' }
@@ -4739,8 +4758,29 @@ const app = createApp({
       else if (e.key === 'F10' && this.cart.length) { e.preventDefault(); this.openPay('transfer') }
     },
     // ===== พิมพ์ใบเสร็จ / ฉลากยา =====
+    // ตั้งขนาดกระดาษตามที่เลือกในตั้งค่า > ตั้งค่าโปรแกรม > กระดาษพิมพ์ (ใบเสร็จ: ม้วน 58/80 มม. ความยาวพอดีเนื้อหา หรือ A5/A4, ฉลากยา: กว้าง x สูง มม.)
+    applyPrintCss() {
+      const pr = this.prog, el = document.getElementById('print-page-css')
+      if (!el) return
+      const roll = pr.paperReceipt === '58' || pr.paperReceipt === '80'
+      const W = pr.paperReceipt === '58' ? 58 : 80
+      const LW = Math.max(20, Number(pr.labelW) || 80), LH = Math.max(15, Number(pr.labelH) || 50)
+      let css = '@page label { size: ' + LW + 'mm ' + LH + 'mm; margin: 0; }\n#print-area .dl-page { width: ' + LW + 'mm; height: ' + LH + 'mm; }\n'
+      if (roll) {
+        let h = 150
+        const pa = document.getElementById('print-area'), rc = pa && pa.querySelector('.rc-wrap')
+        if (rc) { rc.style.width = W + 'mm'; pa.classList.add('measure'); h = Math.ceil(rc.getBoundingClientRect().height * 25.4 / 96) + 3; pa.classList.remove('measure') }
+        css += '@page receipt { size: ' + W + 'mm ' + Math.max(h, 40) + 'mm; margin: 0; }\n#print-area .rc-wrap { width: ' + W + 'mm; }\n'
+      } else css += '@page receipt { size: ' + (pr.paperReceipt === 'a5' ? 'A5' : 'A4') + '; margin: 10mm; }\n#print-area .rc-wrap { width: auto; max-width: 120mm; }\n'
+      el.textContent = css
+    },
     runPrint() {
-      this.$nextTick(() => { try { window.print() } catch (e) { this.toast('เบราว์เซอร์นี้พิมพ์ไม่ได้', 'bad'); this.printDoc = null } })
+      this.$nextTick(() => { try { this.applyPrintCss(); window.print() } catch (e) { this.toast('เบราว์เซอร์นี้พิมพ์ไม่ได้', 'bad'); this.printDoc = null } })
+    },
+    testPrint(kind) {
+      const sale = this.S.sales.slice().reverse().find(x => x.status === 'ok' && x.items.some(i => i.pid)) || this.S.sales[this.S.sales.length - 1]
+      if (!sale) return this.toast('ยังไม่มีบิลให้ทดสอบ ขายสักบิลก่อน', 'bad')
+      if (kind === 'receipt') this.printReceipt(sale); else this.printLabels(sale)
     },
     printReceipt(sale) { this.printDoc = { sale, receipt: true, lines: [] }; this.runPrint() },
     labelLines(sale) {
@@ -4763,7 +4803,12 @@ const app = createApp({
       const all = this.labelLines(sale)
       const lines = this.printOpt.label ? all : all.filter(l => l.auto)
       if (!this.printOpt.receipt && !lines.length) return
-      this.printDoc = { sale, receipt: !!this.printOpt.receipt, lines }
+      // ใบเสร็จกับฉลากยาพิมพ์แยกกัน (คนละขนาดกระดาษ และมักเป็นคนละเครื่องพิมพ์) ใบเสร็จก่อน แล้วฉลากตามมา
+      const docs = []
+      if (this.printOpt.receipt) docs.push({ sale, receipt: true, lines: [] })
+      if (lines.length) docs.push({ sale, receipt: false, lines })
+      this.printQueue = docs.slice(1)
+      this.printDoc = docs[0]
       this.runPrint()
     },
     undoResult() {
