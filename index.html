@@ -1353,7 +1353,7 @@
           <div class="flex gap-2 mt-3"><button class="btn btn-ghost flex-1" :disabled="lanMsg.busy" @click="lanCheck">ตรวจสอบการเชื่อมต่อ</button><button class="btn btn-pri flex-1" :disabled="lanMsg.busy" @click="lanTest">ทดสอบพิมพ์</button></div>
           <div class="mt-4 pt-3" style="border-top:1px solid var(--line)">
             <div class="font-semibold mb-1">ทดลองพิมพ์ข้อความเอง</div>
-            <textarea v-model="tt.text" rows="4" class="inp" placeholder="พิมพ์ข้อความที่ต้องการลองพิมพ์ เช่น ชื่อร้าน ภาษาไทย ตัวเลข"></textarea>
+            <textarea v-model="tt.text" rows="5" class="inp" style="height:auto;min-height:8rem;line-height:1.6;padding-top:.5rem;padding-bottom:.5rem;resize:vertical;display:block" placeholder="พิมพ์ข้อความที่ต้องการลองพิมพ์ เช่น ชื่อร้าน ภาษาไทย ตัวเลข"></textarea>
             <div class="flex flex-wrap items-center gap-3 mt-2 text-sm">
               <label>ขนาด <select v-model.number="tt.size" class="inp !w-auto !py-1"><option :value="20">เล็ก</option><option :value="24">ปกติ</option><option :value="32">ใหญ่</option><option :value="44">ใหญ่มาก</option></select></label>
               <label>จัด <select v-model="tt.align" class="inp !w-auto !py-1"><option value="l">ซ้าย</option><option value="c">กลาง</option><option value="r">ขวา</option></select></label>
@@ -4025,7 +4025,7 @@ const Slip = {
   async call(path, body) {
     let r
     try { r = await fetch(Slip.bridgeUrl() + path, { method: body ? 'POST' : 'GET', headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined }) }
-    catch (e) { throw new Error('ติดต่อโปรแกรมสะพานพิมพ์ไม่ได้ (' + Slip.bridgeUrl() + ') ตรวจสอบว่าเปิด bridge.js อยู่และที่อยู่ถูกต้อง') }
+    catch (e) { throw new Error('ติดต่อโปรแกรมสะพานพิมพ์ไม่ได้ (' + Slip.bridgeUrl() + ') ตรวจสอบว่าเปิด bridge.js อยู่และที่อยู่ถูกต้อง' + (/localhost|127\.0\.0\.1/.test(Slip.bridgeUrl()) && !/Windows NT|Macintosh/.test(navigator.userAgent) ? ' · มือถือใช้ localhost ไม่ได้ ให้ใส่ IP ของคอมในร้าน เช่น http://192.168.1.xxx:9101 หรือเปิดแอปจากลิงก์ที่ start-bridge-phone.bat แสดง' : '')) }
     const j = await r.json().catch(() => ({ ok: false, error: 'คำตอบจากสะพานพิมพ์ไม่ถูกต้อง' }))
     if (!j.ok) throw new Error(j.error || 'ไม่สำเร็จ')
     return j
