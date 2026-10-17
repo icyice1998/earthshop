@@ -1303,6 +1303,16 @@
             <label class="flex items-center gap-2 self-end pb-3"><input type="checkbox" class="w-5 h-5" :checked="prog.lanCut !== false" @change="setProg('lanCut', $event.target.checked)"> ตัดกระดาษหลังพิมพ์</label>
           </div>
           <div class="flex gap-2 mt-3"><button class="btn btn-ghost flex-1" :disabled="lanMsg.busy" @click="lanCheck">ตรวจสอบการเชื่อมต่อ</button><button class="btn btn-pri flex-1" :disabled="lanMsg.busy" @click="lanTest">ทดสอบพิมพ์</button></div>
+          <div class="mt-4 pt-3" style="border-top:1px solid var(--line)">
+            <div class="font-semibold mb-1">ทดลองพิมพ์ข้อความเอง</div>
+            <textarea v-model="tt.text" rows="4" class="inp" placeholder="พิมพ์ข้อความที่ต้องการลองพิมพ์ เช่น ชื่อร้าน ภาษาไทย ตัวเลข"></textarea>
+            <div class="flex flex-wrap items-center gap-3 mt-2 text-sm">
+              <label>ขนาด <select v-model.number="tt.size" class="inp !w-auto !py-1"><option :value="20">เล็ก</option><option :value="24">ปกติ</option><option :value="32">ใหญ่</option><option :value="44">ใหญ่มาก</option></select></label>
+              <label>จัด <select v-model="tt.align" class="inp !w-auto !py-1"><option value="l">ซ้าย</option><option value="c">กลาง</option><option value="r">ขวา</option></select></label>
+              <label class="flex items-center gap-1"><input type="checkbox" class="w-4 h-4" v-model="tt.bold"> ตัวหนา</label>
+            </div>
+            <div class="flex gap-2 mt-2"><button class="btn btn-pri flex-1" :disabled="lanMsg.busy" @click="lanTypeTest">พิมพ์ไปเครื่องพิมพ์สลิป</button><button class="btn btn-ghost flex-1" @click="typeTestBrowser">พิมพ์ผ่านเบราว์เซอร์</button></div>
+          </div>
           <div v-if="lanMsg.text" class="text-sm mt-2 p-2 rounded-lg" :style="lanMsg.ok === false ? 'background:#fee2e2;color:#b91c1c' : (lanMsg.ok ? 'background:#dcfce7;color:#166534' : 'background:#eef3f2')">{{ lanMsg.text }}</div>
           <div class="text-xs text-slate-500 mt-3">เว็บในเบราว์เซอร์ต่อเครื่องพิมพ์ในวงแลนโดยตรงไม่ได้ ต้องเปิดโปรแกรมเล็กๆ ชื่อ bridge.js (โฟลเดอร์ tools/print-bridge ในโปรเจกต์) ไว้ที่คอมในร้าน ดูวิธีติดตั้งใน README ของโฟลเดอร์นั้น ที่อยู่สะพานพิมพ์จำเฉพาะเครื่องนี้ ส่วน IP/พอร์ตเครื่องพิมพ์ใช้ร่วมกันทุกเครื่อง</div>
         </div>
@@ -2254,6 +2264,7 @@
 
   <!-- พื้นที่พิมพ์ (แสดงเฉพาะตอนสั่งพิมพ์) -->
   <teleport to="body"><div v-if="printDoc" id="print-area" :class="printDoc.kind ? 'print-wide' : ''">
+    <div v-if="printDoc.text !== undefined" class="rc-wrap" :style="'white-space:pre-wrap;word-break:break-word;text-align:' + ({ l: 'left', c: 'center', r: 'right' }[printDoc.tt.align]) + ';font-size:' + (printDoc.tt.size * 0.55) + 'pt;font-weight:' + (printDoc.tt.bold ? 700 : 400)">{{ printDoc.text }}</div>
     <div v-if="printDoc.receipt" class="rc-wrap">
       <div style="text-align:center;font-weight:700;font-size:13pt">{{ S.settings.shopName }}</div>
       <div v-if="S.settings.shopAddress" style="text-align:center;font-size:8.5pt">{{ S.settings.shopAddress }} {{ S.settings.shopProvince }} {{ S.settings.shopZip }}<span v-if="S.settings.shopPhone"> โทร {{ S.settings.shopPhone }}</span></div>
@@ -3992,7 +4003,7 @@ const app = createApp({
       posLimit: 120, imp: { busy: false, pct: 0, msg: '', days: 365, result: null, backup: true },
       loginName: '', nowTick: Date.now(), dbMode: DB_MODE, dbHasAdmin: false, dbMe: null, dbUid: '', dbCfg: { url: '', key: '', open: false }, paying: false, dbSr: { rows: [], totals: { bills: 0, qty: 0, sales: 0, cost: 0, profit: 0 }, lines: [] }, dbKy: null, dbLoading: false, uiSize: (() => { try { const u = localStorage.getItem('knockdown_ui_size'); return u === 's' || u === 'l' ? u : 'm' } catch (e) { return 'm' } })(), setTab: 'general', usSel: null, us: null, usPass: '', usPass2: '', vs: null, vsSel: null, vsTab: 'gen', vsSearch: '', vsTermSearch: '',
       setup: { name: '', empId: '', pin: '', pin2: '', busy: false },
-      dbBackup: { from: '', to: '', busy: false, msg: '', error: '' }, dbImp: null, lanMsg: { busy: false, text: '', ok: null }, bridgeUrl: Slip.bridgeUrl(), restoreFile: null, csvFail: [], csvImp: null, csvProg: '', memMode: 'cards', memEdits: {}, memLimit: 100, mgMode: 'grid', gridEdits: {}, gridLimit: 100, bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
+      dbBackup: { from: '', to: '', busy: false, msg: '', error: '' }, dbImp: null, lanMsg: { busy: false, text: '', ok: null }, tt: { text: 'ทดสอบพิมพ์ข้อความ\nสวัสดีครับ 123 ราคา ฿99.50', size: 24, align: 'l', bold: false },  bridgeUrl: Slip.bridgeUrl(), restoreFile: null, csvFail: [], csvImp: null, csvProg: '', memMode: 'cards', memEdits: {}, memLimit: 100, mgMode: 'grid', gridEdits: {}, gridLimit: 100, bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
       mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
       DRUG_FLAGS, FLAG_SHORT,
       rcvDupOk: false,
@@ -4971,6 +4982,21 @@ const app = createApp({
         { t: 'ซ้าย', r: 'ขวา', s: 24 }, { dash: true }, { t: T.thanks, a: 'c', s: 22 }]
       try { await Slip.print(this.prog, L); this.lanMsg = { busy: false, text: 'ส่งสลิปทดสอบแล้ว ถ้ากระดาษออกครบ แสดงว่าตั้งค่าถูกต้อง', ok: true } }
       catch (e) { this.lanMsg = { busy: false, text: e.message, ok: false } }
+    },
+    // พิมพ์ข้อความที่พิมพ์เองไปเครื่องพิมพ์สลิป (ไว้ลองฟอนต์ ภาษาไทย ความกว้าง การตัดกระดาษ)
+    async lanTypeTest() {
+      const t = this.tt
+      if (!String(t.text || '').trim()) return this.toast('พิมพ์ข้อความก่อน', 'bad')
+      this.lanMsg = { busy: true, text: 'กำลังส่งข้อความ...', ok: null }
+      const L = String(t.text).split(/\r?\n/).map(x => ({ t: x === '' ? ' ' : x, a: t.align, s: Number(t.size) || 24, b: !!t.bold }))
+      try { await Slip.print(this.prog, L); this.lanMsg = { busy: false, text: 'ส่งข้อความแล้ว', ok: true } }
+      catch (e) { this.lanMsg = { busy: false, text: e.message, ok: false } }
+    },
+    typeTestBrowser() {
+      const t = this.tt
+      if (!String(t.text || '').trim()) return this.toast('พิมพ์ข้อความก่อน', 'bad')
+      this.printDoc = { text: String(t.text), tt: { ...t }, sale: null, receipt: false, lines: [] }
+      this.runPrint()
     },
     setBridge(v) { this.bridgeUrl = v; Slip.setBridgeUrl(v) },
     testPrint(kind) {
