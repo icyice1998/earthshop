@@ -52,6 +52,15 @@ function toPrinter(host, port, data, timeout = 8000) {
   })
 }
 
+// jobs for the same printer go one at a time (a network printer takes a single connection at once), so a PC and several phones can print together
+const lanes = new Map()
+function queued(key, job) {
+  const prev = lanes.get(key) || Promise.resolve()
+  const run = prev.catch(() => {}).then(job).then(async r => { await new Promise(ok => setTimeout(ok, 150)); return r })
+  lanes.set(key, run.catch(() => {}))
+  return run
+}
+
 const server = http.createServer(async (req, res) => {
   const okOrigin = cors(req, res)
   if (req.method === 'OPTIONS') { res.writeHead(okOrigin ? 204 : 403); return res.end() }
@@ -63,7 +72,7 @@ const server = http.createServer(async (req, res) => {
       const j = JSON.parse(await readBody(req) || '{}'); const { host, port } = target(j)
       const data = Buffer.from(String(j.data || ''), 'base64')
       if (!data.length) throw new Error('ไม่มีข้อมูลที่จะพิมพ์')
-      await toPrinter(host, port, data)
+      await queued(host + ':' + port, () => toPrinter(host, port, data))
       console.log(new Date().toLocaleTimeString(), 'printed', data.length, 'bytes ->', host + ':' + port)
       return send(res, 200, { ok: true, bytes: data.length })
     }
