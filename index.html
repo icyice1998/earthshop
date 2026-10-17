@@ -982,6 +982,15 @@
                 <div class="col-span-2 sm:col-span-4"><label class="lbl" for="mg-note">หมายเหตุ</label><input id="mg-note" v-model="mg.note" class="inp"></div>
               </div>
               <label class="flex items-center gap-2 mt-3"><input type="checkbox" v-model="mg.active" class="w-5 h-5"> ใช้งาน (ไม่ติ๊ก = ซ่อนจากหน้าขายและคลัง)</label>
+              <div class="text-sm font-semibold text-slate-600 mt-4 mb-1">ชนิดยา</div>
+              <div class="flex flex-wrap gap-x-4 gap-y-1">
+                <label v-for="fl in DRUG_FLAGS" :key="fl.k" class="flex items-center gap-1.5 cursor-pointer text-sm"><input type="checkbox" v-model="mg.flags[fl.k]" class="w-4 h-4"> <span :style="mg.flags[fl.k] ? 'font-weight:600;color:var(--pine)' : ''">{{ fl.label }}</span></label>
+              </div>
+              <div class="grid grid-cols-2 gap-3 mt-4">
+                <div><label class="lbl" for="mg-reorder">เตือนสต็อกเมื่อเหลือไม่เกิน</label><input id="mg-reorder" v-model.number="mg.reorder" type="number" inputmode="numeric" class="inp"></div>
+                <div><label class="lbl" for="mg-oq">สั่งซื้อครั้งละ</label><input id="mg-oq" v-model.number="mg.orderQty" type="number" inputmode="numeric" class="inp" placeholder="คิดให้อัตโนมัติ"></div>
+                <div><label class="lbl" for="mg-exp">เตือนก่อนหมดอายุ (วัน)</label><input id="mg-exp" v-model.number="mg.expWarnDays" type="number" inputmode="numeric" class="inp" :placeholder="'ตามค่ารวม ' + (S.settings.nearExpiryDays || 90)"></div>
+              </div>
             </div>
 
             <div class="card p-4 mb-3">
@@ -995,20 +1004,6 @@
                 <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ทุนเฉลี่ยของที่เหลือ</div><div class="font-bold num">{{ !mgIsBundle && Logic.avgCost(S, mgProduct.id) !== null ? '฿' + money(Logic.avgCost(S, mgProduct.id)) : '-' }}</div></div>
               </div>
               <div class="text-xs text-slate-500 mt-2">{{ mgIsBundle ? 'ยาชุด ทุนคิดจากตัวยาในชุดอัตโนมัติ' : 'ราคาทุนล่าสุดใช้เป็นค่าตั้งต้นตอนรับของและตอนปรับสต็อกเพิ่ม ไม่เปลี่ยนทุนของล็อตที่มีอยู่ ถ้าจะแก้ทุนของล็อต ให้แก้ในตารางล็อตด้านล่าง' }}</div>
-            </div>
-
-            <div class="card p-4 mb-3">
-              <div class="font-bold mb-3">ชนิดยา</div>
-              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <label v-for="fl in DRUG_FLAGS" :key="fl.k" class="flex items-center gap-2 p-3 rounded-xl cursor-pointer" style="border:1.5px solid var(--line)" :style="mg.flags[fl.k] ? 'background:#eef7f5;border-color:var(--pine)' : ''">
-                  <input type="checkbox" v-model="mg.flags[fl.k]" class="w-5 h-5"> <span class="font-semibold">{{ fl.label }}</span>
-                </label>
-              </div>
-              <div class="grid grid-cols-2 gap-3 mt-3">
-                <div><label class="lbl" for="mg-reorder">เตือนสต็อกเมื่อเหลือไม่เกิน</label><input id="mg-reorder" v-model.number="mg.reorder" type="number" inputmode="numeric" class="inp"></div>
-                <div><label class="lbl" for="mg-oq">สั่งซื้อครั้งละ</label><input id="mg-oq" v-model.number="mg.orderQty" type="number" inputmode="numeric" class="inp" placeholder="คิดให้อัตโนมัติ"></div>
-                <div><label class="lbl" for="mg-exp">เตือนก่อนหมดอายุ (วัน)</label><input id="mg-exp" v-model.number="mg.expWarnDays" type="number" inputmode="numeric" class="inp" :placeholder="'ตามค่ารวม ' + (S.settings.nearExpiryDays || 90)"></div>
-              </div>
             </div>
 
             <div v-if="!mgIsBundle && mg.type !== 'supply' && can('adjustStock')" class="card p-4 mb-3">
@@ -3677,7 +3672,7 @@ const app = createApp({
       printOpt: (() => { try { const o = JSON.parse(localStorage.getItem('knockdown_print_opt')); return { receipt: !!(o && o.receipt), label: !!(o && o.label) } } catch (e) { return { receipt: false, label: false } } })(),
       histDay: today, billsOpen: window.innerHeight >= 900, saleDetailId: null, voidReason: 'คีย์ผิด',
       invSearch: '', invFilter: 'all', invLimit: 50, invSort: { key: '', dir: 1 },
-      invView: (() => { try { return localStorage.getItem('knockdown_inv_view') === 'card' ? 'card' : 'table' } catch (e) { return 'table' } })(),
+      invView: (() => { try { return localStorage.getItem('knockdown_inv_view') === 'table' ? 'table' : 'card' } catch (e) { return 'card' } })(),
       invCols: [{ key: 'code', label: 'รหัส' }, { key: 'name', label: 'ชื่อสินค้า' }, { key: 'generic', cls: 'col-xl', label: 'ชื่อสามัญ' }, { key: 'category', cls: 'col-lg', label: 'หมวด' },
                 { key: 'unit', cls: 'col-lg', label: 'หน่วย' }, { key: 'stock', label: 'คงเหลือ', num: true }, { key: 'cost', label: 'ทุน', num: true }, { key: 'price', label: 'ขาย', num: true },
                 { key: 'margin', cls: 'col-tab', label: 'กำไร%', num: true }, { key: 'exp', cls: 'col-tab', label: 'หมดอายุ' }, { key: 'barcode', cls: 'col-xl', label: 'บาร์โค้ด' }, { key: 'supplier', cls: 'col-xl', label: 'ผู้จำหน่าย' }, { key: 'location', cls: 'col-lg', label: 'ที่เก็บ' }], productModal: null, adj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, formModal: null,
