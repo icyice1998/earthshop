@@ -1371,6 +1371,31 @@
       </div>
 
       <div v-if="setTab === 'backup' && isAdmin">
+      <div v-if="dbMode && isAdmin" class="card p-4 mb-3">
+        <div class="font-bold mb-1">นำเข้าจาก SmartDrugstore (ไฟล์ .sql)</div>
+        <div class="text-sm text-slate-600 mb-3">เลือกไฟล์ที่ส่งออกจากฐานข้อมูล drgstr ระบบอ่านไฟล์ในเบราว์เซอร์ (ไม่ได้สั่งรันอะไรในไฟล์) แล้วนำเข้า สินค้า (รวมชนิดยาและราคา) สมาชิก ล็อตที่ยังมีของ และบิลขาย 30 วันล่าสุด ไฟล์ใหญ่ใช้เวลาสักครู่ รหัสผ่านและข้อมูลส่วนตัวของผู้ใช้เดิมไม่ถูกนำเข้า</div>
+        <label v-if="!dbImp" class="btn btn-pri cursor-pointer inline-flex items-center">เลือกไฟล์ .sql<input type="file" accept=".sql,text/plain" class="hidden" @change="dbImportPick"></label>
+        <div v-if="dbImp">
+          <div v-if="dbImp.msg" class="text-sm mb-2">{{ dbImp.msg }}</div>
+          <div v-if="dbImp.stats" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center mb-3">
+            <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">สินค้า</div><div class="font-bold num">{{ dbImp.stats.products }}</div></div>
+            <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">สมาชิก</div><div class="font-bold num">{{ dbImp.stats.members }}</div></div>
+            <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">ล็อตที่มีของ</div><div class="font-bold num">{{ dbImp.stats.lotsInStock }}</div></div>
+            <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs text-slate-500">บิล {{ dbImp.stats.from }} ถึง {{ dbImp.stats.to }}</div><div class="font-bold num">{{ dbImp.stats.bills }}</div></div>
+          </div>
+          <div v-if="dbImp.stats" class="mb-3">
+            <label class="flex items-center gap-2 p-1"><input type="checkbox" class="w-5 h-5" v-model="dbImp.o.products"> สินค้าและผู้จำหน่าย (อัปเดตตามรหัส ไม่ลบของเดิม)</label>
+            <label class="flex items-center gap-2 p-1"><input type="checkbox" class="w-5 h-5" v-model="dbImp.o.members"> สมาชิก (อัปเดตตามรหัส)</label>
+            <label class="flex items-center gap-2 p-1"><input type="checkbox" class="w-5 h-5" v-model="dbImp.o.lots" :disabled="S.lots.length > 0"> ล็อตและยอดคงเหลือ <span v-if="S.lots.length > 0" class="text-xs text-slate-500">(ปิดไว้ เพราะฐานข้อมูลนี้มีสต็อกอยู่แล้ว กันนับซ้ำ)</span></label>
+            <label class="flex items-center gap-2 p-1"><input type="checkbox" class="w-5 h-5" v-model="dbImp.o.sales"> บิลขาย 30 วันล่าสุด (บิลที่เคยนำเข้าแล้วจะถูกข้าม)</label>
+          </div>
+          <div v-if="dbImp.error" class="text-sm mb-2" style="color:var(--bad)">{{ dbImp.error }}</div>
+          <div class="flex gap-2">
+            <button class="btn btn-pri" :disabled="dbImp.busy || !dbImp.stats" @click="dbImportRun">{{ dbImp.busy ? 'กำลังนำเข้า...' : 'นำเข้า' }}</button>
+            <button class="btn btn-ghost" :disabled="dbImp.busy" @click="dbImp = null">ยกเลิก</button>
+          </div>
+        </div>
+      </div>
       <div v-if="dbMode" class="card p-4 mb-3">
         <div class="font-bold mb-1">สำรองข้อมูลจากฐานข้อมูล (ส่งออกไฟล์)</div>
         <div class="text-sm text-slate-600 mb-3">ดาวน์โหลดสำเนาข้อมูลหลักเป็นไฟล์ .json เก็บไว้ในเครื่องหรือไดรฟ์ของคุณ ข้อมูลที่ผู้ใช้ของคุณมีสิทธิ์เห็นเท่านั้นที่จะอยู่ในไฟล์ (ผู้ที่ไม่มีสิทธิ์เห็นต้นทุนจะไม่ได้ราคาทุน)</div>
@@ -3794,7 +3819,7 @@ const app = createApp({
       posLimit: 120, imp: { busy: false, pct: 0, msg: '', days: 365, result: null, backup: true },
       loginName: '', nowTick: Date.now(), dbMode: DB_MODE, dbHasAdmin: false, dbMe: null, dbUid: '', dbCfg: { url: '', key: '', open: false }, paying: false, dbSr: { rows: [], totals: { bills: 0, qty: 0, sales: 0, cost: 0, profit: 0 }, lines: [] }, dbKy: null, dbLoading: false, uiSize: (() => { try { const u = localStorage.getItem('knockdown_ui_size'); return u === 's' || u === 'l' ? u : 'm' } catch (e) { return 'm' } })(), setTab: 'general', usSel: null, us: null, usPass: '', usPass2: '', vs: null, vsSel: null, vsTab: 'gen', vsSearch: '', vsTermSearch: '',
       setup: { name: '', empId: '', pin: '', pin2: '', busy: false },
-      dbBackup: { from: '', to: '', busy: false, msg: '', error: '' }, restoreFile: null, csvFail: [], csvImp: null, csvProg: '', memMode: 'cards', memEdits: {}, memLimit: 100, mgMode: 'grid', gridEdits: {}, gridLimit: 100, bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
+      dbBackup: { from: '', to: '', busy: false, msg: '', error: '' }, dbImp: null, restoreFile: null, csvFail: [], csvImp: null, csvProg: '', memMode: 'cards', memEdits: {}, memLimit: 100, mgMode: 'grid', gridEdits: {}, gridLimit: 100, bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
       mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
       DRUG_FLAGS, FLAG_SHORT,
       rcvDupOk: false,
@@ -4751,6 +4776,87 @@ const app = createApp({
           this.adj = { counted, reason: 'นับสต็อกไม่ตรง', note: '' }
         } catch (e) { this.toast(e.message, 'bad') }
       })
+    },
+    // ===== นำเข้าจาก SmartDrugstore (โหมดฐานข้อมูล): สินค้า สมาชิก ล็อตคงเหลือ และบิล 30 วันล่าสุด =====
+    async dbImportPick(ev) {
+      const f = ev.target.files && ev.target.files[0]; ev.target.value = ''
+      if (!f) return
+      if (!this.isAdmin) return this.deny('นำเข้าข้อมูล (เฉพาะผู้ดูแลระบบ)')
+      this.dbImp = { busy: true, msg: 'กำลังอ่านไฟล์ 0%', stats: null, state: null, o: { products: true, members: true, lots: this.S.lots.length === 0, sales: true }, days: 30 }
+      try {
+        const rows = await Importer.readDump(f, x => { this.dbImp.msg = 'กำลังอ่านไฟล์ ' + Math.round(x * 100) + '%' })
+        const r = Importer.convert(rows, 30)
+        this.dbImp.state = r.state; this.dbImp.stats = r.stats; this.dbImp.busy = false; this.dbImp.msg = ''
+      } catch (e) { this.dbImp = null; this.toast('อ่านไฟล์ไม่สำเร็จ: ' + e.message, 'bad') }
+    },
+    dbImportRun() {
+      const im = this.dbImp
+      if (!im || im.busy || !im.state) return
+      if (!this.isAdmin) return this.deny('นำเข้าข้อมูล')
+      this.askPin('นำเข้าจาก SmartDrugstore', () => this.dbImportApply())
+    },
+    async dbImportApply() {
+      const im = this.dbImp, st = im.state, o = im.o
+      im.busy = true; im.error = ''
+      const say = t => { im.msg = t }
+      const batch = (arr, n) => { const out = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out }
+      const pool = async (items, n, fn) => { let i = 0; const run = async () => { while (i < items.length) { const it = items[i++]; await fn(it) } }; await Promise.all(Array.from({ length: n }, run)) }
+      try {
+        const S = this.S
+        // ผู้จำหน่าย
+        say('ผู้จำหน่าย')
+        if (o.products) {
+          for (const sp of st.suppliers) { const ex = S.suppliers.find(x => Logic.supplierKey(x.name) === Logic.supplierKey(sp.name)); if (!ex) await Db.rpc('save_supplier', { p: { name: sp.name, phone: sp.phone || '', note: sp.note || '' } }) }
+          await Db.reloadSuppliers(S)
+          // สินค้า
+          const byCode = {}; for (const x of S.products) byCode[String(x.code)] = x
+          let n = 0
+          await pool(st.products, 6, async p => {
+            const ex = byCode[String(p.code)]
+            const pay = Db.productPayload(S, p, p.bundle || null, p.unpack || null)
+            pay.id = ex ? Number(ex.id) : null
+            await Db.rpc('save_product', { p: pay })
+            say('สินค้า ' + (++n) + ' / ' + st.products.length)
+          })
+        }
+        if (o.members) {
+          let n = 0
+          await pool(st.members, 6, async m => {
+            const ex = S.members.find(x => String(x.code) === String(m.code))
+            await Db.rpc('save_customer', { p: { id: ex ? Number(ex.id) : null, code: m.code, name: m.name, phone: m.phone || '', note: m.note || '', allergies: (m.allergies || []).map(a => ({ drug: a.drug, reaction: a.reaction || '' })) } })
+            say('สมาชิก ' + (++n) + ' / ' + st.members.length)
+          })
+        }
+        if (o.lots || o.sales) {
+          const codeOf = {}; for (const p of st.products) codeOf[p.id] = p.code
+          const used = new Set()
+          if (o.sales) for (const sl of st.sales) for (const it of sl.items) for (const a of it.allocs) used.add(a.lotId)
+          const lots = st.lots.filter(l => (o.lots && l.qtyLeft > 0) || (o.sales && used.has(l.id)))
+          const lrows = lots.map(l => ({ key: l.id, product_code: codeOf[l.pid], lot_no: l.lotNo, exp_date: l.expiry, received_on: (l.receivedAt || '').slice(0, 10), qty_in: l.qtyIn, unit_cost: l.cost }))
+          let n = 0
+          for (const b of batch(lrows, 300)) { await Db.rpc('import_smart', { p: { kind: 'lots', rows: b } }); n += b.length; say('ล็อต ' + n + ' / ' + lrows.length) }
+          if (o.sales) {
+            const memCode = {}; for (const m of st.members) memCode[m.id] = m.code
+            const srows = st.sales.map(sl => ({ bill_no: sl.no, ts: sl.ts, staff: sl.by, customer_code: sl.memberId ? memCode[sl.memberId] : '', subtotal: sl.subtotal, discount: sl.discount, total: sl.total, method: sl.method, received: sl.received, change: sl.change,
+              buyer: sl.buyer ? { name: sl.buyer.name, addr: sl.buyer.addr, type: sl.buyer.type } : null, rx: sl.rx ? { doc: sl.rx.doc, doc_addr: sl.rx.docAddr, user: sl.rx.user, age: sl.rx.age, addr: sl.rx.addr } : null,
+              lines: sl.items.map(it => ({ product_code: it.pid ? codeOf[it.pid] : '', name: it.name, unit: it.unit, qty: it.qty, price: it.price, cost_total: it.costTotal, allocs: it.allocs.map(a => ({ key: a.lotId, qty: a.qty })) })) }))
+            n = 0
+            for (const b of batch(srows, 100)) { await Db.rpc('import_smart', { p: { kind: 'sales', rows: b } }); n += b.length; say('บิลขาย ' + n + ' / ' + srows.length) }
+          }
+          const frows = lots.map(l => ({ key: l.id, qty_left: l.qtyLeft }))
+          n = 0
+          for (const b of batch(frows, 300)) { await Db.rpc('import_smart', { p: { kind: 'finalize', rows: b } }); n += b.length; say('ปรับยอดคงเหลือ ' + n + ' / ' + frows.length) }
+        }
+        say('โหลดข้อมูลใหม่')
+        await this.dbReloadAll()
+        this.dbImp = null
+        this.toast('นำเข้าเรียบร้อยแล้ว')
+      } catch (e) { im.busy = false; im.error = 'นำเข้าไม่สำเร็จ: ' + e.message + ' (รายการที่นำเข้าไปแล้วจะไม่ซ้ำ กดนำเข้าใหม่ได้)' }
+    },
+    async dbReloadAll() {
+      const r = await Db.load()
+      this.dbMe = r.me; this.dbHasAdmin = r.hasAdmin
+      this.setState(r.S)
     },
     dbRestorePick(ev) {
       const f = ev.target.files && ev.target.files[0]; ev.target.value = ''
