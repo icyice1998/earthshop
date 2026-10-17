@@ -110,6 +110,7 @@
              border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
     .inp { width:100%; padding:.45rem .65rem; border:1.5px solid var(--line); border-radius:.5rem; font-size:1rem; background:#fff; color: var(--ink); }
     @supports (-webkit-touch-callout: none) { .inp { font-size: 16px; } }   /* iPhone ซูมหน้าจอเองถ้าช่องกรอกเล็กกว่า 16px */
+    .pw-mask { -webkit-text-security: disc; text-security: disc; }
     .inp:focus { outline:none; border-color: var(--pine); box-shadow: 0 0 0 3px rgba(15,118,110,.15); }
     .lbl { display:block; font-size:.85rem; color:#5b6f6b; margin-bottom:.25rem; }
     .btn { padding:.45rem .9rem; border-radius:.55rem; font-weight:600; font-size:1rem; min-height:2.4rem; transition: transform .05s; }
@@ -188,7 +189,7 @@
         <div v-if="dbMode" class="text-xs mt-1" :style="'color:' + (dbCfg.status === 'fail' ? '#b91c1c' : '#0f766e')">{{ dbCfg.status === 'fail' ? 'เชื่อมต่อฐานข้อมูลไม่ได้: ' + dbCfg.err : 'ฐานข้อมูลใหม่ · ล็อกอินด้วย ชื่อผู้ใช้@mypharm.com' }}</div>
         <div v-else class="text-xs mt-1" style="color:#b45309">เครื่องนี้ยังไม่ได้เชื่อมต่อฐานข้อมูลใหม่ (กำลังใช้ระบบเดิม) · กดตั้งค่าการเชื่อมต่อด้านล่าง หรือเปิดจากลิงก์ตั้งค่า</div>
       </div>
-      <form @submit.prevent="doLogin($event)">
+      <form class="login-form" @submit.prevent="doLogin($event)">
         <label class="lbl">ชื่อผู้ใช้</label>
         <input v-model="loginForm.user" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" class="inp mb-3" placeholder="เช่น earth">
         <label class="lbl">รหัสผ่าน</label>
@@ -751,6 +752,20 @@
         <div class="flex gap-2"><button class="btn btn-ghost !min-h-0 !py-2" @click="srCsv">ส่งออก CSV</button><button class="btn btn-ghost !min-h-0 !py-2" @click="srPrint">พิมพ์</button></div>
       </div>
 
+      <div v-if="srChart" class="card p-3 mb-3">
+        <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 mb-1"><span class="inline-flex items-center gap-1"><span style="display:inline-block;width:.7rem;height:.7rem;border-radius:2px;background:var(--pine)"></span>ยอดขาย</span><span v-if="srChart.showP" class="inline-flex items-center gap-1"><span style="display:inline-block;width:1rem;height:0;border-top:2px solid #d97706"></span>กำไร</span><span v-if="!srChart.time">10 อันดับแรกตามยอดขาย</span></div>
+        <svg :viewBox="'0 0 ' + srChart.W + ' ' + srChart.H" style="width:100%;height:auto;display:block" role="img" aria-label="กราฟรายงานการขาย">
+          <template v-if="srChart.time">
+            <g v-for="t in srChart.ticks" :key="t.y"><line :x1="srChart.L" :x2="srChart.W - srChart.R" :y1="t.y" :y2="t.y" stroke="#e2ebe9" stroke-width="1"/><text :x="srChart.L - 6" :y="t.y + 3" text-anchor="end" font-size="10" fill="#64748b">{{ t.t }}</text></g>
+            <g v-for="(b, i) in srChart.bars" :key="i"><rect :x="b.x" :y="b.y" :width="b.w" :height="b.h" rx="2" fill="#0f766e"><title>{{ b.tip }}</title></rect><text v-if="b.label" :x="b.cx" :y="srChart.H - srChart.B + 14" text-anchor="middle" font-size="10" fill="#64748b">{{ b.label }}</text></g>
+            <polyline v-if="srChart.line" :points="srChart.line" fill="none" stroke="#d97706" stroke-width="2" stroke-linejoin="round"/>
+          </template>
+          <template v-else>
+            <g v-for="(b, i) in srChart.bars" :key="i"><text :x="srChart.L - 6" :y="b.y + b.h / 2 + 4" text-anchor="end" font-size="11" fill="#334155">{{ b.name }}</text><rect :x="srChart.L" :y="b.y" :width="b.w" :height="b.h" rx="2" fill="#0f766e"><title>{{ b.tip }}</title></rect><text :x="srChart.L + b.w + 5" :y="b.y + b.h / 2 + 4" font-size="11" fill="#475569">{{ b.val }}</text></g>
+          </template>
+        </svg>
+      </div>
+
       <div v-if="srGroup !== 'detail'" class="card overflow-x-auto mb-3">
         <table class="rt text-sm">
           <thead><tr class="text-left text-slate-500" style="border-bottom:1.5px solid var(--line)">
@@ -1100,7 +1115,7 @@
     <section v-else-if="tab === 'supplies'" class="h-full overflow-y-auto p-3">
       <div class="flex gap-2 mb-2">
         <input v-model="supSearch" class="inp" placeholder="ค้นหาวัสดุ">
-        <button class="btn btn-pri whitespace-nowrap" @click="openForm(null, 'supply')">+ เพิ่มวัสดุ</button>
+        <button v-if="can('manage')" class="btn btn-pri whitespace-nowrap" @click="openForm(null, 'supply')">+ เพิ่มวัสดุ</button>
       </div>
       <div class="text-xs text-slate-500 mb-3">รับวัสดุเข้าที่แท็บ "รับของ/คืนของ" เหมือนยา ส่วนหน้านี้ใช้เบิกใช้</div>
       <div v-if="supRows.length === 0" class="text-center text-slate-400 py-8">ยังไม่มีวัสดุ กด + เพิ่มวัสดุ</div>
@@ -1580,7 +1595,7 @@
         </div>
         <label class="lbl">เปลี่ยนรหัสผ่านเข้าระบบ (อย่างน้อย 6 ตัว)</label>
         <div class="flex gap-2 mb-3">
-          <input v-model="pwForm.next" type="password" autocomplete="new-password" class="inp" placeholder="รหัสผ่านใหม่">
+          <input v-model="pwForm.next" type="text" autocomplete="off" class="inp pw-mask" placeholder="รหัสผ่านใหม่">
           <button class="btn btn-ghost whitespace-nowrap" @click="changeLoginPassword">เปลี่ยน</button>
         </div>
         <button class="btn btn-badline w-full" @click="askLogout">ออกจากระบบ</button>
@@ -1590,8 +1605,8 @@
         <div class="font-bold mb-1">เปลี่ยนรหัสยืนยัน (PIN)</div>
         <div class="text-xs text-slate-500 mb-3">ใช้ยืนยันตอนปรับสต็อก และตอนยกเลิกบิลย้อนหลัง</div>
         <div class="grid grid-cols-2 gap-3">
-          <div><label class="lbl">รหัสเดิม</label><input v-model="pinForm.old" type="password" inputmode="numeric" class="inp"></div>
-          <div><label class="lbl">รหัสใหม่ (4 ตัวขึ้นไป)</label><input v-model="pinForm.next" type="password" inputmode="numeric" class="inp"></div>
+          <div><label class="lbl">รหัสเดิม</label><input v-model="pinForm.old" type="text" autocomplete="off" inputmode="numeric" class="inp pw-mask"></div>
+          <div><label class="lbl">รหัสใหม่ (4 ตัวขึ้นไป)</label><input v-model="pinForm.next" type="text" autocomplete="off" inputmode="numeric" class="inp pw-mask"></div>
         </div>
         <button class="btn btn-ghost w-full mt-3" @click="changePin">เปลี่ยนรหัส</button>
       </div>
@@ -1625,8 +1640,8 @@
                 <div class="col-span-2"><label class="lbl" for="us-login">ชื่อ Login (ใช้พิมพ์ตอนเข้าสู่ระบบ เช่น earth)</label><input id="us-login" v-model="us.login" class="inp" autocapitalize="none" autocomplete="off" :disabled="!!us.id"></div>
                 <label v-if="!us.id && dbMode" class="col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" class="w-5 h-5" v-model="us.linkOnly"> บัญชีนี้สร้างไว้ใน Supabase แล้ว (กำหนดสิทธิ์อย่างเดียว ไม่ตั้งรหัสผ่านใหม่)</label>
                 <template v-if="!us.id && !us.linkOnly">
-                  <div><label class="lbl" for="us-pw">รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input id="us-pw" v-model="usPass" type="password" autocomplete="new-password" class="inp"></div>
-                  <div><label class="lbl" for="us-pw2">ยืนยันรหัสผ่าน</label><input id="us-pw2" v-model="usPass2" type="password" autocomplete="new-password" class="inp"></div>
+                  <div><label class="lbl" for="us-pw">รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input id="us-pw" v-model="usPass" type="text" autocomplete="off" class="inp pw-mask"></div>
+                  <div><label class="lbl" for="us-pw2">ยืนยันรหัสผ่าน</label><input id="us-pw2" v-model="usPass2" type="text" autocomplete="off" class="inp pw-mask"></div>
                 </template>
                 <div><label class="lbl" for="us-ws">เวลาเข้างาน (เว้นว่าง = ไม่จำกัด)</label><input id="us-ws" v-model="us.workStart" type="time" class="inp"></div>
                 <div><label class="lbl" for="us-we">เวลาเลิกงาน</label><input id="us-we" v-model="us.workEnd" type="time" class="inp"></div>
@@ -2059,7 +2074,7 @@
     <div class="modal p-5">
       <div class="font-bold text-lg">{{ pin.title }}</div>
       <div class="text-sm text-slate-500 mb-3">ใส่รหัสผ่านเพื่อยืนยัน</div>
-      <input ref="pinInput" v-model="pin.value" @keyup.enter="submitPin" type="password" inputmode="numeric" class="inp text-center text-2xl tracking-widest" placeholder="••••">
+      <input ref="pinInput" v-model="pin.value" @keyup.enter="submitPin" type="text" autocomplete="off" inputmode="numeric" class="inp text-center text-2xl tracking-widest pw-mask" placeholder="••••">
       <div v-if="pin.error" class="text-red-600 text-sm mt-2 text-center">{{ pin.error }}</div>
       <div class="grid grid-cols-2 gap-2 mt-4">
         <button class="btn btn-ghost" @click="pin.open = false">ยกเลิก</button>
@@ -2399,8 +2414,8 @@
       <label class="lbl" for="fs-name">ชื่อ - สกุล</label><input id="fs-name" v-model="setup.name" class="inp mb-3" :placeholder="actor">
       <label class="lbl" for="fs-emp">รหัสพนักงาน (ไม่บังคับ)</label><input id="fs-emp" v-model="setup.empId" class="inp mb-3">
       <div class="grid grid-cols-2 gap-3 mb-4">
-        <div><label class="lbl" for="fs-pin">ตั้ง PIN (ตัวเลข 4-8 หลัก)</label><input id="fs-pin" v-model="setup.pin" type="password" inputmode="numeric" autocomplete="new-password" class="inp"></div>
-        <div><label class="lbl" for="fs-pin2">ยืนยัน PIN</label><input id="fs-pin2" v-model="setup.pin2" type="password" inputmode="numeric" autocomplete="new-password" class="inp"></div>
+        <div><label class="lbl" for="fs-pin">ตั้ง PIN (ตัวเลข 4-8 หลัก)</label><input id="fs-pin" v-model="setup.pin" type="text" inputmode="numeric" autocomplete="off" class="inp pw-mask"></div>
+        <div><label class="lbl" for="fs-pin2">ยืนยัน PIN</label><input id="fs-pin2" v-model="setup.pin2" type="text" inputmode="numeric" autocomplete="off" class="inp pw-mask"></div>
       </div>
       <button class="btn btn-pri w-full" @click="firstSetup">สร้างผู้ดูแลและเริ่มใช้งาน</button>
       <button class="w-full mt-2 py-2 text-sm underline text-slate-500" @click="doLogout">ออกจากระบบ</button>
@@ -2446,7 +2461,7 @@ const RCPT_TEXT = {
   en: { title: 'Receipt', member: 'Member', discount: 'Discount', total: 'Total', cash: 'Cash', change: 'Change', paidBy: 'Paid by', transfer: 'Bank transfer', thanks: 'Thank you', net: 'Price before VAT', vat: 'VAT', taxId: 'Tax ID' }
 }
 const PERM_GROUPS = [
-  { title: 'หน้าจอ', items: [['pos', 'หน้าจอหน้าร้าน (ขาย)'], ['members', 'หน้าจอลูกค้า / สมาชิก'], ['stock', 'หน้าจอคลังสินค้า / เบิกวัสดุ'], ['manage', 'ระบบบริหารจัดการยา (แก้ไขข้อมูลยา)'], ['receive', 'หน้าจอสั่งซื้อ / รับเข้า / ส่งคืน'], ['report', 'หน้าจอปิดวัน / บิลการขาย'], ['reports', 'รายงานการขาย ยอดขาย กำไร'], ['forms', 'แบบรายงาน ข.ย. (9-13)'], ['settings', 'หน้าจอตั้งค่า']] },
+  { title: 'หน้าจอ', items: [['pos', 'หน้าจอหน้าร้าน (ขาย)'], ['members', 'หน้าจอลูกค้า / สมาชิก'], ['stock', 'หน้าจอคลังสินค้า'], ['supplies', 'เบิกวัสดุ (ทุกคนเบิกได้ ปิดได้เฉพาะคนที่ไม่ควรเบิก)'], ['manage', 'ระบบบริหารจัดการยา (แก้ไขข้อมูลยา)'], ['receive', 'หน้าจอสั่งซื้อ / รับเข้า / ส่งคืน'], ['report', 'หน้าจอปิดวัน / บิลการขาย'], ['reports', 'รายงานการขาย ยอดขาย กำไร'], ['forms', 'แบบรายงาน ข.ย. (9-13)'], ['settings', 'หน้าจอตั้งค่า']] },
   { title: 'การขาย', items: [['sellOtc', 'ขาย OTC'], ['sellRx', 'ขายยาอันตราย / ควบคุม (Prescription)'], ['editPrice', 'แก้ไขราคาขายที่หน้าร้าน'], ['voidSale', 'ยกเลิกบิลขาย'], ['billsView', 'แสดงรายการบิลขายที่หน้าร้าน']] },
   { title: 'คลังสินค้าและต้นทุน', items: [['adjustStock', 'ปรับสต็อก'], ['editReceipt', 'แก้ไข / ยกเลิกรายการรับเข้า'], ['viewCost', 'เห็นราคาทุนและกำไร']] }
 ]
@@ -2455,10 +2470,10 @@ const permsOf = list => Object.fromEntries(PERM_KEYS.map(k => [k, list === 'all'
 const PERM_PRESETS = {
   admin: { label: 'ผู้ดูแล', perms: permsOf('all') },
   pharmacist: { label: 'เภสัชกร', perms: permsOf('allButSettings') },
-  cashier: { label: 'พนักงานขาย', perms: permsOf(['pos', 'members', 'billsView', 'sellOtc']) },
-  stock: { label: 'พนักงานคลัง', perms: permsOf(['stock', 'receive', 'viewCost']) }
+  cashier: { label: 'พนักงานขาย', perms: permsOf(['pos', 'members', 'billsView', 'sellOtc', 'supplies']) },
+  stock: { label: 'พนักงานคลัง', perms: permsOf(['stock', 'receive', 'viewCost', 'supplies']) }
 }
-const SUB_PERM = { salesrep: 'reports', kyforms: 'forms', pos: 'pos', report: 'report', history: 'report', members: 'members', stock: 'stock', supplies: 'stock', manage: 'manage', receive: 'receive', settings: 'settings' }
+const SUB_PERM = { salesrep: 'reports', kyforms: 'forms', pos: 'pos', report: 'report', history: 'report', members: 'members', stock: 'stock', supplies: 'supplies', manage: 'manage', receive: 'receive', settings: 'settings' }
 const FLAG_SHORT = { banned: 'ห้ามขาย', danger: 'อันตราย', controlled: 'ควบคุม', offsys: 'นอกระบบ', otc: 'OTC', ky9n: '9N', nontax: 'นอกภาษี', autolabel: 'ฉลากอัตโนมัติ', ky8: 'ขย.8', ky11: 'ขย.11', ky13: 'ขย.13', special: 'เฉพาะ' }
 const GRID_FIELDS = ['code', 'name', 'generic', 'category', 'unit', 'barcode', 'supplier', 'location', 'cost', 'price', 'reorder']
 // สิ่งที่จำไว้ในเครื่องนี้ (แยกตามผู้ใช้) เพื่อให้รีเฟรชหน้าแล้วกลับมาที่เดิม
@@ -3568,7 +3583,7 @@ const Db = {
     if (error) { const e = new Error(error.message || 'ไม่สำเร็จ'); e.code = error.code; throw e }
     return data
   },
-  permsObj(perms, admin) { const o = {}; for (const k of PERM_KEYS) o[k] = !!admin || (perms || []).includes(k); return o },
+  permsObj(perms, admin) { const o = {}; for (const k of PERM_KEYS) o[k] = !!admin || k === 'supplies' || (perms || []).includes(k); return o },
   mapStaff(r) {
     return { id: r.id, empId: r.emp_id || '', name: r.display_name, login: r.login, role: r.role_label || '', active: r.active, admin: r.is_admin, workStart: r.work_start ? String(r.work_start).slice(0, 5) : '', workEnd: r.work_end ? String(r.work_end).slice(0, 5) : '',
       perms: this.permsObj(r.permissions, false) }
@@ -3658,7 +3673,15 @@ const Db = {
     if (me && !me.is_admin) { S.users[0].perms = this.permsObj(me.permissions, false) }
     if (me && me.is_admin) { const u = S.users.find(x => x.id === me.id); if (u) u.perms = this.permsObj(me.permissions, true) }
     await this.loadWindow(S, true)
+    await this.loadIssues(S)
     return { S, me, hasAdmin }
+  },
+  // เบิกวัสดุ 62 วันล่าสุด (ถ้ายังไม่ได้รัน 08_supplies.sql จะเว้นว่างไว้)
+  async loadIssues(S) {
+    try {
+      const rows = await this.rows('v_supply_issues', '*', q => q.gte('ts', dbDayAgo(62) + 'T00:00:00+07:00'))
+      S.issues = rows.map(r => { const p = S.products.find(x => x.id === String(r.product_id)); return { id: String(r.id), ts: r.ts, day: dayKey(new Date(r.ts)), pid: String(r.product_id), name: p ? p.name : '', unit: p ? p.unit : '', qty: r.qty, costTotal: Number(r.cost_total) || 0, note: r.note || '', by: r.staff_name || '', status: r.status } })
+    } catch (e) { S.issues = [] }
   },
   async loadWindow(S, withOrders) {
     const sFrom = dbDayAgo(DB_WINDOW.sales), rFrom = dbDayAgo(DB_WINDOW.receipts)
@@ -3688,6 +3711,7 @@ const Db = {
     const lotRows = await this.rows('v_lots', '*', q => q.gt('qty_left', 0))
     S.lots = lotRows.map(r => this.mapLot(r))
     await this.loadWindow(S, true)
+    await this.loadIssues(S)
   },
   async reloadLots(S, pids) {
     const ids = [...new Set(pids.map(N))].filter(x => x !== null)
@@ -3852,6 +3876,16 @@ const DB_OPS = {
     const pids = new Set(); if (s) for (const i of s.items) if (i.pid) { pids.add(i.pid); const p = S.products.find(x => x.id === i.pid); if (p && p.bundle) for (const b of p.bundle) pids.add(b.pid) }
     await Db.reloadLots(S, [...pids])
   },
+  async issueSupply(S, pid, qty, note) {
+    const id = await Db.rpc('issue_supply', { p_product: N(pid), p_qty: Math.floor(Number(qty) || 0), p_note: note || '' })
+    await Db.reloadLots(S, [pid]); await Db.loadIssues(S)
+    return S.issues.find(i => i.id === String(id)) || { name: (S.products.find(x => x.id === pid) || {}).name || '', qty }
+  },
+  async voidIssue(S, id) {
+    const r = S.issues.find(x => x.id === id)
+    await Db.rpc('void_supply_issue', { p_id: N(id) })
+    await Db.loadIssues(S); if (r) await Db.reloadLots(S, [r.pid])
+  },
   async receive(S, r) {
     const items = r.items.map(i => ({ product_id: N(i.pid), qty: Math.floor(Number(i.qty)), free_qty: Math.floor(Number(i.freeQty) || 0), unit_cost: Number(i.unitCost) || 0, lot_no: i.lotNo || '', exp_date: i.expiry || '' }))
     const args = { supplier_name: String(r.supplier || '').trim(), invoice_no: r.invoice || '', received_on: r.day || null, discount: Number(r.discount) || 0, items, force: !!r.force }
@@ -3918,7 +3952,7 @@ const DB_OPS = {
 }
 if (DB_MODE) {
   for (const k of Object.keys(DB_OPS)) if (k !== 'reloadMember') Logic[k] = DB_OPS[k]
-  for (const k of ['returnGoods', 'voidReturn', 'issueSupply', 'voidIssue', 'unpack', 'editReceipt', 'openStock', 'clearHistory', 'addMemberNote', 'deleteMemberNote', 'addFollowup', 'doneFollowup', 'deleteFollowup']) Logic[k] = DB_UNSUPPORTED
+  for (const k of ['returnGoods', 'voidReturn', 'unpack', 'editReceipt', 'openStock', 'clearHistory', 'addMemberNote', 'deleteMemberNote', 'addFollowup', 'doneFollowup', 'deleteFollowup']) Logic[k] = DB_UNSUPPORTED
   Logic.openStock = (S, pid, qty, cost) => Db.openStock(S, pid, qty, cost)
 }
 
@@ -4134,6 +4168,26 @@ const app = createApp({
     posCats() { const have = new Set(this.sellProducts.map(p => p.category)); return this.catList.filter(c => have.has(c)) },
     srCats() { return [...this.catList, 'รายรับอื่น'] },
     srMax() { return Math.max(1, ...this.srData.rows.map(r => r.sales)) },
+    // กราฟแท่งของรายงานการขาย (SVG ในตัว ไม่ใช้ไลบรารี): ช่วงเวลา = แท่งตั้ง + เส้นกำไร, กลุ่มอื่น = แท่งนอน 10 อันดับแรก
+    srChart() {
+      if (this.srGroup === 'detail' || !this.srData.rows.length) return null
+      const time = ['day', 'month', 'hour'].includes(this.srGroup), showP = this.can('viewCost')
+      let list = this.srData.rows.slice()
+      list = time ? list.sort((a, b) => String(a.label).localeCompare(String(b.label), undefined, { numeric: true })).slice(-45) : list.sort((a, b) => b.sales - a.sales).slice(0, 10)
+      const peak = Math.max(1, ...list.map(r => r.sales), ...(showP ? list.map(r => r.profit) : [0]))
+      const pw = Math.pow(10, Math.floor(Math.log10(peak))), top = ([1, 2, 2.5, 5, 10].map(m => m * pw).find(v => v >= peak)) || peak
+      const fmt = v => v >= 1e6 ? +(v / 1e6).toFixed(1) + 'M' : (v >= 1e3 ? +(v / 1e3).toFixed(1) + 'k' : String(Math.round(v)))
+      const lab = r => this.srGroup === 'day' ? this.fmtDayBE(r.label) : (this.srGroup === 'month' ? this.fmtMonth(r.label) : String(r.label))
+      const tip = r => lab(r) + ': ฿' + this.money(r.sales) + (showP ? ' · กำไร ฿' + this.money(r.profit) : '') + ' · ' + r.bills + ' บิล'
+      if (time) {
+        const W = 640, H = 230, L = 46, R = 8, T = 10, B = 30, pwid = W - L - R, ph = H - T - B, n = list.length, slot = pwid / n, bw = Math.max(2, Math.min(34, slot * .7)), every = Math.ceil(n / 10)
+        const y = v => T + ph - Math.max(0, v) / top * ph
+        const bars = list.map((r, i) => ({ x: L + slot * i + (slot - bw) / 2, y: y(r.sales), w: bw, h: Math.max(0, T + ph - y(r.sales)), cx: L + slot * i + slot / 2, label: i % every === 0 || i === n - 1 ? (this.srGroup === 'day' ? String(r.label).slice(8) : (this.srGroup === 'month' ? String(r.label).slice(5) : String(r.label))) : '', tip: tip(r) }))
+        return { time, W, H, L, R, T, B, bars, line: showP ? list.map((r, i) => (L + slot * i + slot / 2).toFixed(1) + ',' + y(r.profit).toFixed(1)).join(' ') : '', ticks: [0, 1, 2, 3, 4].map(k => ({ y: y(top * k / 4), t: fmt(top * k / 4) })), showP }
+      }
+      const W = 640, rowH = 24, L = 150, R = 70, T = 6, H = T + rowH * list.length + 4, pwid = W - L - R
+      return { time, W, H, L, bars: list.map((r, i) => ({ y: T + rowH * i, h: rowH - 8, w: Math.max(1, r.sales / top * pwid), name: String(r.label).length > 22 ? String(r.label).slice(0, 21) + '…' : String(r.label), val: fmt(r.sales), tip: tip(r) })) }
+    },
     srSummary() {
       const f = []
       f.push(this.fmtDayBE(this.srFrom) + ' ' + this.srTf + ' - ' + this.fmtDayBE(this.srTo || this.srFrom) + ' ' + this.srTt)
@@ -4453,6 +4507,9 @@ const app = createApp({
     window.addEventListener('pagehide', () => { if (this.authed && this.dirty) this.saveNow() })
     window.addEventListener('keydown', this.onKey)
     document.addEventListener('click', () => { if (this.menuFor) this.menuFor = '' })
+    // ให้ Chrome/Google ไม่จำและไม่เสนอเติมข้อมูลในทุกช่องนอกจากหน้าล็อกอิน
+    const noSave = root => { try { (root.querySelectorAll ? root : document).querySelectorAll('input,textarea,select').forEach(el => { if (el.closest('.login-form') || el.dataset.nosave) return; el.dataset.nosave = '1'; if (el.type !== 'file' && el.type !== 'checkbox' && el.type !== 'radio') { el.setAttribute('autocomplete', 'off'); el.setAttribute('data-lpignore', 'true'); el.setAttribute('data-1p-ignore', ''); el.setAttribute('data-form-type', 'other') } if (el.form && !el.form.classList.contains('login-form')) el.form.setAttribute('autocomplete', 'off') }) } catch (e) { /* ignore */ } }
+    noSave(document); new MutationObserver(ms => { for (const m of ms) for (const nd of m.addedNodes) if (nd.nodeType === 1) { if (nd.matches && nd.matches('input,textarea,select')) noSave({ querySelectorAll: () => [nd] }); else noSave(nd) } }).observe(document.body, { childList: true, subtree: true })
     this.srSetPreset('month'); this.kySetPreset('month')
     setInterval(() => { this.nowTick = Date.now() }, 30000)
     window.addEventListener('afterprint', () => { const nx = (this.printQueue || []).shift(); this.printDoc = nx || null; if (nx) setTimeout(() => this.runPrint(), 300) })
@@ -4875,6 +4932,7 @@ const app = createApp({
       if (!u) return !!PERM_PRESETS.cashier.perms[key]
       if (u.active === false) return false
       if (u.admin) return true
+      if (key === 'supplies') return !(u.perms && u.perms.supplies === false)   // ผู้ใช้ทุกคนเบิกวัสดุได้ เว้นแต่ผู้ดูแลปิดไว้
       return !!(u.perms && u.perms[key])
     },
     allowedTab(id) { const k = SUB_PERM[id]; return !k || this.can(k) },
@@ -6338,15 +6396,15 @@ const app = createApp({
     },
     // ===== วัสดุ =====
     openIssue(p) { this.issueModal = { open: true, pid: p.id, qty: 1, note: '' } },
-    doIssue() {
+    async doIssue() {
       try {
-        const rec = Logic.issueSupply(this.S, this.issueModal.pid, this.issueModal.qty, this.issueModal.note.trim())
+        const rec = await Logic.issueSupply(this.S, this.issueModal.pid, this.issueModal.qty, this.issueModal.note.trim())
         this.toast('เบิก ' + rec.name + ' × ' + rec.qty + ' แล้ว'); this.issueModal.open = false
       } catch (err) { this.toast(err.message, 'bad') }
     },
     undoIssue(i) {
-      this.askConfirm('ยกเลิกการเบิก?', i.name + ' × ' + i.qty + ' จะถูกคืนเข้าสต็อก', 'ยกเลิกการเบิก', () => {
-        try { Logic.voidIssue(this.S, i.id); this.toast('ยกเลิกการเบิกแล้ว') } catch (err) { this.toast(err.message, 'bad') }
+      this.askConfirm('ยกเลิกการเบิก?', i.name + ' × ' + i.qty + ' จะถูกคืนเข้าสต็อก', 'ยกเลิกการเบิก', async () => {
+        try { await Logic.voidIssue(this.S, i.id); this.toast('ยกเลิกการเบิกแล้ว') } catch (err) { this.toast(err.message, 'bad') }
       })
     },
     // ===== แกะแบ่งขาย =====
