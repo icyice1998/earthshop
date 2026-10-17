@@ -59,6 +59,7 @@
     .ky-table tr { page-break-inside:avoid; }
     .ky-sign { margin-top:1rem; text-align:right; line-height:2.2; }
     @media (max-width: 767px) { .ky-page { overflow-x:auto; } .ky-table { min-width:640px; } .ky-hd { grid-template-columns:1fr; } }
+    [v-cloak] { display: none !important; }
     #print-area { display: none; }
     @page wide { size: A4 landscape; margin: 10mm; }
     #print-area .prt { width: 100%; border-collapse: collapse; font-size: 10pt; }
@@ -128,7 +129,7 @@
   </style>
 </head>
 <body>
-<div id="app" style="height:100vh; height:100dvh;" class="flex flex-col max-w-7xl mx-auto relative">
+<div id="app" v-cloak style="height:100vh; height:100dvh;" class="flex flex-col max-w-7xl mx-auto relative">
 
   <!-- หน้าจอโหลดข้อมูลจาก Supabase -->
   <div v-if="isLoading" class="fixed inset-0 bg-white flex flex-col items-center justify-center" style="z-index:100">

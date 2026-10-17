@@ -24,7 +24,8 @@ head = '''<title>Pharmacy POS Demo</title>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script src="https://unpkg.com/vue@3.4.38/dist/vue.global.prod.js"></script>
 <style>''' + style + '''
-  #demo-tag { position:fixed; left:0; bottom:0; z-index:200; display:flex; align-items:center; gap:.5rem; padding:.35rem .6rem calc(.35rem + env(safe-area-inset-bottom, 0px)) calc(.6rem + env(safe-area-inset-left, 0px)); background:#0f3f3a; color:#b9dcd7; font-size:.78rem; border-top-right-radius:.6rem; }
+  #demo-tag { position:fixed; left:0; bottom:0; z-index:120; display:flex; align-items:center; gap:.5rem; padding:.35rem .6rem calc(.35rem + env(safe-area-inset-bottom, 0px)) calc(.6rem + env(safe-area-inset-left, 0px)); background:#0f3f3a; color:#b9dcd7; font-size:.78rem; border-top-right-radius:.6rem; }
+  body:has(.modal-bg) #demo-tag { display:none; }
   #demo-tag button { color:#fff; text-decoration:underline; background:none; border:0; font:inherit; cursor:pointer; padding:.2rem; }
 </style>
 '''
