@@ -94,6 +94,22 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   const gp = (await q(`select p.price1, (select array_agg(type_code order by type_code) from product_drug_types where product_id=p.id) t, app.stock_of(p.id) s from products p where code='P001'`))[0]
   ok(Number(gp.price1) === 22 && gp.t.join() === 'controlled' && Number(gp.s) === 40, 'management grid saved price, drug types and stock adjustment together: ' + JSON.stringify(gp))
 
+  // CSV import in database mode (products + members)
+  const csv = await vm(pg, async () => { const v = window.__vm; let text = ''; v.csvDownload = (n, t) => { text = t }; v.exportProductsCsv(); const rows = Csv.parse(text); const h = rows[0], col = k => h.indexOf(k)
+    rows[1][col('price')] = '31'; const nr = h.map(() => ''); nr[col('code')] = 'CSV1'; nr[col('name')] = 'สินค้าจาก CSV'; nr[col('price')] = '9.5'; nr[col('stock')] = '6'; nr[col('danger')] = '1'; rows.push(nr)
+    v.csvPrepare('products', Csv.parse(Csv.encode(rows)), 'p.csv'); const counts = { ...v.csvImp.counts }; for (const r of v.csvImp.rows.filter(x => x.status === 'new' || x.status === 'change')) await v.csvApplyProduct(r)
+    const np = v.S.products.find(x => x.code === 'CSV1'); return { counts, np: np && { price: np.price, danger: np.danger, stock: v.stockMap[np.id] } } })
+  ok(csv.counts.new === 1 && csv.counts.change === 1 && csv.np && csv.np.price === 9.5 && csv.np.danger && csv.np.stock === 6, 'CSV import (products) saved to the database: ' + JSON.stringify(csv))
+  const mem = await vm(pg, async () => { const v = window.__vm; let t = ''; v.csvDownload = (n, x) => { t = x }; v.exportMembersCsv(); const rows = Csv.parse(t); rows[1][rows[0].indexOf('phone')] = '0822223333'; rows.push(['M9001', 'สมาชิกจาก CSV', '0844445555', 'Sulfa:ผื่น', 'x'])
+    v.csvPrepare('members', Csv.parse(Csv.encode(rows)), 'm.csv'); for (const r of v.csvImp.rows.filter(x => x.status !== 'same')) await v.csvApplyMember(r)
+    const m = v.S.members.find(x => x.code === 'M9001'); return { n: v.S.members.length, ph: v.S.members[0].phone, al: m && m.allergies.length } })
+  ok(mem.n === 2 && mem.al === 1 && mem.ph === '0822223333', 'CSV import (members) saved to the database: ' + JSON.stringify(mem))
+
+  const rs = await vm(pg, async () => { const v = window.__vm; const t = { products: await Db.rows('v_products'), suppliers: await Db.rows('v_suppliers'), lots: await Db.rows('v_lots'), customers: await Db.rows('v_customers'), customer_allergies: await Db.rows('v_customer_allergies') }
+    v.restoreFile = { at: '-', t }; v.dbRestorePrep('products'); const a = { ...v.csvImp.counts }
+    t.products[0].price1 = 99; t.customers[0].phone = '0000'; v.dbRestorePrep('products'); const b = { ...v.csvImp.counts }; v.dbRestorePrep('members'); return { a, b, m: { ...v.csvImp.counts } } })
+  ok(rs.a.change === 0 && rs.a.error === 0 && rs.b.change === 1 && rs.m.change === 1, 'restore from a backup file previews only the real differences: ' + JSON.stringify(rs))
+
   // reports and forms via the database
   const rep = await vm(pg, async () => { const v = window.__vm; const to = Date.now() + 864e5, from = to - 5 * 864e5; const r = await Db.reportSales({ from, to, group: 'flag' }); const k = await Db.kyData('11', { from, to }); const doc = Logic.buildKyFromRows(v.S, '11', { from, to }, k.rows); const k9 = await Db.kyData('9', { from, to }); return { total: r.totals.sales, flags: r.rows.map(x => x.key).join(), pages: doc.pages.length, rows: doc.pages[0] && doc.pages[0].rows.length, buyer: doc.pages[0] && doc.pages[0].rows[0] && doc.pages[0].rows[0].buyer, k9: k9.rows.length } })
   ok(rep.total === 234 && rep.pages === 1 && rep.rows === 1 && rep.buyer === 'สมหญิง ใจดี' && rep.k9 >= 3, 'reports and ข.ย. forms from the database: ' + JSON.stringify(rep))
