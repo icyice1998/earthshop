@@ -1288,6 +1288,20 @@
           </div>
         </div>
         <div class="card p-4">
+          <div class="font-bold mb-2">เครื่องพิมพ์สลิป (LAN)</div>
+          <label class="flex items-center gap-2 p-1 mb-2"><input type="checkbox" class="w-5 h-5" :checked="prog.lanPrint" @change="setProg('lanPrint', $event.target.checked)"> พิมพ์ใบเสร็จไปเครื่องพิมพ์สลิปทางเครือข่าย (แทนหน้าต่างพิมพ์ของเบราว์เซอร์)</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="lbl" for="lan-host">IP เครื่องพิมพ์ (เช่น D300H)</label><input id="lan-host" class="inp" inputmode="decimal" :value="prog.lanHost" @input="setProg('lanHost', $event.target.value.trim())" placeholder="192.168.1.146"></div>
+            <div><label class="lbl" for="lan-port">พอร์ตเครื่องพิมพ์ (ปกติ 9100)</label><input id="lan-port" class="inp" type="number" inputmode="numeric" :value="prog.lanPort" @input="setProg('lanPort', Number($event.target.value) || 9100)"></div>
+            <div class="col-span-2"><label class="lbl" for="lan-bridge">ที่อยู่โปรแกรมสะพานพิมพ์ในเครื่องนี้ (พอร์ตที่สะพานรับ ตั้งตอนเปิด bridge.js เช่น 9101)</label><input id="lan-bridge" class="inp" autocapitalize="none" :value="bridgeUrl" @input="setBridge($event.target.value)" placeholder="http://localhost:9101"></div>
+            <div><label class="lbl" for="lan-dots">ความกว้างภาพ</label><select id="lan-dots" class="inp" :value="prog.lanDots" @change="setProg('lanDots', Number($event.target.value))"><option :value="576">80 มม. (576 จุด)</option><option :value="512">80 มม. เล็ก (512 จุด)</option><option :value="384">58 มม. (384 จุด)</option></select></div>
+            <label class="flex items-center gap-2 self-end pb-3"><input type="checkbox" class="w-5 h-5" :checked="prog.lanCut !== false" @change="setProg('lanCut', $event.target.checked)"> ตัดกระดาษหลังพิมพ์</label>
+          </div>
+          <div class="flex gap-2 mt-3"><button class="btn btn-ghost flex-1" :disabled="lanMsg.busy" @click="lanCheck">ตรวจสอบการเชื่อมต่อ</button><button class="btn btn-pri flex-1" :disabled="lanMsg.busy" @click="lanTest">ทดสอบพิมพ์</button></div>
+          <div v-if="lanMsg.text" class="text-sm mt-2 p-2 rounded-lg" :style="lanMsg.ok === false ? 'background:#fee2e2;color:#b91c1c' : (lanMsg.ok ? 'background:#dcfce7;color:#166534' : 'background:#eef3f2')">{{ lanMsg.text }}</div>
+          <div class="text-xs text-slate-500 mt-3">เว็บในเบราว์เซอร์ต่อเครื่องพิมพ์ในวงแลนโดยตรงไม่ได้ ต้องเปิดโปรแกรมเล็กๆ ชื่อ bridge.js (โฟลเดอร์ tools/print-bridge ในโปรเจกต์) ไว้ที่คอมในร้าน ดูวิธีติดตั้งใน README ของโฟลเดอร์นั้น ที่อยู่สะพานพิมพ์จำเฉพาะเครื่องนี้ ส่วน IP/พอร์ตเครื่องพิมพ์ใช้ร่วมกันทุกเครื่อง</div>
+        </div>
+        <div class="card p-4">
           <div class="font-bold mb-2">กระดาษพิมพ์</div>
           <div class="text-sm text-slate-600 mb-1">ใบเสร็จ</div>
           <label v-for="o in [['80', 'ม้วนความร้อน 80 มม. (ความยาวพอดีเนื้อหา)'], ['58', 'ม้วนความร้อน 58 มม.'], ['a5', 'A5'], ['a4', 'A4']]" :key="o[0]" class="flex items-center gap-2 p-1">
@@ -1301,7 +1315,7 @@
             <input class="inp !w-24 text-right" type="number" inputmode="numeric" :value="prog.labelW" @input="setProg('labelW', Number($event.target.value) || 80)"> x <input class="inp !w-24 text-right" type="number" inputmode="numeric" :value="prog.labelH" @input="setProg('labelH', Number($event.target.value) || 50)"> มม.
           </div>
           <div class="text-xs text-slate-500 mt-3">ตอนพิมพ์ ในหน้าต่างพิมพ์ของเบราว์เซอร์ให้เลือกเครื่องพิมพ์ที่ถูกต้อง ปิดหัวกระดาษ/ท้ายกระดาษ (Headers and footers) และเลือก Margins เป็น None ใบเสร็จกับฉลากยาจะพิมพ์แยกกันทีละงาน</div>
-          <button class="btn btn-ghost w-full mt-3" @click="testPrint('receipt')">ทดสอบพิมพ์ใบเสร็จ</button>
+          <button class="btn btn-ghost w-full mt-3" @click="testPrint('receipt')">ทดสอบพิมพ์ใบเสร็จ (ผ่านเบราว์เซอร์)</button>
           <button class="btn btn-ghost w-full mt-2" @click="testPrint('label')">ทดสอบพิมพ์ฉลากยา</button>
         </div>
         <div class="card p-4">
@@ -2301,7 +2315,7 @@ const DRUG_FLAGS = [
   { k: 'special', label: 'ยาใช้เฉพาะ', style: 'background:#dcfce7;color:#166534' }
 ]
 const PROG_DEFAULT = { costMethod: 'actual', posCost: 'none', costSymbols: 'ABCDEFGHIJ', posSearch: { code: true, barcode: true, name: true, generic: true, category: false },
-  remindOnOpen: false, paperReceipt: '80', labelW: 80, labelH: 50, vatMode: 'none', vatRate: 7, receiptLang: 'th', codePrefix: '', codeDigits: 5 }
+  remindOnOpen: false, lanPrint: false, lanHost: '192.168.1.146', lanPort: 9100, lanDots: 576, lanCut: true, paperReceipt: '80', labelW: 80, labelH: 50, vatMode: 'none', vatRate: 7, receiptLang: 'th', codePrefix: '', codeDigits: 5 }
 const progOf = S => { const p = (S && S.settings && S.settings.prog) || {}; return { ...PROG_DEFAULT, ...p, posSearch: { ...PROG_DEFAULT.posSearch, ...(p.posSearch || {}) } } }
 const RCPT_TEXT = {
   th: { title: 'ใบเสร็จรับเงิน', member: 'สมาชิก', discount: 'ส่วนลด', total: 'รวม', cash: 'รับเงินสด', change: 'เงินทอน', paidBy: 'ชำระโดย', transfer: 'โอนเงิน', thanks: 'ขอบคุณที่ใช้บริการ', net: 'ราคาไม่รวมภาษี', vat: 'ภาษีมูลค่าเพิ่ม', taxId: 'เลขประจำตัวผู้เสียภาษี' },
@@ -3795,6 +3809,92 @@ const allergyToText = m => (m.allergies || []).map(a => a.drug + (a.reaction ? '
 const allergyFromText = t => String(t || '').split(/[;\n]+/).map(x => x.trim()).filter(Boolean).map(x => { const i = x.indexOf(':'); return i < 0 ? { drug: x, reaction: '' } : { drug: x.slice(0, i).trim(), reaction: x.slice(i + 1).trim() } })
 const csvBool = v => ['1', 'true', 'yes', 'y', 'ใช่'].includes(String(v).trim().toLowerCase())
 
+/* =====================================================================
+   ส่วนที่ 4d: พิมพ์สลิปไปเครื่องพิมพ์ในวงแลน (ผ่านโปรแกรมสะพานพิมพ์ tools/print-bridge)
+   วาดใบเสร็จเป็นภาพแล้วส่งเป็นคำสั่ง ESC/POS แบบภาพ ภาษาไทยจึงออกถูกต้องกับเครื่องพิมพ์ทุกรุ่นที่รองรับ ESC/POS
+   ===================================================================== */
+const BRIDGE_KEY = 'earthshop_bridge'
+const Slip = {
+  font: "'IBM Plex Sans Thai','Sarabun','Noto Sans Thai',Tahoma,'Leelawadee UI',sans-serif",
+  bridgeUrl() { try { return (localStorage.getItem(BRIDGE_KEY) || 'http://localhost:9101').replace(/\/+$/, '') } catch (e) { return 'http://localhost:9101' } },
+  setBridgeUrl(u) { try { localStorage.setItem(BRIDGE_KEY, String(u || '').trim()) } catch (e) { /* ignore */ } },
+  // lines: [{ t, r, a: 'l'|'c'|'r', s: ขนาด px, b: ตัวหนา, dash: true, gap: px }]
+  async render(lines, dots) {
+    try { if (document.fonts && document.fonts.ready) await document.fonts.ready } catch (e) { /* ignore */ }
+    const pad = 6, W = dots, inner = W - pad * 2
+    const meas = document.createElement('canvas').getContext('2d')
+    const f = (l) => (l.b ? 'bold ' : '') + (l.s || 24) + 'px ' + Slip.font
+    const wrap = (txt, l, width) => {
+      meas.font = f(l); const out = []; let cur = ''
+      for (const ch of Array.from(String(txt))) { if (meas.measureText(cur + ch).width > width && cur) { out.push(cur); cur = ch } else cur += ch }
+      out.push(cur); return out
+    }
+    const rows = []
+    for (const l of lines) {
+      if (l.dash) { rows.push({ dash: true, h: 10 }); continue }
+      if (l.gap) { rows.push({ h: l.gap }); continue }
+      const sz = l.s || 24
+      if (l.r !== undefined) {
+        meas.font = f(l); const rw = meas.measureText(String(l.r)).width
+        const left = wrap(l.t, l, inner - rw - 12)
+        left.forEach((t, i) => rows.push({ l, t, r: i === 0 ? String(l.r) : '', a: 'l', h: Math.round(sz * 1.3) }))
+      } else wrap(l.t, l, inner).forEach(t => rows.push({ l, t, a: l.a || 'l', h: Math.round(sz * 1.3) }))
+    }
+    const H = rows.reduce((a, r) => a + r.h, 0) + pad * 2
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H
+    const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#000'; ctx.textBaseline = 'alphabetic'
+    let y = pad
+    for (const r of rows) {
+      if (r.dash) { ctx.fillRect(pad, y + 4, inner, 2); y += r.h; continue }
+      if (r.l) {
+        ctx.font = f(r.l); const base = y + Math.round((r.l.s || 24) * 1.0)
+        let x = pad; const w = ctx.measureText(r.t).width
+        if (r.a === 'c') x = pad + (inner - w) / 2; else if (r.a === 'r') x = pad + inner - w
+        ctx.fillText(r.t, x, base)
+        if (r.r) ctx.fillText(r.r, pad + inner - ctx.measureText(r.r).width, base)
+      }
+      y += r.h
+    }
+    return cv
+  },
+  // ภาพ -> คำสั่ง ESC/POS (GS v 0) แบ่งเป็นแถบละ 96 บรรทัดเพื่อให้เครื่องพิมพ์รุ่นเล็กรับไหว
+  escpos(cv, cut) {
+    const W = cv.width, H = cv.height, bw = Math.ceil(W / 8)
+    const img = cv.getContext('2d').getImageData(0, 0, W, H).data
+    const parts = [Uint8Array.from([0x1b, 0x40])]
+    for (let y0 = 0; y0 < H; y0 += 96) {
+      const h = Math.min(96, H - y0), buf = new Uint8Array(8 + bw * h)
+      buf.set([0x1d, 0x76, 0x30, 0x00, bw & 255, bw >> 8, h & 255, h >> 8])
+      for (let y = 0; y < h; y++) for (let x = 0; x < W; x++) {
+        const i = ((y0 + y) * W + x) * 4, lum = (img[i] * 299 + img[i + 1] * 587 + img[i + 2] * 114) / 1000
+        if (lum < 150 && img[i + 3] > 40) buf[8 + y * bw + (x >> 3)] |= 0x80 >> (x & 7)
+      }
+      parts.push(buf)
+    }
+    parts.push(Uint8Array.from([0x1b, 0x64, 0x04]))
+    if (cut) parts.push(Uint8Array.from([0x1d, 0x56, 0x42, 0x00]))
+    let n = 0; for (const a of parts) n += a.length
+    const out = new Uint8Array(n); let o = 0; for (const a of parts) { out.set(a, o); o += a.length }
+    return out
+  },
+  b64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s) },
+  async call(path, body) {
+    let r
+    try { r = await fetch(Slip.bridgeUrl() + path, { method: body ? 'POST' : 'GET', headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined }) }
+    catch (e) { throw new Error('ติดต่อโปรแกรมสะพานพิมพ์ไม่ได้ (' + Slip.bridgeUrl() + ') ตรวจสอบว่าเปิด bridge.js อยู่และที่อยู่ถูกต้อง') }
+    const j = await r.json().catch(() => ({ ok: false, error: 'คำตอบจากสะพานพิมพ์ไม่ถูกต้อง' }))
+    if (!j.ok) throw new Error(j.error || 'ไม่สำเร็จ')
+    return j
+  },
+  async status() { return await Slip.call('/status') },
+  async check(prog) { return await Slip.call('/check', { host: prog.lanHost, port: Number(prog.lanPort) || 9100 }) },
+  async print(prog, lines) {
+    const cv = await Slip.render(lines, Number(prog.lanDots) || 576)
+    const bytes = Slip.escpos(cv, prog.lanCut !== false)
+    return await Slip.call('/print', { host: prog.lanHost, port: Number(prog.lanPort) || 9100, data: Slip.b64(bytes) })
+  }
+}
+
 const { createApp } = Vue
 const app = createApp({
   data() {
@@ -3842,7 +3942,7 @@ const app = createApp({
       posLimit: 120, imp: { busy: false, pct: 0, msg: '', days: 365, result: null, backup: true },
       loginName: '', nowTick: Date.now(), dbMode: DB_MODE, dbHasAdmin: false, dbMe: null, dbUid: '', dbCfg: { url: '', key: '', open: false }, paying: false, dbSr: { rows: [], totals: { bills: 0, qty: 0, sales: 0, cost: 0, profit: 0 }, lines: [] }, dbKy: null, dbLoading: false, uiSize: (() => { try { const u = localStorage.getItem('knockdown_ui_size'); return u === 's' || u === 'l' ? u : 'm' } catch (e) { return 'm' } })(), setTab: 'general', usSel: null, us: null, usPass: '', usPass2: '', vs: null, vsSel: null, vsTab: 'gen', vsSearch: '', vsTermSearch: '',
       setup: { name: '', empId: '', pin: '', pin2: '', busy: false },
-      dbBackup: { from: '', to: '', busy: false, msg: '', error: '' }, dbImp: null, restoreFile: null, csvFail: [], csvImp: null, csvProg: '', memMode: 'cards', memEdits: {}, memLimit: 100, mgMode: 'grid', gridEdits: {}, gridLimit: 100, bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
+      dbBackup: { from: '', to: '', busy: false, msg: '', error: '' }, dbImp: null, lanMsg: { busy: false, text: '', ok: null }, bridgeUrl: Slip.bridgeUrl(), restoreFile: null, csvFail: [], csvImp: null, csvProg: '', memMode: 'cards', memEdits: {}, memLimit: 100, mgMode: 'grid', gridEdits: {}, gridLimit: 100, bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
       mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
       DRUG_FLAGS, FLAG_SHORT,
       rcvDupOk: false,
@@ -4777,12 +4877,59 @@ const app = createApp({
     runPrint() {
       this.$nextTick(() => { try { this.applyPrintCss(); window.print() } catch (e) { this.toast('เบราว์เซอร์นี้พิมพ์ไม่ได้', 'bad'); this.printDoc = null } })
     },
+    // ===== เครื่องพิมพ์สลิปในวงแลน =====
+    slipLines(sale) {
+      const st = this.S.settings, T = this.rcT, m2 = x => this.money(x)
+      const L = []
+      L.push({ t: st.shopName || '', a: 'c', s: 30, b: true })
+      const addr = [st.shopAddress, st.shopProvince, st.shopZip].filter(Boolean).join(' ') + (st.shopPhone ? ' โทร ' + st.shopPhone : '')
+      if (addr.trim()) L.push({ t: addr, a: 'c', s: 20 })
+      if (st.shopTaxId) L.push({ t: T.taxId + ' ' + st.shopTaxId, a: 'c', s: 20 })
+      L.push({ t: T.title + ' ' + sale.no, a: 'c', s: 22 })
+      L.push({ t: this.fmtDay(sale.day) + ' ' + this.fmtTime(sale.ts) + (sale.by ? ' · ' + sale.by : ''), a: 'c', s: 22 })
+      if (sale.memberId) L.push({ t: T.member + ' ' + this.memberName(sale.memberId), a: 'c', s: 22 })
+      L.push({ dash: true })
+      for (const it of sale.items) { L.push({ t: it.name, s: 24 }); L.push({ t: it.qty + ' × ' + m2(it.price), r: m2(it.qty * it.price), s: 22 }) }
+      L.push({ dash: true })
+      if (sale.discount) L.push({ t: T.discount, r: '-' + m2(sale.discount), s: 24 })
+      L.push({ t: T.total, r: '฿' + m2(sale.total), s: 30, b: true })
+      const vat = this.vatInfo(sale.total)
+      if (vat) { L.push({ t: T.net, r: m2(vat.net), s: 22 }); L.push({ t: T.vat + ' ' + vat.rate + '%', r: m2(vat.vat), s: 22 }) }
+      if (sale.method === 'cash') { L.push({ t: T.cash, r: m2(sale.received), s: 24 }); L.push({ t: T.change, r: m2(sale.change), s: 24 }) }
+      else L.push({ t: T.paidBy, r: T.transfer, s: 24 })
+      L.push({ dash: true }); L.push({ t: T.thanks, a: 'c', s: 22 })
+      return L
+    },
+    lanOn() { return !!(this.prog.lanPrint && this.prog.lanHost) },
+    async lanPrintReceipt(sale) {
+      try { await Slip.print(this.prog, this.slipLines(sale)); return true }
+      catch (e) { this.toast('พิมพ์สลิปไม่สำเร็จ: ' + e.message, 'bad'); return false }
+    },
+    async lanCheck() {
+      this.lanMsg = { busy: true, text: 'กำลังตรวจสอบ...', ok: null }
+      try { await Slip.status() } catch (e) { this.lanMsg = { busy: false, text: e.message, ok: false }; return }
+      try { await Slip.check(this.prog); this.lanMsg = { busy: false, text: 'สะพานพิมพ์ทำงาน และต่อเครื่องพิมพ์ ' + this.prog.lanHost + ':' + this.prog.lanPort + ' ได้', ok: true } }
+      catch (e) { this.lanMsg = { busy: false, text: 'สะพานพิมพ์ทำงาน แต่ ' + e.message, ok: false } }
+    },
+    async lanTest() {
+      this.lanMsg = { busy: true, text: 'กำลังส่งสลิปทดสอบ...', ok: null }
+      const T = this.rcT, now = new Date()
+      const L = [{ t: this.S.settings.shopName || 'Earthshop', a: 'c', s: 30, b: true }, { t: 'ทดสอบเครื่องพิมพ์สลิป', a: 'c', s: 24 },
+        { t: this.fmtDay(dayKey(now)) + ' ' + this.fmtTime(now.toISOString()), a: 'c', s: 22 }, { dash: true },
+        { t: 'ภาษาไทย: ก ข ค ง จ ฉ ช ซ ฌ ญ ฎ ฏ', s: 24 }, { t: 'ตัวเลข 0123456789  ราคา ฿1,234.50', s: 24 }, { t: 'ตัวอย่างรายการ', r: '99.00', s: 24 },
+        { t: 'ซ้าย', r: 'ขวา', s: 24 }, { dash: true }, { t: T.thanks, a: 'c', s: 22 }]
+      try { await Slip.print(this.prog, L); this.lanMsg = { busy: false, text: 'ส่งสลิปทดสอบแล้ว ถ้ากระดาษออกครบ แสดงว่าตั้งค่าถูกต้อง', ok: true } }
+      catch (e) { this.lanMsg = { busy: false, text: e.message, ok: false } }
+    },
+    setBridge(v) { this.bridgeUrl = v; Slip.setBridgeUrl(v) },
     testPrint(kind) {
       const sale = this.S.sales.slice().reverse().find(x => x.status === 'ok' && x.items.some(i => i.pid)) || this.S.sales[this.S.sales.length - 1]
       if (!sale) return this.toast('ยังไม่มีบิลให้ทดสอบ ขายสักบิลก่อน', 'bad')
       if (kind === 'receipt') this.printReceipt(sale); else this.printLabels(sale)
     },
-    printReceipt(sale) { this.printDoc = { sale, receipt: true, lines: [] }; this.runPrint() },
+    async printReceipt(sale) {
+      if (this.lanOn() && this.prog.lanPrint) { if (await this.lanPrintReceipt(sale)) return }
+ this.printDoc = { sale, receipt: true, lines: [] }; this.runPrint() },
     labelLines(sale) {
       const out = []
       for (const it of sale.items) {
@@ -4805,8 +4952,10 @@ const app = createApp({
       if (!this.printOpt.receipt && !lines.length) return
       // ใบเสร็จกับฉลากยาพิมพ์แยกกัน (คนละขนาดกระดาษ และมักเป็นคนละเครื่องพิมพ์) ใบเสร็จก่อน แล้วฉลากตามมา
       const docs = []
-      if (this.printOpt.receipt) docs.push({ sale, receipt: true, lines: [] })
+      if (this.printOpt.receipt && this.lanOn()) { this.lanPrintReceipt(sale).then(ok => { if (!ok) { this.printQueue = [{ sale, receipt: true, lines: [] }]; if (!this.printDoc) { this.printDoc = this.printQueue.shift(); this.runPrint() } } }) }
+      else if (this.printOpt.receipt) docs.push({ sale, receipt: true, lines: [] })
       if (lines.length) docs.push({ sale, receipt: false, lines })
+      if (!docs.length) return
       this.printQueue = docs.slice(1)
       this.printDoc = docs[0]
       this.runPrint()
