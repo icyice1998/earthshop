@@ -114,6 +114,28 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   const rep = await vm(pg, async () => { const v = window.__vm; const to = Date.now() + 864e5, from = to - 5 * 864e5; const r = await Db.reportSales({ from, to, group: 'flag' }); const k = await Db.kyData('11', { from, to }); const doc = Logic.buildKyFromRows(v.S, '11', { from, to }, k.rows); const k9 = await Db.kyData('9', { from, to }); return { total: r.totals.sales, flags: r.rows.map(x => x.key).join(), pages: doc.pages.length, rows: doc.pages[0] && doc.pages[0].rows.length, buyer: doc.pages[0] && doc.pages[0].rows[0] && doc.pages[0].rows[0].buyer, k9: k9.rows.length } })
   ok(rep.total === 234 && rep.pages === 1 && rep.rows === 1 && rep.buyer === 'สมหญิง ใจดี' && rep.k9 >= 3, 'reports and ข.ย. forms from the database: ' + JSON.stringify(rep))
 
+  // SmartDrugstore import into the database (products, members, in-stock lots, last-30-day bills)
+  const imp = await vm(pg, async () => {
+    const v = window.__vm; const today = new Date().toISOString().slice(0, 10), old = '2020-01-05'
+    const T = { tb_shopdetail: [{ shop_name: 'ร้านเดิม' }], tb_supplier: [{ sup_id: 'S1', sup_name: 'ซัพเดิม', sup_tel: '02' }],
+      tb_product: [{ product_id: 'X001', product_bname: 'ยาเดิม หนึ่ง', product_group: 'แก้ปวด', product_unit_name: 'แผง', product_sale_price: '25', product_reorder: '3', product_active: '1', product_sup_id: 'S1', product_danger: '1', product_report11: '1', product_commonname: 'Gen1' },
+                   { product_id: 'X002', product_bname: 'ยาเดิม สอง', product_group: 'ยาตา', product_unit_name: 'ขวด', product_sale_price: '50', product_reorder: '1', product_active: '1', product_sup_id: 'S1' }],
+      tb_productall: [{ product_id: 'X001', recive_date: old, exp_date: '2030-01-01', value_recive: '10', value_now: '4', capacity: '12', produce_num: 'LOT-A', order_id: 'O1' },
+                      { product_id: 'X002', recive_date: old, exp_date: '2029-01-01', value_recive: '5', value_now: '0', capacity: '30', produce_num: 'LOT-B', order_id: 'O1' }],
+      tb_customer: [{ cus_id: 'C100', cus_name: 'ลูกค้าเดิม', cus_tel: '081', cus_druglose: 'Aspirin', cus_comment: 'ทดสอบ' }], tb_user: [], tb_order: [], tb_recivedetail: [],
+      tb_sale: [{ bill_id: 'OLD-1', sale_date: today, sale_time: '10:00:00', Net_recive_M: '75', discount: '0', moneyComein: '100', moneyBack: '25', cus_id: 'C100', Login_name: 'earth', user_id: 'U1' }],
+      tb_saledetail: [{ bill_id: 'OLD-1', pro_id: 'X001', product_name: 'ยาเดิม หนึ่ง', value: '3', price: '25', capacityPunit: '12', recive_date: old, produce_num: 'LOT-A' }] }
+    const r = Importer.convert(T, 30)
+    v.dbImp = { busy: false, msg: '', stats: r.stats, state: r.state, o: { products: true, members: true, lots: true, sales: true }, days: 30 }
+    await v.dbImportApply()
+    const S = v.S; const p1 = S.products.find(x => x.code === 'X001')
+    return { err: v.dbImp && v.dbImp.error, p1: p1 && { danger: p1.danger, ky11: p1.ky11, sup: p1.supplier, price: p1.price }, stock: p1 && v.stockMap[p1.id], mem: S.members.some(m => m.code === 'C100'), sale: S.sales.some(x => x.no === 'OLD-1') } })
+  ok(!imp.err && imp.p1 && imp.p1.danger && imp.p1.ky11 && imp.p1.sup === 'ซัพเดิม' && imp.stock === 4 && imp.mem && imp.sale, 'SmartDrugstore import (products, members, lots, bills): ' + JSON.stringify(imp))
+  const inv = (await q(`select (select count(*) from lots l where qty_left <> coalesce((select sum(qty) from stock_movements m where m.lot_id=l.id),0)) bad, (select count(*) from sale_line_lots sll join sale_lines sl on sl.id=sll.sale_line_id join sales s on s.id=sl.sale_id where s.bill_no='OLD-1') alloc`))[0]
+  ok(Number(inv.bad) === 0 && Number(inv.alloc) === 1, 'imported lots keep stock = sum of movements, bill linked to its lot: ' + JSON.stringify(inv))
+  const again = await vm(pg, async () => { const v = window.__vm; const before = v.S.sales.length; await v.dbImportApply().catch(() => {}); return v.S.sales.length === before })
+  ok(again === true, 'running the import twice does not duplicate bills')
+
   // supplier + settings + users
   const ss = await vm(pg, async () => { const v = window.__vm; v.vsNew(); v.vs.name = 'ผู้จำหน่ายใหม่'; v.vs.contact = 'คุณเอ'; v.vs.openTime = '08:00'; const p = v.S.products[0]; v.vs.terms.push({ pid: p.id, name: p.name, buy: 10, free: 1 }); await v.vsSave(); const s = v.S.suppliers.find(x => x.name === 'ผู้จำหน่ายใหม่'); return { c: s && s.contact, t: s && s.terms.length, o: s && s.openTime } })
   ok(ss.c === 'คุณเอ' && ss.t === 1 && ss.o === '08:00', 'supplier master saved with free-goods terms: ' + JSON.stringify(ss))

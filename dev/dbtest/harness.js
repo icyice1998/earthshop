@@ -112,7 +112,7 @@ async function freshDb(name) {
   await root.query('drop database if exists ' + name); await root.query('create database ' + name); await root.end()
   const pool = admin(name)
   const dir = path.join(__dirname, '..', '..', 'db')
-  for (const f of ['01_schema', '02_functions', '03_security', '04_reports', '05_api']) await pool.query(fs.readFileSync(path.join(dir, f + '.sql'), 'utf8'))
+  for (const f of ['01_schema', '02_functions', '03_security', '04_reports', '05_api', '06_import']) await pool.query(fs.readFileSync(path.join(dir, f + '.sql'), 'utf8'))
   return pool
 }
 

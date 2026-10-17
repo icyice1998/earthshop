@@ -37,10 +37,12 @@ The imported history contains no prescription fields, so ข.ย.12 is empty unt
 
 Connect the app to your own Supabase project (database mode)
   A. Create the project (Supabase dashboard). Authentication > Providers > Email: turn OFF "Confirm email".
-  B. SQL Editor: paste the whole of deploy_all.sql and run it once.
+  B. SQL Editor: paste the whole of deploy_all.sql and run it once (01-06). If you ran 01-05 earlier, run only 06_import.sql.
   C. Authentication > Users > Add user: email  <your login name>@knockdown-shop.com  and a password
      (tick "Auto Confirm User"). The part before @ is the login name you type in the app.
-  D. Load the SmartDrugstore history (optional, from your own computer; keep the DB password private):
+  D. Load SmartDrugstore data. Easiest: inside the app, Settings > สำรอง / กู้คืน / นำเข้า > นำเข้าจาก SmartDrugstore,
+     choose the .sql file (products, members, in-stock lots, last 30 days of bills; about 20 seconds for 90 MB).
+     Full history instead (optional, from your own computer; keep the DB password private):
        python3 -I migrate_drgstr.py DRGSTR.sql OUTDIR
        cd OUTDIR
        psql "postgresql://postgres:<DB-PASSWORD>@db.<project-ref>.supabase.co:5432/postgres" -v ON_ERROR_STOP=1 -f load.sql
