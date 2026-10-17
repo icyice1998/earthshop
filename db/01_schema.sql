@@ -46,6 +46,7 @@ create table suppliers (
 );
 create index suppliers_name_idx on suppliers (lower(name));
 
+
 -- drug types that can be assigned to products (the "กำหนดประเภทยา" screen)
 create table drug_types (
   code     text primary key,
@@ -102,6 +103,15 @@ create index products_barcode_idx on products (barcode) where barcode is not nul
 create index products_name_idx    on products (lower(name));
 create index products_generic_idx on products (lower(generic_name));
 create index products_category_idx on products (category_id);
+
+-- free-goods terms: buy N get M free (shown as a hint when receiving)
+create table supplier_terms (
+  supplier_id bigint not null references suppliers(id) on delete cascade,
+  product_id  bigint not null references products(id) on delete cascade,
+  buy_qty     int not null check (buy_qty > 0),
+  free_qty    int not null check (free_qty > 0),
+  primary key (supplier_id, product_id)
+);
 
 create table product_drug_types (
   product_id bigint not null references products(id) on delete cascade,

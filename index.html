@@ -174,6 +174,15 @@
         <button type="submit" class="btn btn-pri w-full text-lg" :disabled="loginForm.busy">{{ loginForm.busy ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ' }}</button>
       </form>
       <div class="text-xs text-slate-400 text-center mt-4">เครื่องนี้จะจำการเข้าสู่ระบบไว้ ไม่ต้องพิมพ์ทุกครั้ง</div>
+      <div class="text-center mt-3">
+        <button type="button" class="text-xs underline text-slate-500" @click="dbCfg.open = !dbCfg.open">{{ dbMode ? 'ใช้ฐานข้อมูลใหม่ (' + (dbMode ? 'เปิดอยู่' : '') + ') · ตั้งค่าการเชื่อมต่อ' : 'ตั้งค่าการเชื่อมต่อฐานข้อมูลใหม่ (Supabase)' }}</button>
+      </div>
+      <div v-if="dbCfg.open" class="mt-3 p-3 rounded-xl text-left" style="background:#f2f6f5">
+        <label class="lbl" for="db-url">ที่อยู่โปรเจกต์ (Project URL)</label><input id="db-url" v-model="dbCfg.url" class="inp mb-2" placeholder="https://xxxx.supabase.co" autocapitalize="none">
+        <label class="lbl" for="db-key">anon / publishable key</label><input id="db-key" v-model="dbCfg.key" class="inp mb-2" placeholder="eyJ... หรือ sb_publishable_..." autocapitalize="none">
+        <div class="text-xs text-slate-500 mb-2">เก็บในเครื่องนี้เท่านั้น ห้ามใส่ service_role key หรือรหัสผ่านฐานข้อมูล</div>
+        <div class="flex gap-2"><button type="button" class="btn btn-pri flex-1" @click="dbSaveCfg">บันทึกและเชื่อมต่อ</button><button v-if="dbMode" type="button" class="btn btn-ghost" @click="dbClearCfg">กลับระบบเดิม</button></div>
+      </div>
     </div>
   </div>
 
@@ -1296,7 +1305,7 @@
         <button class="btn btn-ghost w-full mt-3" @click="changePin">เปลี่ยนรหัส</button>
       </div>
 
-      <div v-if="isAdmin" class="card p-4 mb-3">
+      <div v-if="isAdmin && !dbMode" class="card p-4 mb-3">
         <div class="font-bold mb-1">นำเข้าข้อมูลจาก SmartDrugstore</div>
         <div class="text-xs text-slate-500 mb-3">เลือกไฟล์ .sql ที่ส่งออกจากโปรแกรมเดิม (Navicat / mysqldump) ระบบอ่านเป็นข้อความอย่างเดียว ไม่รันคำสั่งใดๆ จะนำเข้า สินค้า ล็อต ราคาทุน วันหมดอายุ ใบรับเข้า ผู้จำหน่าย ลูกค้า (ชื่อ เบอร์ ประวัติแพ้ยา) รายชื่อผู้ใช้ (ไม่รวมรหัสผ่าน) ข้อมูลร้าน และบิลขายย้อนหลังตามที่เลือก ไม่นำเข้ารหัสผ่าน เลขบัตรประชาชน ที่อยู่ลูกค้า หรือรูปภาพ</div>
         <label class="lbl" for="imp-days">นำเข้าบิลขายย้อนหลัง</label>
@@ -1323,7 +1332,7 @@
         </div>
       </div>
 
-      <div class="card p-4 mb-3">
+      <div v-if="!dbMode" class="card p-4 mb-3">
         <div class="font-bold mb-1">สำรองและกู้คืนข้อมูล</div>
         <div class="text-xs text-slate-500 mb-3">ข้อมูลหลักเก็บบนคลาวด์ (Supabase) ควรสำรองไว้เป็นระยะ เพราะแพ็กเกจฟรีไม่มีระบบสำรองอัตโนมัติ</div>
         <div class="grid grid-cols-2 gap-2 mb-3">
@@ -1335,13 +1344,13 @@
         <button v-if="stashAt" class="btn btn-ghost w-full mt-2" @click="showStash">ดูข้อมูลที่ค้างจากเครื่องนี้ (ไม่ได้ซิงค์) · {{ stashAt }}</button>
       </div>
 
-      <div class="card p-4 mb-3">
+      <div v-if="!dbMode" class="card p-4 mb-3">
         <div class="font-bold mb-1">ล้างประวัติ เริ่มนับสต็อกใหม่</div>
         <div class="text-xs text-slate-500 mb-3">ลบบิล ประวัติ และตั้งสต็อกทุกรายการเป็น 0 แต่เก็บรายการยา ราคา ชุดยา การแกะแบ่งขาย ชื่อร้าน และรหัสผ่านไว้ เหมาะก่อนเริ่มใช้จริง</div>
         <button class="btn btn-badline w-full" @click="askClearHistory">ล้างประวัติ เริ่มนับสต็อกใหม่</button>
       </div>
 
-      <div class="card p-4">
+      <div v-if="!dbMode" class="card p-4">
         <div class="font-bold mb-1">กลับไปค่าเริ่มต้นจาก Excel</div>
         <div class="text-xs text-slate-500 mb-3">ล้างทั้งหมดรวมทั้งรายการยาที่เพิ่ม/แก้ไว้ แล้วกลับไปใช้รายการและสต็อกตั้งต้นจากไฟล์ Excel (ชื่อร้านและรหัสผ่านยังอยู่)</div>
         <button class="btn btn-badline w-full" @click="resetAll">ล้างข้อมูลและกลับไปค่าเริ่มต้น</button>
@@ -2427,7 +2436,11 @@ const Importer = {
    ===================================================================== */
 const supabaseUrl = 'https://snzhaqfffsueowqznqmm.supabase.co'
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNuemhhcWZmZnN1ZW93cXpucW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3ODQ0MTEsImV4cCI6MjEwNTM2MDQxMX0.fnpvOwJntI5x1Ss5sA8MG5ZR8wLq1TBu7b8t-qbcBDI'
-const _supabase = supabase.createClient(supabaseUrl, supabaseKey)
+// โหมดฐานข้อมูลใหม่: ถ้าตั้งค่าการเชื่อมต่อไว้ (เก็บในเครื่องนี้เท่านั้น) จะใช้โปรเจกต์ Supabase ที่ตั้งไว้แทนระบบเดิม
+const DBCFG = (() => { try { const o = JSON.parse(localStorage.getItem('earthshop_db')); return o && o.url && o.key ? o : null } catch (e) { return null } })()
+const DB_MODE = !!DBCFG
+const SB_URL = DBCFG ? DBCFG.url : supabaseUrl, SB_KEY = DBCFG ? DBCFG.key : supabaseKey
+const _supabase = supabase.createClient(SB_URL, SB_KEY)
 
 // ชื่อผู้ใช้ที่พิมพ์สั้นๆ (เช่น earth) จะถูกต่อท้ายด้วยโดเมนนี้ให้กลายเป็นอีเมลตอนล็อกอิน
 // ต้องตรงกับโดเมนของอีเมลที่สร้างไว้ในหน้า Authentication > Users ของ Supabase
@@ -2606,6 +2619,37 @@ const Logic = {
     const fl = this.kyFlagOf(form)
     if (o && Array.isArray(o.pids)) return S.products.filter(p => o.pids.includes(p.id))
     return S.products.filter(p => fl && p[fl])
+  },
+  // สร้างโครงเอกสาร ข.ย. จากแถวที่ฐานข้อมูลคำนวณให้ (หน้าตาเหมือน buildKy)
+  buildKyFromRows(S, form, o, rows) {
+    const st = S.settings || {}
+    const shop = { name: st.shopName || '', address: [st.shopAddress, st.shopProvince, st.shopZip].filter(Boolean).join(' '), pharmacist: st.pharmacistName || '', license: st.licenseNo || '' }
+    const d0 = dayKey(new Date(o.from)), d1 = dayKey(new Date(o.to))
+    const doc = { form, shop, period: this.beDay(d0) + ' - ' + this.beDay(d1), rows: [], pages: [], warn: [] }
+    if (form === '9') {
+      doc.rows = rows.map((r, i) => ({ no: i + 1, ts: r.ts, date: this.beDay(r.doc_date), supplier: r.supplier || '', drug: r.drug, lotNo: r.lot_no || '', qty: r.qty, note: r.note || '' }))
+      for (const r of rows) if (r.missing_lot) doc.warn.push('ไม่มีเลขที่ครั้งที่ผลิต: ' + r.drug)
+    } else if (form === '12') {
+      doc.rows = rows.map((r, i) => ({ no: i + 1, ts: r.ts, date: this.beDay(r.doc_date), doc: r.prescriber, docAddr: r.prescriber_addr, user: r.user_name || '', age: r.age, addr: r.addr || '', drugs: r.drugs || '', note: r.note || '' }))
+    } else {
+      const byLot = new Map()
+      for (const r of rows) {
+        let pg = byLot.get(r.lot_id)
+        if (!pg) { pg = { drug: r.drug, maker: r.maker || '', lotNo: r.lot_no || '', pack: r.pack || '', from: r.from_supplier || '', qtyIn: r.qty_in, dateIn: this.beDay(r.date_in), reg: r.reg_no || '', rows: [] }; byLot.set(r.lot_id, pg) }
+        if (r.row_no > 0) pg.rows.push({ no: pg.rows.length + 1, date: this.beDay(r.sale_date), qty: r.qty, buyer: r.buyer || '', addr: r.addr || '', type: r.buyer_type || '', remain: r.remain || '', note: 'บิล ' + r.bill_no })
+      }
+      for (const page of byLot.values()) {
+        if (!page.maker) doc.warn.push('ยังไม่ได้ใส่ผู้ผลิต/ผู้นำเข้า: ' + page.drug)
+        if (!page.pack) doc.warn.push('ยังไม่ได้ใส่ขนาดบรรจุ: ' + page.drug)
+        if (form === '13' && !page.reg) doc.warn.push('ยังไม่ได้ใส่เลขทะเบียนตำรับยา: ' + page.drug)
+        if (!page.lotNo) doc.warn.push('ล็อตไม่มีเลขที่ครั้งที่ผลิต: ' + page.drug)
+        if (page.rows.some(r => !r.buyer)) doc.warn.push('มีรายการขายที่ไม่มีชื่อผู้ซื้อ: ' + page.drug + (page.lotNo ? ' ล็อต ' + page.lotNo : ''))
+        doc.pages.push(page)
+      }
+      doc.pages.sort((a, b) => a.drug.localeCompare(b.drug, 'th') || a.lotNo.localeCompare(b.lotNo))
+      doc.warn = [...new Set(doc.warn)]
+    }
+    return doc
   },
   buildKy(S, form, o) {
     const st = S.settings || {}
@@ -3145,6 +3189,383 @@ const Logic = {
 /* =====================================================================
    ส่วนที่ 5: หน้าจอ (Vue)
    ===================================================================== */
+/* =====================================================================
+   ส่วนที่ 4b: โหมดฐานข้อมูลใหม่ (PostgreSQL ผ่าน Supabase)
+   ใช้เมื่อตั้งค่าการเชื่อมต่อแล้วเท่านั้น (หน้าล็อกอิน > ตั้งค่าการเชื่อมต่อฐานข้อมูล) โหมดเดิมไม่กระทบ
+   แอปอ่านข้อมูลผ่าน view (ซ่อนต้นทุนถ้าไม่มีสิทธิ์) และแก้ข้อมูลผ่านฟังก์ชันที่ตรวจสิทธิ์ที่ฝั่งฐานข้อมูล
+   ===================================================================== */
+const DB_WINDOW = { sales: 14, receipts: 120, movements: 30, orders: 120 }
+const N = v => (v === '' || v === null || v === undefined) ? null : Number(v)
+const dbDayAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return dayKey(d) }
+const dbTs = d => (d || '2000-01-01') + 'T09:00:00+07:00'
+const Db = {
+  async rows(view, cols, mod, order) {
+    const out = []
+    for (let from = 0; ; from += 1000) {
+      let q = _supabase.from(view).select(cols || '*')
+      if (mod) q = mod(q)
+      for (const o of (order || ['id'])) q = q.order(o)
+      const { data, error } = await q.range(from, from + 999)
+      if (error) throw new Error(error.message || 'อ่านข้อมูลไม่สำเร็จ')
+      for (const r of data) out.push(r)
+      if (data.length < 1000) break
+    }
+    return out
+  },
+  async rpc(fn, args) {
+    const { data, error } = await _supabase.rpc(fn, args || {})
+    if (error) { const e = new Error(error.message || 'ไม่สำเร็จ'); e.code = error.code; throw e }
+    return data
+  },
+  permsObj(perms, admin) { const o = {}; for (const k of PERM_KEYS) o[k] = !!admin || (perms || []).includes(k); return o },
+  mapStaff(r) {
+    return { id: r.id, empId: r.emp_id || '', name: r.display_name, login: r.login, role: r.role_label || '', active: r.active, admin: r.is_admin, workStart: r.work_start ? String(r.work_start).slice(0, 5) : '', workEnd: r.work_end ? String(r.work_end).slice(0, 5) : '',
+      perms: this.permsObj(r.permissions, false) }
+  },
+  mapSettings(sh) {
+    const j = sh.settings || {}
+    return { pin: '', shopName: sh.name || 'ร้านยา', shopAddress: sh.address || '', shopProvince: sh.province || '', shopZip: sh.zip || '', shopPhone: sh.phone || '', shopFax: sh.fax || '', shopTaxId: sh.tax_id || '',
+      openTime: sh.open_time || '', closeTime: sh.close_time || '', branchCode: sh.branch_code || '', branchName: sh.branch_name || '', pharmacistName: sh.pharmacist_name || '', licenseNo: sh.license_no || '',
+      nearExpiryDays: sh.near_expiry_days || 90, ...j }
+  },
+  mapSupplier(r, terms, prodName) {
+    return { id: String(r.id), code: r.code || '', name: r.name, address: r.address || '', province: r.province || '', zip: r.zip || '', phone: r.phone || '', fax: r.fax || '', taxId: r.tax_id || '',
+      openTime: r.open_time || '', closeTime: r.close_time || '', contact: r.contact_name || '', contactMobile: r.contact_mobile || '', note: r.note || '',
+      terms: (terms || []).map(t => ({ pid: String(t.product_id), name: prodName(t.product_id), buy: t.buy_qty, free: t.free_qty })) }
+  },
+  mapProduct(r, ctx) {
+    const flags = {}; for (const f of DRUG_FLAGS) flags[f.k] = (r.drug_types || []).includes(f.k)
+    const prices = {}; for (const n of [2, 3, 4, 5]) if (Number(r['price' + n]) > 0) prices[n] = Number(r['price' + n])
+    const sup = ctx.supById[String(r.supplier_id)]
+    const o = { id: String(r.id), code: r.code, name: r.name, generic: r.generic_name || '', category: r.category || 'อื่นๆ', unit: r.unit, cost: Number(r.latest_cost) || 0, price: Number(r.price1) || 0,
+      reorder: r.reorder_point || 0, note: r.note || '', active: r.active, barcode: r.barcode || '', location: r.location || '', regNo: r.reg_no || '', manufacturer: r.manufacturer || '', packSize: r.pack_size || '',
+      supplier: sup ? sup.name : '', supplierId: r.supplier_id ? String(r.supplier_id) : '', expWarnDays: r.exp_warn_days || 0, orderQty: r.order_qty || 0, usage: r.usage_text || '', indication: r.indication || '', warning: r.warning_text || '', storage: r.storage_text || '',
+      mealTime: r.meal_time || '', storageType: r.storage_type || '', type: r.is_supply ? 'supply' : 'sell', ...flags }
+    if (Object.keys(prices).length) o.prices = prices
+    const b = ctx.bundles[r.id]; if (b) o.bundle = b
+    const u = ctx.unpack[r.id]; if (u) o.unpack = u
+    return o
+  },
+  mapLot(r) {
+    return { id: String(r.id), pid: String(r.product_id), lotNo: r.lot_no || '', expiry: r.exp_date || '', qtyIn: r.qty_in, qtyLeft: r.qty_left, cost: Number(r.unit_cost) || 0, receivedAt: dbTs(r.received_on), source: r.source }
+  },
+  mapMovement(r) {
+    return { id: String(r.id), ts: r.ts, pid: String(r.product_id), type: r.type, qty: r.qty, lotId: String(r.lot_id), ref: r.ref_no || '', note: r.note || '', by: r.staff_name || '' }
+  },
+  mapMember(r, al) {
+    return { id: String(r.id), code: r.code || '', name: r.name, phone: r.phone || '', allergies: (al || []).map(a => ({ drug: a.drug, reaction: a.reaction || '' })), note: r.note || '', createdAt: r.created_at, by: '' }
+  },
+  mapSale(r, lines) {
+    const s = { id: String(r.id), no: r.bill_no, ts: r.ts, day: r.sale_date, items: (lines || []).map(l => ({ pid: l.product_id ? String(l.product_id) : null, name: l.name, unit: l.unit || '', qty: l.qty, price: Number(l.unit_price), costTotal: Number(l.cost_total) || 0, allocs: [], ...(l.product_id ? {} : { other: true }) })),
+      subtotal: Number(r.subtotal), discount: Number(r.discount), total: Number(r.total), method: r.method, received: Number(r.received), change: Number(r.change_amount), status: r.status, by: r.staff_name || '', backdated: false, noStock: false,
+      imported: !!r.imported, memberId: r.customer_id ? String(r.customer_id) : '' }
+    if (r.buyer_name) s.buyer = { name: r.buyer_name, addr: r.buyer_addr || '', type: r.buyer_type || '' }
+    if (r.rx_prescriber) s.rx = { doc: r.rx_prescriber, docAddr: r.rx_prescriber_addr || '', user: r.rx_user || '', age: r.rx_user_age || '', addr: r.rx_user_addr || '' }
+    return s
+  },
+  mapReceipt(r, lines, S) {
+    const sup = S.suppliers.find(x => x.id === String(r.supplier_id))
+    const items = (lines || []).map(l => { const p = S.products.find(x => x.id === String(l.product_id)); return { pid: String(l.product_id), name: p ? p.name : '', unit: p ? p.unit : '', qty: l.qty, freeQty: l.free_qty, unitCost: Number(l.unit_cost), lineDiscount: Number(l.line_discount), effCost: Number(l.eff_cost), lotNo: l.lot_no || '', expiry: l.exp_date || '', lotId: l.lot_id ? String(l.lot_id) : '' } })
+    return { id: String(r.id), ts: r.created_at, day: r.received_on, invoice: r.invoice_no || '', supplier: sup ? sup.name : '', supplierId: sup ? sup.id : '', items, discount: Number(r.discount), subtotal: Number(r.subtotal), total: Number(r.total),
+      invoiceTotal: r.invoice_total === null ? null : Number(r.invoice_total), orderId: r.po_id ? String(r.po_id) : '', by: r.staff_name || '', status: r.status }
+  },
+  mapOrder(r, lines, S) {
+    const sup = S.suppliers.find(x => x.id === String(r.supplier_id))
+    return { id: String(r.id), no: r.no, ts: r.created_at, day: r.ordered_on || '', supplier: sup ? sup.name : '', supplierId: sup ? sup.id : '', note: r.note || '', by: r.staff_name || '', status: r.status === 'closed' || r.status === 'cancel' ? r.status : 'open', closed: r.status === 'closed',
+      items: (lines || []).map(l => { const p = S.products.find(x => x.id === String(l.product_id)); return { pid: String(l.product_id), name: p ? p.name : '', unit: p ? p.unit : '', qty: l.qty, unitCost: Number(l.unit_cost), got: l.received_qty } }), rcIds: [] }
+  },
+  group(rows, key) { const m = {}; for (const r of rows) (m[r[key]] || (m[r[key]] = [])).push(r); return m },
+
+  // ---------- โหลดข้อมูลทั้งหมดตอนเปิดแอป ----------
+  async load() {
+    const shopRows = await this.rows('v_shop', '*', null, ['id'])
+    const me = (await this.rows('v_me', '*', null, ['id']))[0] || null
+    const hasAdmin = !!(await this.rpc('has_admin'))
+    const supRows = await this.rows('v_suppliers', '*', q => q.eq('active', true))
+    const termRows = await this.rows('v_supplier_terms', '*', null, ['supplier_id', 'product_id'])
+    const prodRows = await this.rows('v_products')
+    const bundleRows = await this.rows('v_product_bundles', '*', null, ['bundle_id', 'part_id'])
+    const unpackRows = await this.rows('v_product_unpack', '*', null, ['parent_id'])
+    const lotRows = await this.rows('v_lots', '*', q => q.gt('qty_left', 0))
+    const memRows = await this.rows('v_customers')
+    const alRows = await this.rows('v_customer_allergies')
+    const staffRows = me && me.is_admin ? await this.rows('v_staff') : []
+    const S = { products: [], lots: [], movements: [], sales: [], receipts: [], closings: [], returns: [], issues: [], members: [], memberNotes: [], followups: [], orders: [], suppliers: [], users: [],
+      seq: { sale: 0, ret: 0, mem: 0, po: 0 }, settings: this.mapSettings(shopRows[0] || {}), noExtras: true }
+    const prodName = id => { const r = prodRows.find(x => x.id === id); return r ? r.name : '' }
+    const tg = this.group(termRows, 'supplier_id')
+    S.suppliers = supRows.map(r => this.mapSupplier(r, tg[r.id], prodName))
+    const supById = {}; for (const s of S.suppliers) supById[s.id] = s
+    const bundles = {}; for (const b of bundleRows) (bundles[b.bundle_id] || (bundles[b.bundle_id] = [])).push({ pid: String(b.part_id), qty: b.qty })
+    const unpack = {}; for (const u of unpackRows) unpack[u.parent_id] = { pid: String(u.child_id), ratio: u.ratio }
+    const ctx = { supById, bundles, unpack }
+    S.products = prodRows.map(r => this.mapProduct(r, ctx))
+    S.lots = lotRows.map(r => this.mapLot(r))
+    const ag = this.group(alRows, 'customer_id')
+    S.members = memRows.map(r => this.mapMember(r, ag[r.id]))
+    S.users = me && me.is_admin ? staffRows.map(r => this.mapStaff(r)) : (me ? [this.mapStaff(me)] : [])
+    if (me && !me.is_admin) { S.users[0].perms = this.permsObj(me.permissions, false) }
+    if (me && me.is_admin) { const u = S.users.find(x => x.id === me.id); if (u) u.perms = this.permsObj(me.permissions, true) }
+    await this.loadWindow(S, true)
+    return { S, me, hasAdmin }
+  },
+  async loadWindow(S, withOrders) {
+    const sFrom = dbDayAgo(DB_WINDOW.sales), rFrom = dbDayAgo(DB_WINDOW.receipts)
+    const saleRows = await this.rows('v_sales', '*', q => q.gte('sale_date', sFrom))
+    const lineRows = await this.rows('v_sale_lines', '*', q => q.gte('sale_date', sFrom))
+    const lg = this.group(lineRows, 'sale_id')
+    S.sales = saleRows.map(r => this.mapSale(r, (lg[r.id] || []).sort((a, b) => a.line_no - b.line_no))).sort((a, b) => a.ts.localeCompare(b.ts))
+    const rcRows = await this.rows('v_receipts', '*', q => q.gte('received_on', rFrom))
+    const rlRows = await this.rows('v_receipt_lines', '*', q => q.gte('received_on', rFrom))
+    const rg = this.group(rlRows, 'receipt_id')
+    S.receipts = rcRows.map(r => this.mapReceipt(r, rg[r.id], S)).sort((a, b) => a.ts.localeCompare(b.ts))
+    if (withOrders) {
+      const oFrom = dbDayAgo(DB_WINDOW.orders)
+      const poRows = (await this.rows('v_purchase_orders', '*', q => q.in('status', ['open', 'partial']))).concat(await this.rows('v_purchase_orders', '*', q => q.gte('ordered_on', oFrom).in('status', ['closed', 'cancel'])))
+      const poIds = new Set(poRows.map(r => r.id))
+      const plRows = (await this.rows('v_purchase_order_lines', '*', q => q.in('po_status', ['open', 'partial']))).concat(await this.rows('v_purchase_order_lines', '*', q => q.gte('ordered_on', oFrom).in('po_status', ['closed', 'cancel'])))
+      const pg = this.group(plRows.filter(l => poIds.has(l.po_id)), 'po_id')
+      S.orders = poRows.map(r => this.mapOrder(r, pg[r.id], S)).sort((a, b) => a.ts.localeCompare(b.ts))
+    }
+    try {
+      const mvRows = await this.rows('v_stock_movements', '*', q => q.gte('ts', new Date(Date.now() - DB_WINDOW.movements * 864e5).toISOString()))
+      S.movements = mvRows.map(r => this.mapMovement(r))
+    } catch (e) { S.movements = [] }
+  },
+  // รีเฟรชของที่เปลี่ยนบ่อย (ล็อตคงเหลือ บิล ใบรับเข้า ใบสั่งซื้อ) เรียกเป็นระยะและหลังทำรายการ
+  async refreshLive(S) {
+    const lotRows = await this.rows('v_lots', '*', q => q.gt('qty_left', 0))
+    S.lots = lotRows.map(r => this.mapLot(r))
+    await this.loadWindow(S, true)
+  },
+  async reloadLots(S, pids) {
+    const ids = [...new Set(pids.map(N))].filter(x => x !== null)
+    if (!ids.length) return
+    const rows = await this.rows('v_lots', '*', q => q.in('product_id', ids).gt('qty_left', 0))
+    const set = new Set(ids.map(String))
+    S.lots = S.lots.filter(l => !set.has(l.pid)).concat(rows.map(r => this.mapLot(r)))
+  },
+  async reloadProducts(S, ids) {
+    const nums = [...new Set(ids.map(N))].filter(x => x !== null)
+    if (!nums.length) return
+    const rows = await this.rows('v_products', '*', q => q.in('id', nums))
+    const ctx = await this.productCtx(S, nums)
+    for (const r of rows) {
+      const np = this.mapProduct(r, ctx), i = S.products.findIndex(x => x.id === np.id)
+      if (i >= 0) S.products.splice(i, 1, np); else S.products.push(np)
+    }
+  },
+  async productCtx(S, nums) {
+    const supById = {}; for (const s of S.suppliers) supById[s.id] = s
+    const b = await this.rows('v_product_bundles', '*', q => q.in('bundle_id', nums), ['bundle_id', 'part_id'])
+    const u = await this.rows('v_product_unpack', '*', q => q.in('parent_id', nums), ['parent_id'])
+    const bundles = {}; for (const x of b) (bundles[x.bundle_id] || (bundles[x.bundle_id] = [])).push({ pid: String(x.part_id), qty: x.qty })
+    const unpack = {}; for (const x of u) unpack[x.parent_id] = { pid: String(x.child_id), ratio: x.ratio }
+    return { supById, bundles, unpack }
+  },
+  async reloadMovements(S, pid) {
+    try {
+      const rows = await this.rows('v_stock_movements', '*', q => q.eq('product_id', N(pid)), ['ts', 'id'])
+      S.movements = S.movements.filter(m => m.pid !== String(pid)).concat(rows.slice(-300).map(r => this.mapMovement(r)))
+    } catch (e) { /* ไม่มีสิทธิ์ดูประวัติ */ }
+  },
+  async reloadSale(S, id) {
+    const r = (await this.rows('v_sales', '*', q => q.eq('id', N(id))))[0]
+    if (!r) return null
+    const lines = await this.rows('v_sale_lines', '*', q => q.eq('sale_id', N(id)), ['line_no'])
+    const sale = this.mapSale(r, lines)
+    const i = S.sales.findIndex(x => x.id === sale.id)
+    if (i >= 0) S.sales.splice(i, 1, sale); else S.sales.push(sale)
+    S.sales.sort((a, b) => a.ts.localeCompare(b.ts))
+    return S.sales.find(x => x.id === sale.id)
+  },
+  async reloadReceipt(S, id) {
+    const r = (await this.rows('v_receipts', '*', q => q.eq('id', N(id))))[0]
+    if (!r) return null
+    const lines = await this.rows('v_receipt_lines', '*', q => q.eq('receipt_id', N(id)))
+    const rc = this.mapReceipt(r, lines, S)
+    const i = S.receipts.findIndex(x => x.id === rc.id)
+    if (i >= 0) S.receipts.splice(i, 1, rc); else S.receipts.push(rc)
+    S.receipts.sort((a, b) => a.ts.localeCompare(b.ts))
+    return S.receipts.find(x => x.id === rc.id)
+  },
+  async reloadOrder(S, id) {
+    const r = (await this.rows('v_purchase_orders', '*', q => q.eq('id', N(id))))[0]
+    if (!r) return null
+    const lines = await this.rows('v_purchase_order_lines', '*', q => q.eq('po_id', N(id)))
+    const o = this.mapOrder(r, lines, S)
+    const i = S.orders.findIndex(x => x.id === o.id)
+    if (i >= 0) S.orders.splice(i, 1, o); else S.orders.push(o)
+    return S.orders.find(x => x.id === o.id)
+  },
+  async reloadSuppliers(S) {
+    const rows = await this.rows('v_suppliers', '*', q => q.eq('active', true))
+    const terms = await this.rows('v_supplier_terms', '*', null, ['supplier_id', 'product_id'])
+    const tg = this.group(terms, 'supplier_id')
+    S.suppliers = rows.map(r => this.mapSupplier(r, tg[r.id], id => { const p = S.products.find(x => x.id === String(id)); return p ? p.name : '' }))
+    const nm = {}; for (const x of S.suppliers) nm[x.id] = x.name
+    for (const p of S.products) if (p.supplierId && nm[p.supplierId]) p.supplier = nm[p.supplierId]
+    for (const r of S.receipts) if (r.supplierId && nm[r.supplierId]) r.supplier = nm[r.supplierId]
+    for (const o of S.orders) if (o.supplierId && nm[o.supplierId]) o.supplier = nm[o.supplierId]
+  },
+  supplierId(S, name) { const k = Logic.supplierKey(name); const s = S.suppliers.find(x => Logic.supplierKey(x.name) === k); return s ? N(s.id) : null },
+
+  // ---------- ข้อมูลสินค้า ----------
+  productPayload(S, p, parts, unpack) {
+    const pr = p.prices || {}
+    const flags = DRUG_FLAGS.filter(f => p[f.k]).map(f => f.k)
+    return { id: p.id && /^\d+$/.test(String(p.id)) ? N(p.id) : null, code: p.code, name: p.name, generic_name: p.generic || '', category: p.category || '', unit: p.unit, barcode: p.barcode || '', location: p.location || '',
+      reg_no: p.regNo || '', manufacturer: p.manufacturer || '', pack_size: p.packSize || '', supplier_id: this.supplierId(S, p.supplier), reorder_point: Math.floor(Number(p.reorder)) || 0, order_qty: Math.floor(Number(p.orderQty)) || 0,
+      exp_warn_days: Math.floor(Number(p.expWarnDays)) || 0, price1: Number(p.price) || 0, price2: pr[2] || null, price3: pr[3] || null, price4: pr[4] || null, price5: pr[5] || null,
+      usage_text: p.usage || '', indication: p.indication || '', warning_text: p.warning || '', storage_text: p.storage || '', meal_time: p.mealTime || '', storage_type: p.storageType || '', note: p.note || '',
+      active: p.active !== false, is_supply: p.type === 'supply', drug_types: flags, latest_cost: Number(p.cost) || 0,
+      bundle: (parts || []).map(x => ({ part_id: N(x.pid), qty: x.qty })), unpack: unpack ? { child_id: N(unpack.pid), ratio: unpack.ratio } : null }
+  },
+  // existing = สินค้าเดิมในแอป (หรือ null ถ้าเป็นสินค้าใหม่), next = ค่าที่แก้, parts/unpack = ถ้าไม่ส่งมาใช้ของเดิม
+  async saveProduct(S, existing, next, parts, unpack) {
+    const merged = { ...(existing || {}), ...next }
+    const bundleParts = parts !== undefined ? parts : (existing && existing.bundle ? existing.bundle : null)
+    const un = unpack !== undefined ? unpack : (existing && existing.unpack ? existing.unpack : null)
+    const pay = this.productPayload(S, merged, bundleParts, un)
+    if (!existing) pay.id = null
+    const id = await this.rpc('save_product', { p: pay })
+    await this.reloadProducts(S, [String(id)])
+    return String(id)
+  },
+  async setDrugType(S, pids, code, on) {
+    await this.rpc('set_drug_type', { p_products: pids.map(N), p_type: code, p_on: on })
+  },
+  async openStock(S, pid, qty, cost) {
+    await this.rpc('open_stock', { p_product: N(pid), p_qty: qty, p_cost: cost > 0 ? cost : null })
+    await this.reloadLots(S, [pid]); await this.reloadMovements(S, pid)
+  },
+
+  // ---------- ผู้ใช้ / ร้าน / PIN ----------
+  async verifyPin(pin) { return !!(await this.rpc('verify_pin', { p_pin: String(pin || '') })) },
+  async setPin(oldPin, newPin) { await this.rpc('set_pin', { p_old: oldPin || '', p_new: newPin }) },
+  async saveShop(S) {
+    const s = S.settings
+    const settings = {}; for (const k of Object.keys(s)) if (!['pin', 'shopName', 'shopAddress', 'shopProvince', 'shopZip', 'shopPhone', 'shopFax', 'shopTaxId', 'openTime', 'closeTime', 'branchCode', 'branchName', 'pharmacistName', 'licenseNo', 'nearExpiryDays'].includes(k)) settings[k] = s[k]
+    await this.rpc('save_shop', { p: { name: s.shopName, address: s.shopAddress || '', province: s.shopProvince || '', zip: s.shopZip || '', phone: s.shopPhone || '', fax: s.shopFax || '', tax_id: s.shopTaxId || '',
+      license_no: s.licenseNo || '', pharmacist_name: s.pharmacistName || '', branch_code: s.branchCode || '', branch_name: s.branchName || '', open_time: s.openTime || '', close_time: s.closeTime || '',
+      near_expiry_days: Math.floor(Number(s.nearExpiryDays)) || 90, settings } })
+  },
+  async saveStaff(u, authUserId) {
+    const perms = PERM_KEYS.filter(k => u.perms && u.perms[k])
+    return await this.rpc('save_staff', { p: { id: u.id || null, login: u.login, display_name: u.name, emp_id: u.empId || '', role_label: u.role || '', is_admin: !!u.admin, active: u.active !== false, work_start: u.workStart || '', work_end: u.workEnd || '', permissions: perms, auth_user_id: authUserId || null } })
+  },
+  async reloadStaff(S, me) {
+    const rows = await this.rows('v_staff')
+    S.users = rows.map(r => this.mapStaff(r))
+    const mine = rows.find(r => me && r.id === me.id)
+    if (mine) { const u = S.users.find(x => x.id === me.id); if (u) u.perms = this.permsObj(mine.permissions, !!mine.is_admin) }
+  },
+
+  // ---------- รายงาน ----------
+  async reportSales(o) {
+    const rows = await this.rpc('report_sales', { p_from: new Date(o.from).toISOString(), p_to: new Date(o.to).toISOString(), p_group: o.group || 'day', p_staff: o.staff || null, p_method: o.method || null, p_category: o.category || null, p_flag: o.flag || null, p_q: o.q || null })
+    const tot = rows.find(r => r.key === '__total') || { bills: 0, qty: 0, sales: 0, cost: 0, profit: 0 }
+    const f = v => v === null || v === undefined ? null : Number(v)
+    return { rows: rows.filter(r => r.key !== '__total').map(r => ({ key: r.key, label: r.label, bills: Number(r.bills), qty: Number(r.qty), sales: f(r.sales), cost: f(r.cost), profit: f(r.profit) })),
+      totals: { bills: Number(tot.bills), qty: Number(tot.qty), sales: f(tot.sales), cost: f(tot.cost), profit: f(tot.profit) } }
+  },
+  async kyData(form, o) {
+    const from = dayKey(new Date(o.from)), to = dayKey(new Date(o.to))
+    if (form === '9') return { rows: await this.rpc('report_ky9', { p_from: from, p_to: to, p_only9n: !!o.only9n }) }
+    if (form === '12') return { rows: await this.rpc('report_ky12', { p_from: from, p_to: to }) }
+    return { rows: await this.rpc('report_ky_lots', { p_form: form, p_from: from, p_to: to, p_pids: o.pids && o.pids.length ? o.pids.map(N) : null }) }
+  }
+}
+
+// ฟังก์ชันที่ Logic เรียกในโหมดเดิม ถูกแทนด้วยฟังก์ชันเหล่านี้ในโหมดฐานข้อมูล (ทุกตัวเป็น async)
+const DB_UNSUPPORTED = async () => { throw new Error('ยังไม่รองรับในโหมดฐานข้อมูลใหม่ (กำลังพัฒนา)') }
+const DB_OPS = {
+  async commitSale(S, o) {
+    const items = o.items.map(i => ({ product_id: i.pid ? N(i.pid) : null, name: i.name, qty: i.qty, price: Number(i.price) || 0 }))
+    const args = { items, discount: Number(o.discount) || 0, method: o.method, received: Number(o.received) || 0, customer_id: o.memberId ? N(o.memberId) : null, deduct: o.deduct !== false }
+    if (o.at) args.at = o.at
+    if (o.buyer && o.buyer.name) args.buyer = { name: o.buyer.name, addr: o.buyer.addr || '', type: o.buyer.type || '' }
+    if (o.rx) args.rx = { doc: o.rx.doc, doc_addr: o.rx.docAddr || '', user: o.rx.user, age: o.rx.age || '', addr: o.rx.addr || '' }
+    const id = await Db.rpc('commit_sale', { p: args })
+    const pids = new Set()
+    for (const i of o.items) if (i.pid) { pids.add(i.pid); const p = S.products.find(x => x.id === i.pid); if (p && p.bundle) for (const b of p.bundle) pids.add(b.pid) }
+    const sale = await Db.reloadSale(S, id)
+    await Db.reloadLots(S, [...pids])
+    return sale
+  },
+  async voidSale(S, id, reason) {
+    const s = S.sales.find(x => x.id === id)
+    await Db.rpc('void_sale', { p_sale: N(id), p_reason: reason || '' })
+    await Db.reloadSale(S, id)
+    const pids = new Set(); if (s) for (const i of s.items) if (i.pid) { pids.add(i.pid); const p = S.products.find(x => x.id === i.pid); if (p && p.bundle) for (const b of p.bundle) pids.add(b.pid) }
+    await Db.reloadLots(S, [...pids])
+  },
+  async receive(S, r) {
+    const items = r.items.map(i => ({ product_id: N(i.pid), qty: Math.floor(Number(i.qty)), free_qty: Math.floor(Number(i.freeQty) || 0), unit_cost: Number(i.unitCost) || 0, lot_no: i.lotNo || '', exp_date: i.expiry || '' }))
+    const args = { supplier_name: String(r.supplier || '').trim(), invoice_no: r.invoice || '', received_on: r.day || null, discount: Number(r.discount) || 0, items, force: !!r.force }
+    if (r.invoiceTotal !== '' && r.invoiceTotal !== null && r.invoiceTotal !== undefined && Number(r.invoiceTotal) >= 0) args.invoice_total = Number(r.invoiceTotal)
+    if (r.orderId) args.po_id = N(r.orderId)
+    const id = await Db.rpc('receive_goods', { p: args })
+    await Db.reloadSuppliers(S)
+    const rc = await Db.reloadReceipt(S, id)
+    await Db.reloadLots(S, r.items.map(i => i.pid)); await Db.reloadProducts(S, r.items.map(i => i.pid))
+    if (r.orderId) await Db.reloadOrder(S, r.orderId)
+    return rc
+  },
+  async voidReceipt(S, id, reason) {
+    const rc = S.receipts.find(x => x.id === id)
+    await Db.rpc('void_receipt', { p_receipt: N(id), p_reason: reason || '' })
+    await Db.reloadReceipt(S, id)
+    if (rc) { await Db.reloadLots(S, rc.items.map(i => i.pid)); if (rc.orderId) await Db.reloadOrder(S, rc.orderId) }
+  },
+  async createOrder(S, o) {
+    const id = await Db.rpc('create_purchase_order', { p: { supplier_name: String(o.supplier || '').trim(), ordered_on: o.day || null, note: o.note || '',
+      items: (o.items || []).filter(i => Math.floor(Number(i.qty)) > 0).map(i => ({ product_id: N(i.pid), qty: Math.floor(Number(i.qty)), unit_cost: Number(i.unitCost) || 0 })) } })
+    await Db.reloadSuppliers(S)
+    return await Db.reloadOrder(S, id)
+  },
+  async closeOrder(S, id) { await Db.rpc('close_purchase_order', { p_po: N(id) }); await Db.reloadOrder(S, id) },
+  async cancelOrder(S, id) { await Db.rpc('cancel_purchase_order', { p_po: N(id) }); await Db.reloadOrder(S, id) },
+  async adjust(S, pid, counted, reason, note) {
+    const d = await Db.rpc('adjust_stock', { p_product: N(pid), p_counted: counted, p_reason: reason || '', p_note: note || '' })
+    await Db.reloadLots(S, [pid]); await Db.reloadMovements(S, pid)
+    return d
+  },
+  async adjustLot(S, lotId, nq, reason, note) {
+    const l = S.lots.find(x => x.id === lotId)
+    const d = await Db.rpc('adjust_lot', { p_lot: N(lotId), p_new_qty: nq, p_reason: reason || '', p_note: note || '' })
+    if (l) { await Db.reloadLots(S, [l.pid]); await Db.reloadMovements(S, l.pid) }
+    return d
+  },
+  async adjustLotCost(S, lotId, nc) {
+    const l = S.lots.find(x => x.id === lotId)
+    await Db.rpc('adjust_lot_cost', { p_lot: N(lotId), p_new_cost: Number(nc) })
+    if (l) await Db.reloadLots(S, [l.pid])
+  },
+  async addMember(S, f) {
+    const id = await Db.rpc('save_customer', { p: { name: f.name, phone: f.phone || '', note: f.note || '', allergies: (f.allergies || []).map(a => ({ drug: a.drug, reaction: a.reaction || '' })) } })
+    return await DB_OPS.reloadMember(S, id)
+  },
+  async updateMember(S, id, f) {
+    const m = S.members.find(x => x.id === id)
+    await Db.rpc('save_customer', { p: { id: N(id), code: m ? m.code : '', name: f.name, phone: f.phone || '', note: f.note || '', allergies: (f.allergies || []).map(a => ({ drug: a.drug, reaction: a.reaction || '' })) } })
+    return await DB_OPS.reloadMember(S, id)
+  },
+  async reloadMember(S, id) {
+    const r = (await Db.rows('v_customers', '*', q => q.eq('id', N(id))))[0]
+    const al = await Db.rows('v_customer_allergies', '*', q => q.eq('customer_id', N(id)))
+    const m = Db.mapMember(r, al)
+    const i = S.members.findIndex(x => x.id === m.id)
+    if (i >= 0) S.members.splice(i, 1, m); else S.members.push(m)
+    return S.members.find(x => x.id === m.id)
+  }
+}
+if (DB_MODE) {
+  for (const k of Object.keys(DB_OPS)) if (k !== 'reloadMember') Logic[k] = DB_OPS[k]
+  for (const k of ['returnGoods', 'voidReturn', 'issueSupply', 'voidIssue', 'unpack', 'editReceipt', 'openStock', 'clearHistory', 'deleteMember', 'addMemberNote', 'deleteMemberNote', 'addFollowup', 'doneFollowup', 'deleteFollowup']) Logic[k] = DB_UNSUPPORTED
+  Logic.openStock = (S, pid, qty, cost) => Db.openStock(S, pid, qty, cost)
+}
+
 const { createApp } = Vue
 const app = createApp({
   data() {
@@ -3190,7 +3611,7 @@ const app = createApp({
       kyForm: '11', kyFrom: '', kyTo: '', kyPreset: 'month', kyOnly9n: false, kyManual: false, kyPids: [], kyQ: '',
       srPreset: 'month', srFrom: '', srTo: '', srTf: '00:00', srTt: '23:59', srStaff: '', srCat: '', srFlag: '', srMethod: '', srQ: '', srGroup: 'day', srLimit: 100,
       posLimit: 120, imp: { busy: false, pct: 0, msg: '', days: 365, result: null, backup: true },
-      loginName: '', nowTick: Date.now(), uiSize: (() => { try { const u = localStorage.getItem('knockdown_ui_size'); return u === 's' || u === 'l' ? u : 'm' } catch (e) { return 'm' } })(), setTab: 'general', usSel: null, us: null, usPass: '', usPass2: '', vs: null, vsSel: null, vsTab: 'gen', vsSearch: '', vsTermSearch: '',
+      loginName: '', nowTick: Date.now(), dbMode: DB_MODE, dbHasAdmin: false, dbMe: null, dbUid: '', dbCfg: { url: '', key: '', open: false }, paying: false, dbSr: { rows: [], totals: { bills: 0, qty: 0, sales: 0, cost: 0, profit: 0 }, lines: [] }, dbKy: null, dbLoading: false, uiSize: (() => { try { const u = localStorage.getItem('knockdown_ui_size'); return u === 's' || u === 'l' ? u : 'm' } catch (e) { return 'm' } })(), setTab: 'general', usSel: null, us: null, usPass: '', usPass2: '', vs: null, vsSel: null, vsTab: 'gen', vsSearch: '', vsTermSearch: '',
       setup: { name: '', empId: '', pin: '', pin2: '', busy: false },
       mgMode: 'edit', bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
       mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
@@ -3217,7 +3638,7 @@ const app = createApp({
       const m = (d, end) => { const a = String(d || dayKey(new Date())).split('-').map(Number); return new Date(a[0], a[1] - 1, a[2], end ? 23 : 0, end ? 59 : 0, end ? 59 : 0, end ? 999 : 0).getTime() }
       return { from: m(this.kyFrom, false), to: m(this.kyTo || this.kyFrom, true) }
     },
-    kyDoc() { return Logic.buildKy(this.S, this.kyForm, { from: this.kyRange.from, to: this.kyRange.to, only9n: this.kyOnly9n, pids: (['10', '11', '13'].includes(this.kyForm) && this.kyManual) ? this.kyPids : undefined }) },
+    kyDoc() { if (DB_MODE) return this.dbKy || { form: this.kyForm, shop: {}, period: '', rows: [], pages: [], warn: [] }; return Logic.buildKy(this.S, this.kyForm, { from: this.kyRange.from, to: this.kyRange.to, only9n: this.kyOnly9n, pids: (['10', '11', '13'].includes(this.kyForm) && this.kyManual) ? this.kyPids : undefined }) },
     kyAutoCount() { return Logic.kyProducts(this.S, this.kyForm, {}).length },
     kyPickList() {
       const q = this.kyQ.trim().toLowerCase()
@@ -3228,8 +3649,9 @@ const app = createApp({
       const tm = (d, t, end) => { const a = String(d || dayKey(new Date())).split('-').map(Number), b = String(t || (end ? '23:59' : '00:00')).split(':').map(Number); return new Date(a[0], a[1] - 1, a[2], b[0] || 0, b[1] || 0, end ? 59 : 0, end ? 999 : 0).getTime() }
       return { from: tm(this.srFrom, this.srTf, false), to: tm(this.srTo || this.srFrom, this.srTt, true) }
     },
+    kyKey() { return JSON.stringify([this.kyForm, this.kyRange.from, this.kyRange.to, this.kyOnly9n, this.kyManual, this.kyPids]) },
     srOpts() { return { from: this.srRange.from, to: this.srRange.to, staff: this.srStaff, category: this.srCat, flag: this.srFlag, method: this.srMethod, q: this.srQ, group: this.srGroup === 'detail' ? 'day' : this.srGroup } },
-    srData() { return Logic.salesReport(this.S, this.srOpts) },
+    srData() { return DB_MODE ? this.dbSr : Logic.salesReport(this.S, this.srOpts) },
     srStaffList() { return [...new Set(this.S.sales.map(x => x.by || '-'))].sort((a, b) => a.localeCompare(b, 'th')) },
     catList() { const extra = [...new Set(this.S.products.map(p => p.category).filter(Boolean))].filter(c => !CATS.includes(c)).sort((a, b) => a.localeCompare(b, 'th')); return [...CATS, ...extra] },
     posCats() { const have = new Set(this.sellProducts.map(p => p.category)); return this.catList.filter(c => have.has(c)) },
@@ -3246,7 +3668,7 @@ const app = createApp({
       return f.join(' · ')
     },
     me() { const n = this.loginName; return (this.S.users || []).find(u => String(u.login || '').toLowerCase() === n) || null },
-    hasAdmin() { return (this.S.users || []).some(u => u.active !== false && u.admin) },
+    hasAdmin() { return DB_MODE ? this.dbHasAdmin : (this.S.users || []).some(u => u.active !== false && u.admin) },
     isAdmin() { return !this.hasAdmin || !!(this.me && this.me.admin && this.me.active !== false) },
     meLabel() { return this.hasAdmin ? (this.me ? (this.me.admin ? 'ผู้ดูแล' : (this.me.role || this.me.name || '')) : 'ไม่อยู่ในรายชื่อ') : '' },
     visibleGroups() { return this.groups.map(g => ({ ...g, subs: g.subs.filter(t => this.allowedTab(t.id)) })).filter(g => g.subs.length) },
@@ -3508,6 +3930,13 @@ const app = createApp({
     formModal(v) { if (!v && this.mgSel && this.mgProduct) this.mg = this.mgDraft(this.mgProduct) },
     'S.users': { deep: true, handler() { this.ensureTab() } },
     loginName() { this.ensureTab() },
+    'S.settings': { deep: true, handler() {
+      if (!DB_MODE || this.isLoading || this.suppressWatch || !this.authed || !this.can('settings')) return
+      clearTimeout(this.shopTimer); this.shopTimer = setTimeout(() => Db.saveShop(this.S).catch(e => this.toast('บันทึกการตั้งค่าไม่สำเร็จ: ' + e.message, 'bad')), 800)
+    } },
+    srOpts: { deep: true, handler() { if (DB_MODE && this.authed) this.dbSrLoad() } },
+    kyKey() { if (DB_MODE && this.authed) this.dbKyLoad() },
+    tab(v) { if (DB_MODE && this.authed) { if (v === 'salesrep') this.dbSrLoad(); if (v === 'kyforms') this.dbKyLoad() } },
     search() { this.posLimit = 120 },
     cat() { this.posLimit = 120 },
     mgQ() { this.mgLimit = 50 },
@@ -3517,7 +3946,7 @@ const app = createApp({
     S: {
       deep: true,
       handler() {
-        if (this.isLoading || this.suppressWatch || !this.authed) return
+        if (DB_MODE || this.isLoading || this.suppressWatch || !this.authed) return
         this.changeSeq++
         this.dirty = true
         Storage.saveLocal(this.S, this.cloudRev, true)   // เก็บสำเนาในเครื่องทันที พร้อมธงว่ายังไม่ขึ้นคลาวด์
@@ -3564,7 +3993,66 @@ const app = createApp({
       this.$nextTick(() => { this.suppressWatch = false })
     },
     refreshStash() { const st = Storage.loadStash(); this.stashAt = st ? new Date(st.at).toLocaleString('th-TH') : '' },
+    async startDb(user) {
+      this.isLoading = true
+      try { await Db.rpc('claim_staff') } catch (e) { /* ไม่เป็นไร ถ้าฟังก์ชันยังไม่ถูกติดตั้ง */ }
+      try {
+        const r = await Db.load()
+        const dn = r.me ? r.me.display_name : (user.user_metadata && user.user_metadata.display_name)
+        this.actor = dn || userNameOf(user.email); ACTOR = this.actor; this.nameForm.name = dn || ''
+        this.loginName = r.me ? r.me.login : userNameOf(user.email).toLowerCase()
+        this.dbMe = r.me; this.dbUid = user.id; this.dbHasAdmin = r.hasAdmin
+        this.setState(r.S); this.cloudRev = 0; this.dirty = false; this.syncState = 'saved'
+        this.ensureTab()
+        this.authed = true; this.isLoading = false
+        this.loadClosing()
+        this.dbStartPoll()
+        if (this.prog.remindOnOpen && this.alertCount > 0) this.toast('มีรายการที่ต้องดู ' + this.alertCount + ' รายการ (ใกล้หมด / หมดอายุ) ดูที่คลังสินค้า', 'bad')
+      } catch (e) {
+        this.isLoading = false; this.authed = false
+        this.loginForm.error = 'โหลดข้อมูลจากฐานข้อมูลไม่สำเร็จ: ' + e.message
+        try { await _supabase.auth.signOut() } catch (e2) { /* ignore */ }
+      }
+    },
+    dbStartPoll() {
+      clearInterval(this.dbPollTimer)
+      this.dbPollTimer = setInterval(() => { if (this.authed && !document.hidden && !this.dbBusy) this.dbRefresh() }, 60000)
+    },
+    async dbRefresh() {
+      if (this.dbBusy) return
+      this.dbBusy = true
+      try { await Db.refreshLive(this.S); this.syncState = 'saved' } catch (e) { this.syncState = 'error' } finally { this.dbBusy = false }
+    },
+    async dbSrLoad() {
+      const o = this.srOpts
+      const seq = this.dbSrSeq = (this.dbSrSeq || 0) + 1
+      try {
+        const r = await Db.reportSales(o)
+        if (seq !== this.dbSrSeq) return
+        if (!['day', 'month', 'hour'].includes(o.group || 'day')) r.rows.sort((a, b) => b.sales - a.sales)
+        r.lines = Logic.salesLines(this.S, o)
+        this.dbSr = r
+      } catch (e) { if (seq === this.dbSrSeq) this.toast('โหลดรายงานไม่สำเร็จ: ' + e.message, 'bad') }
+    },
+    async dbKyLoad() {
+      const seq = this.dbKySeq = (this.dbKySeq || 0) + 1
+      const o = { from: this.kyRange.from, to: this.kyRange.to, only9n: this.kyOnly9n, pids: (['10', '11', '13'].includes(this.kyForm) && this.kyManual) ? this.kyPids : undefined }
+      try {
+        const data = await Db.kyData(this.kyForm, o)
+        if (seq !== this.dbKySeq) return
+        this.dbKy = Logic.buildKyFromRows(this.S, this.kyForm, o, data.rows)
+      } catch (e) { if (seq === this.dbKySeq) this.toast('โหลดแบบรายงานไม่สำเร็จ: ' + e.message, 'bad') }
+    },
+    dbSaveCfg() {
+      const url = String(this.dbCfg.url || '').trim().replace(/\/+$/, ''), key = String(this.dbCfg.key || '').trim()
+      if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)) return this.toast('ที่อยู่โปรเจกต์ต้องเป็น https://xxxx.supabase.co', 'bad')
+      if (key.length < 20 || /service_role/.test(key)) return this.toast('ใส่ anon / publishable key (ห้ามใช้ service_role key)', 'bad')
+      try { localStorage.setItem('earthshop_db', JSON.stringify({ url, key })) } catch (e) { return this.toast('บันทึกในเครื่องนี้ไม่ได้', 'bad') }
+      location.reload()
+    },
+    dbClearCfg() { try { localStorage.removeItem('earthshop_db') } catch (e) { /* ignore */ } location.reload() },
     async startApp(user) {
+      if (DB_MODE) return this.startDb(user)
       this.isLoading = true
       this.remindPending = true
       const dn = user.user_metadata && user.user_metadata.display_name
@@ -3625,7 +4113,7 @@ const app = createApp({
       this.askConfirm('ออกจากระบบ?', this.dirty ? 'ยังมีข้อมูลที่ไม่ได้บันทึกขึ้นคลาวด์ ระบบจะลองบันทึกก่อนออก' : 'ครั้งหน้าต้องพิมพ์ชื่อผู้ใช้และรหัสผ่านใหม่', 'ออกจากระบบ', () => this.doLogout())
     },
     async doLogout() {
-      if (this.dirty) {
+      if (!DB_MODE && this.dirty) {
         await this.saveNow()
         if (this.dirty) return this.toast('บันทึกขึ้นคลาวด์ไม่สำเร็จ ยังไม่ออกจากระบบ', 'bad')
       }
@@ -3645,6 +4133,7 @@ const app = createApp({
     },
     onSyncTap() { if (this.syncState === 'error' || this.syncState === 'dirty') this.saveNow() },
     async saveNow() {
+      if (DB_MODE) return
       clearTimeout(this.saveTimer)
       if (!this.authed || this.syncConflict) return
       if (this.saving) { this.pendingSave = true; return }
@@ -3678,6 +4167,7 @@ const app = createApp({
       return true
     },
     async checkRemote() {
+      if (DB_MODE) return
       if (!this.authed || this.saving || this.syncConflict) return
       const r = await Storage.loadRev()
       if (!r || r.rev <= this.cloudRev) return
@@ -3810,7 +4300,7 @@ const app = createApp({
     usSelect(u) { this.usSel = u.id; this.us = { ...this.usBlank(), ...JSON.parse(JSON.stringify(u)), perms: { ...this.usBlank().perms, ...(u.perms || {}) } } },
     usPreset(k) { this.us.perms = { ...PERM_PRESETS[k].perms }; this.us.role = PERM_PRESETS[k].label },
     usMakeMeAdmin() {
-      if (!this.loginName) return
+      if (DB_MODE || !this.loginName) return
       this.askPin('ตั้งผู้ดูแลระบบ', () => {
         const ex = this.S.users.find(u => String(u.login).toLowerCase() === this.loginName)
         if (ex) { ex.admin = true; ex.active = true } else this.S.users.push({ ...this.usBlank(), id: uid(), name: this.actor, login: this.loginName, admin: true, role: 'ผู้ดูแล', perms: { ...PERM_PRESETS.admin.perms } })
@@ -3832,6 +4322,22 @@ const app = createApp({
         if (this.usPass !== this.usPass2) return this.toast('รหัสผ่านสองช่องไม่ตรงกัน', 'bad')
       }
       this.askPin('บันทึกสิทธิ์ผู้ใช้ ' + login, async () => {
+        if (DB_MODE) {
+          try {
+            let authId = null
+            if (isNewUser) {
+              const r = await this.createAuthUser(login, this.usPass, d.name.trim())
+              if (r.error) return this.toast('สร้างบัญชีเข้าระบบไม่สำเร็จ: ' + r.error, 'bad')
+              authId = r.id || null
+              if (r.exists) this.toast('ชื่อ Login นี้มีบัญชีอยู่แล้ว ผูกสิทธิ์ให้กับบัญชีเดิม (รหัสผ่านไม่เปลี่ยน)')
+              this.usPass = ''; this.usPass2 = ''
+            }
+            const sid = await Db.saveStaff({ ...d, login, name: d.name.trim() }, authId)
+            await Db.reloadStaff(this.S, this.dbMe)
+            this.usSel = String(sid); this.us = null; this.toast('บันทึกสิทธิ์แล้ว')
+          } catch (e) { this.toast(e.message, 'bad') }
+          return
+        }
         if (isNewUser) {
           const r = await this.createAuthUser(login, this.usPass, d.name.trim())
           if (r.error) return this.toast('สร้างบัญชีเข้าระบบไม่สำเร็จ: ' + r.error, 'bad')
@@ -3849,7 +4355,9 @@ const app = createApp({
       if (!d || !d.id) return
       if (String(d.login).toLowerCase() === this.loginName) return this.toast('ลบบัญชีที่กำลังใช้อยู่ไม่ได้', 'bad')
       if (d.admin && !this.S.users.some(u => u.id !== d.id && u.active !== false && u.admin)) return this.toast('ต้องมีผู้ดูแลอย่างน้อย 1 คน', 'bad')
-      this.askPin('ลบผู้ใช้ ' + d.login, () => { this.S.users = this.S.users.filter(u => u.id !== d.id); this.us = null; this.usSel = null; this.toast('ลบผู้ใช้แล้ว') })
+      this.askPin('ลบผู้ใช้ ' + d.login, async () => {
+        if (DB_MODE) { try { await Db.saveStaff({ ...d, active: false }); await Db.reloadStaff(this.S, this.dbMe); this.us = null; this.usSel = null; this.toast('ปิดใช้งานผู้ใช้แล้ว') } catch (e) { this.toast(e.message, 'bad') } return }
+        this.S.users = this.S.users.filter(u => u.id !== d.id); this.us = null; this.usSel = null; this.toast('ลบผู้ใช้แล้ว') })
     },
     can(key) {
       if (!this.hasAdmin) return true
@@ -3864,8 +4372,11 @@ const app = createApp({
     deny(what) { this.toast('ไม่มีสิทธิ์' + (what ? ': ' + what : ''), 'bad') },
     goTab(id) { if (!this.allowedTab(id)) return this.deny('เข้าหน้านี้'); this.tab = id; this.cartOpen = false; if (id === 'report') this.loadClosing() },
     askPin(title, cb) { this.pin = { open: true, title, value: '', error: '', cb } },
-    submitPin() {
-      if (this.pin.value === this.S.settings.pin) { const cb = this.pin.cb; this.pin.open = false; cb && cb() }
+    async submitPin() {
+      let ok = false
+      if (DB_MODE) { try { ok = await Db.verifyPin(this.pin.value) } catch (e) { this.pin.error = e.message; return } }
+      else ok = this.pin.value === this.S.settings.pin
+      if (ok) { const cb = this.pin.cb; this.pin.open = false; cb && cb() }
       else this.pin.error = 'รหัสผ่านไม่ถูกต้อง'
     },
     askConfirm(title, message, okText, cb) { this.confirmBox = { open: true, title, message, okText: okText || 'ยืนยัน', cb } },
@@ -3945,18 +4456,20 @@ const app = createApp({
       }
       this.finishPay()
     },
-    finishPay() {
+    async finishPay() {
+      if (this.paying) return
+      this.paying = true
       try {
         const items = this.cart.map(i => ({ pid: i.pid, name: i.name, unit: i.unit, qty: i.qty, price: Number(i.price) || 0 }))
         const bd = this.backdate.on
-        const sale = Logic.commitSale(this.S, { items, discount: this.discountAmt, method: this.payModal.method, received: Number(this.payModal.received) || 0, buyer: (this.needBuyer || this.payModal.rxOn) ? this.payModal.buyer : undefined, rx: this.payModal.rxOn ? this.payModal.rx : undefined,
+        const sale = await Logic.commitSale(this.S, { items, discount: this.discountAmt, method: this.payModal.method, received: Number(this.payModal.received) || 0, buyer: (this.needBuyer || this.payModal.rxOn) ? this.payModal.buyer : undefined, rx: this.payModal.rxOn ? this.payModal.rx : undefined,
           at: bd ? new Date(this.backdate.date + 'T' + (this.backdate.time || '12:00')).toISOString() : undefined, deduct: bd ? this.backdate.deduct : true, memberId: this.cartMemberId })
         this.resultSale = sale
         this.$nextTick(() => this.saveNow())
         this.payModal.open = false
         this.cart = []; this.discount = ''; this.cartOpen = false; this.cartMemberId = ''; this.allergyAck = false
         if (!bd) this.autoPrint(sale)
-      } catch (e) { this.toast(e.message, 'bad') }
+      } catch (e) { this.toast(e.message, 'bad') } finally { this.paying = false }
     },
     focusSearch(force) {
       if (this.tab !== 'pos') return
@@ -4004,8 +4517,8 @@ const app = createApp({
     undoResult() {
       const s = this.resultSale
       if (!this.can('voidSale')) return this.deny('ยกเลิกบิลขาย')
-      this.askConfirm('ยกเลิกบิล ' + s.no + '?', 'สต็อกจะถูกคืนเข้าคลัง และบิลนี้จะไม่นับเป็นยอดขาย', 'ยกเลิกบิล', () => {
-        try { Logic.voidSale(this.S, s.id, 'ยกเลิกทันทีหลังขาย'); this.resultSale = null; this.toast('ยกเลิกบิล ' + s.no + ' แล้ว') }
+      this.askConfirm('ยกเลิกบิล ' + s.no + '?', 'สต็อกจะถูกคืนเข้าคลัง และบิลนี้จะไม่นับเป็นยอดขาย', 'ยกเลิกบิล', async () => {
+        try { await Logic.voidSale(this.S, s.id, 'ยกเลิกทันทีหลังขาย'); this.resultSale = null; this.toast('ยกเลิกบิล ' + s.no + ' แล้ว') }
         catch (e) { this.toast(e.message, 'bad') }
       })
     },
@@ -4015,23 +4528,23 @@ const app = createApp({
       const s = this.curSale
       if (!s) return
       if (!this.can('voidSale')) return this.deny('ยกเลิกบิลขาย')
-      this.askPin('ยกเลิกบิล ' + s.no, () => {
-        try { Logic.voidSale(this.S, s.id, this.voidReason); this.toast('ยกเลิกบิล ' + s.no + ' และคืนสต็อกแล้ว') }
+      this.askPin('ยกเลิกบิล ' + s.no, async () => {
+        try { await Logic.voidSale(this.S, s.id, this.voidReason); this.toast('ยกเลิกบิล ' + s.no + ' และคืนสต็อกแล้ว') }
         catch (e) { this.toast(e.message, 'bad') }
       })
     },
 
     // ===== คลังสินค้า =====
-    openProduct(p) { this.productModal = p.id; this.adj = { counted: this.stockMap[p.id] || 0, reason: 'นับสต็อกไม่ตรง', note: '' } },
+    openProduct(p) { if (DB_MODE) Db.reloadMovements(this.S, p.id); this.productModal = p.id; this.adj = { counted: this.stockMap[p.id] || 0, reason: 'นับสต็อกไม่ตรง', note: '' } },
     doAdjust() {
       if (!this.can('adjustStock')) return this.deny('ปรับสต็อก')
       const p = this.curProduct
       if (!p || this.adjDiff === 0) return
       const counted = Math.floor(Number(this.adj.counted))
       if (!(counted >= 0)) return this.toast('จำนวนไม่ถูกต้อง', 'bad')
-      this.askPin('ปรับสต็อก ' + p.name, () => {
+      this.askPin('ปรับสต็อก ' + p.name, async () => {
         try {
-          const d = Logic.adjust(this.S, p.id, counted, this.adj.reason, this.adj.note)
+          const d = await Logic.adjust(this.S, p.id, counted, this.adj.reason, this.adj.note)
           this.toast('ปรับสต็อกแล้ว (' + (d > 0 ? '+' : '') + d + ')')
           this.adj = { counted, reason: 'นับสต็อกไม่ตรง', note: '' }
         } catch (e) { this.toast(e.message, 'bad') }
@@ -4047,9 +4560,21 @@ const app = createApp({
     bkAddAll() { const m = { ...this.bkSet }; for (const p of this.bkLeft) m[p.id] = true; this.bkSet = m; this.bkSelL = {} },
     bkDelSel() { const m = { ...this.bkSet }; for (const id of Object.keys(this.bkSelR)) if (this.bkSelR[id]) delete m[id]; this.bkSet = m; this.bkSelR = {} },
     bkDelAll() { const m = { ...this.bkSet }; for (const p of this.bkRight) delete m[p.id]; this.bkSet = m; this.bkSelR = {} },
-    bkSave() {
+    async bkSave() {
       if (!this.can('manage')) return this.deny('กำหนดประเภทยา')
       const f = DRUG_FLAGS.find(x => x.k === this.bkType); if (!f) return
+      if (DB_MODE) {
+        const add = [], del = []
+        for (const p of this.S.products) { if (p.active === false) continue; const want = !!this.bkSet[p.id]; if (!!p[f.k] === want) continue; (want ? add : del).push(p.id) }
+        try {
+          if (add.length) await Db.setDrugType(this.S, add, f.k, true)
+          if (del.length) await Db.setDrugType(this.S, del, f.k, false)
+          await Db.reloadProducts(this.S, add.concat(del))
+          this.bkInit(this.bkType)
+          this.toast('บันทึก "' + f.label + '" แล้ว (เพิ่ม ' + add.length + ', เอาออก ' + del.length + ')')
+        } catch (e) { this.toast(e.message, 'bad') }
+        return
+      }
       let on = 0, off = 0
       for (const p of this.S.products) {
         if (p.active === false) continue
@@ -4106,6 +4631,12 @@ const app = createApp({
       ch('บาร์โค้ด', p.barcode || '', next.barcode); ch('ที่เก็บ', p.location || '', next.location); ch('สถานะ', p.active === false ? 'ปิดใช้งาน' : 'ใช้งาน', next.active ? 'ใช้งาน' : 'ปิดใช้งาน')
       for (const f of DRUG_FLAGS) if (!!p[f.k] !== next[f.k]) L.push(f.label + ' ' + (next[f.k] ? 'เพิ่ม' : 'เอาออก'))
       if (!L.length && !this.mgChanged()) return this.toast('ไม่มีอะไรเปลี่ยน')
+      if (DB_MODE) {
+        this.paying = true
+        Db.saveProduct(this.S, p, next).then(() => { const np = this.S.products.find(x => x.id === p.id); this.mg = this.mgDraft(np); this.toast('บันทึกข้อมูลยาแล้ว') })
+          .catch(e => this.toast(e.message, 'bad')).finally(() => { this.paying = false })
+        return
+      }
       Object.assign(p, next)
       if (L.length) { if (!p.log) p.log = []; p.log.push({ ts: new Date().toISOString(), by: ACTOR, text: L.join('; ') }) }
       this.mg = this.mgDraft(p)
@@ -4117,9 +4648,9 @@ const app = createApp({
       if (!p || this.mgDiff === 0) return
       const counted = Math.floor(Number(this.mgAdj.counted))
       if (!(counted >= 0)) return this.toast('จำนวนไม่ถูกต้อง', 'bad')
-      this.askPin('ปรับสต็อก ' + p.name, () => {
+      this.askPin('ปรับสต็อก ' + p.name, async () => {
         try {
-          const dd = Logic.adjust(this.S, p.id, counted, this.mgAdj.reason, this.mgAdj.note)
+          const dd = await Logic.adjust(this.S, p.id, counted, this.mgAdj.reason, this.mgAdj.note)
           this.toast('ปรับสต็อกแล้ว (' + (dd > 0 ? '+' : '') + dd + ')')
           this.mgAdj = { counted, reason: 'นับสต็อกไม่ตรง', note: '' }; this.mgInitLots()
         } catch (e) { this.toast(e.message, 'bad') }
@@ -4133,10 +4664,10 @@ const app = createApp({
       if (!(nq >= 0)) return this.toast('จำนวนไม่ถูกต้อง', 'bad')
       if (!(nc >= 0)) return this.toast('ราคาทุนไม่ถูกต้อง', 'bad')
       if (nq === l.qtyLeft && R4(nc) === l.cost) return this.toast('ไม่มีอะไรเปลี่ยน')
-      this.askPin('แก้ล็อต ' + (l.lotNo || 'ไม่ระบุ'), () => {
+      this.askPin('แก้ล็อต ' + (l.lotNo || 'ไม่ระบุ'), async () => {
         try {
-          if (nq !== l.qtyLeft) Logic.adjustLot(this.S, l.id, nq, this.mgAdj.reason, this.mgAdj.note)
-          if (R4(nc) !== l.cost) Logic.adjustLotCost(this.S, l.id, nc)
+          if (nq !== l.qtyLeft) await Logic.adjustLot(this.S, l.id, nq, this.mgAdj.reason, this.mgAdj.note)
+          if (R4(nc) !== l.cost) await Logic.adjustLotCost(this.S, l.id, nc)
           this.mgInitLots(); this.mgAdj.counted = this.mgStock; this.toast('บันทึกล็อตแล้ว')
         } catch (e) { this.toast(e.message, 'bad') }
       })
@@ -4205,6 +4736,7 @@ const app = createApp({
           return this.toast('ยานี้ยังมีสต็อก ให้ปรับสต็อกเป็น 0 ก่อนแปลงเป็นยาชุด', 'bad')
         data.cost = R2(parts.reduce((t, x) => { const c = this.S.products.find(y => y.id === x.pid); return t + (c ? c.cost * x.qty : 0) }, 0))
       }
+      if (DB_MODE) return this.dbSaveForm(f, data, f.isBundle ? parts : null, unpack)
       if (f.isNew) {
         const id = 'p' + uid()
         this.S.products.push({ id, active: true, ...data, ...(f.isBundle ? { bundle: parts } : {}) })
@@ -4222,6 +4754,18 @@ const app = createApp({
       this.toast('บันทึกข้อมูลสินค้าแล้ว')
     },
 
+    async dbSaveForm(f, data, parts, unpack) {
+      if (this.paying) return
+      this.paying = true
+      try {
+        const existing = f.isNew ? null : this.S.products.find(x => x.id === f.id)
+        const id = await Db.saveProduct(this.S, existing, data, parts, unpack)
+        const oq = Math.floor(Number(f.openQty)) || 0
+        if (f.isNew && !f.isBundle && oq > 0) await Db.openStock(this.S, id, oq, data.cost)
+        this.formModal = null
+        this.toast(f.isNew ? (oq > 0 && !f.isBundle ? 'เพิ่มสินค้าแล้ว สต็อก ' + oq : 'เพิ่มสินค้าแล้ว สต็อกเป็น 0 ไปรับของเข้าเพื่อเพิ่มจำนวน') : 'บันทึกข้อมูลสินค้าแล้ว')
+      } catch (e) { this.toast(e.message, 'bad') } finally { this.paying = false }
+    },
     // ===== รับของเข้า =====
     rcvEff(it) {
       const qty = Number(it.qty) || 0, free = Number(it.freeQty) || 0, v = qty * (Number(it.unitCost) || 0)
@@ -4239,17 +4783,23 @@ const app = createApp({
       if (!p || !p.price || !c) return ''
       return 'ขาย ฿' + this.money(p.price) + ' กำไร ' + Math.round((p.price - c) / p.price * 100) + '%'
     },
-    saveReceive() {
+    async saveReceive() {
       const dup = this.rcvDup
       if (dup && !this.rcvDupOk) {
         return this.askConfirm('เลขที่บิลนี้เคยรับเข้าแล้ว', 'ผู้จำหน่ายและเลขที่บิลเดียวกัน (' + this.fmtDay(dup.day) + ' รวม ฿' + this.money(dup.total) + ') ถ้ารับซ้ำ สต็อกจะถูกนับเพิ่มอีกครั้ง', 'รับซ้ำ', () => { this.rcvDupOk = true; this.saveReceive() })
       }
+      const wasDup = !!dup
       this.rcvDupOk = false
+      if (this.paying) return
+      this.paying = true
       try {
-        const rc = Logic.receive(this.S, this.rcv)
+        const rc = await Logic.receive(this.S, { ...this.rcv, force: wasDup })
         this.toast('รับเข้าแล้ว ' + rc.items.length + ' รายการ ฿' + this.money(rc.total))
         this.rcv = { invoice: '', supplier: '', day: dayKey(new Date()), items: [], discount: '', invoiceTotal: '', orderId: '' }
-      } catch (e) { this.toast(e.message, 'bad') }
+      } catch (e) {
+        if (e.code === '23505') this.askConfirm('เลขที่บิลนี้เคยรับเข้าแล้ว', 'ถ้ารับซ้ำ สต็อกจะเพิ่มอีกครั้ง ยืนยันรับซ้ำหรือไม่', 'รับซ้ำ', () => { this.rcvDupOk = true; this.saveReceive() })
+        else this.toast(e.message, 'bad')
+      } finally { this.paying = false }
     },
 
     // ===== ใบสั่งซื้อ / ผู้จำหน่าย =====
@@ -4267,9 +4817,9 @@ const app = createApp({
       for (const p of list) if (!this.ord.items.some(i => i.pid === p.id)) this.ord.items.push({ pid: p.id, name: p.name, unit: p.unit, qty: this.orderQtyFor(p), unitCost: p.cost })
       this.toast('เพิ่ม ' + list.length + ' รายการที่ใกล้หมด')
     },
-    saveOrder() {
+    async saveOrder() {
       try {
-        const o = Logic.createOrder(this.S, this.ord)
+        const o = await Logic.createOrder(this.S, this.ord)
         this.toast('สร้างใบสั่งซื้อ ' + o.no + ' แล้ว')
         this.ord = { supplier: '', day: dayKey(new Date()), note: '', items: [] }
       } catch (e) { this.toast(e.message, 'bad') }
@@ -4287,8 +4837,8 @@ const app = createApp({
       this.orderModalId = null; this.rcvTab = 'in'
     },
     pickOrderForReceive(id) { const o = (this.S.orders || []).find(x => x.id === id); if (o) this.receiveFromOrder(o); else this.rcv.orderId = '' },
-    doCloseOrder(o) { this.askConfirm('ปิดใบสั่งซื้อ ' + o.no + '?', 'ใช้เมื่อผู้จำหน่ายส่งไม่ครบและไม่รอของที่เหลือแล้ว', 'ปิดใบสั่งซื้อ', () => { try { Logic.closeOrder(this.S, o.id); this.toast('ปิดใบสั่งซื้อแล้ว') } catch (e) { this.toast(e.message, 'bad') } }) },
-    doCancelOrder(o) { this.askConfirm('ยกเลิกใบสั่งซื้อ ' + o.no + '?', 'ยกเลิกได้เฉพาะใบที่ยังไม่ได้รับของ', 'ยกเลิกใบสั่งซื้อ', () => { try { Logic.cancelOrder(this.S, o.id); this.toast('ยกเลิกใบสั่งซื้อแล้ว') } catch (e) { this.toast(e.message, 'bad') } }) },
+    doCloseOrder(o) { this.askConfirm('ปิดใบสั่งซื้อ ' + o.no + '?', 'ใช้เมื่อผู้จำหน่ายส่งไม่ครบและไม่รอของที่เหลือแล้ว', 'ปิดใบสั่งซื้อ', async () => { try { await Logic.closeOrder(this.S, o.id); this.toast('ปิดใบสั่งซื้อแล้ว') } catch (e) { this.toast(e.message, 'bad') } }) },
+    doCancelOrder(o) { this.askConfirm('ยกเลิกใบสั่งซื้อ ' + o.no + '?', 'ยกเลิกได้เฉพาะใบที่ยังไม่ได้รับของ', 'ยกเลิกใบสั่งซื้อ', async () => { try { await Logic.cancelOrder(this.S, o.id); this.toast('ยกเลิกใบสั่งซื้อแล้ว') } catch (e) { this.toast(e.message, 'bad') } }) },
     setUiSize(v) {
       this.uiSize = v
       if (v === 'm') document.documentElement.removeAttribute('data-ui'); else document.documentElement.setAttribute('data-ui', v)
@@ -4321,12 +4871,22 @@ const app = createApp({
     vsNew() { this.vsSel = 'new'; this.vs = this.vsBlank(); this.vsTab = 'gen' },
     vsSelect(x) { this.vsSel = x.id; this.vs = { ...this.vsBlank(), ...JSON.parse(JSON.stringify(x)), terms: JSON.parse(JSON.stringify(x.terms || [])) } },
     vsAddTerm(p) { if (!this.vs.terms.some(t => t.pid === p.id)) this.vs.terms.push({ pid: p.id, name: p.name, buy: 10, free: 1 }); this.vsTermSearch = '' },
-    vsSave() {
+    async vsSave() {
       const d = this.vs
       const name = String(d.name || '').trim().replace(/\s+/g, ' ')
       if (!name) return this.toast('ใส่ชื่อผู้จำหน่ายก่อน', 'bad')
       if (this.S.suppliers.some(x => x.id !== d.id && Logic.supplierKey(x.name) === Logic.supplierKey(name))) return this.toast('มีผู้จำหน่ายชื่อนี้แล้ว', 'bad')
       const terms = (d.terms || []).map(t => ({ pid: t.pid, name: t.name, buy: Math.floor(Number(t.buy) || 0), free: Math.floor(Number(t.free) || 0) })).filter(t => t.buy > 0 && t.free > 0)
+      if (DB_MODE) {
+        try {
+          const id = await Db.rpc('save_supplier', { p: { id: d.id ? Number(d.id) : null, code: d.code, name, address: d.address, province: d.province, zip: d.zip, phone: d.phone, fax: d.fax, tax_id: d.taxId, contact_name: d.contact, contact_mobile: d.contactMobile,
+            open_time: d.openTime, close_time: d.closeTime, note: d.note, active: true, terms: terms.map(t => ({ product_id: Number(t.pid), buy_qty: t.buy, free_qty: t.free })) } })
+          await Db.reloadSuppliers(this.S)
+          const rec = this.S.suppliers.find(x => x.id === String(id))
+          this.vsSel = String(id); this.vs = { ...this.vsBlank(), ...JSON.parse(JSON.stringify(rec)) }; this.toast('บันทึกผู้จำหน่ายแล้ว')
+        } catch (e) { this.toast(e.message, 'bad') }
+        return
+      }
       const rec = { ...d, name, terms }
       if (rec.id) {
         const i = this.S.suppliers.findIndex(x => x.id === rec.id)
@@ -4345,7 +4905,9 @@ const app = createApp({
       if (!d || !d.id) return
       const row = this.vendorRows.find(r => r.sp.id === d.id)
       if (row && (row.count || row.orders)) return this.toast('ผู้จำหน่ายนี้มีประวัติรับเข้า/สั่งซื้อ ลบไม่ได้', 'bad')
-      this.askConfirm('ลบผู้จำหน่าย ' + d.name + '?', 'ลบแล้วกู้คืนไม่ได้', 'ลบ', () => { this.S.suppliers = this.S.suppliers.filter(x => x.id !== d.id); this.vs = null; this.vsSel = null })
+      this.askConfirm('ลบผู้จำหน่าย ' + d.name + '?', 'ลบแล้วกู้คืนไม่ได้', 'ลบ', async () => {
+        if (DB_MODE) { try { await Db.rpc('save_supplier', { p: { id: Number(d.id), name: d.name, active: false } }); await Db.reloadSuppliers(this.S); this.vs = null; this.vsSel = null } catch (e) { this.toast(e.message, 'bad') } return }
+        this.S.suppliers = this.S.suppliers.filter(x => x.id !== d.id); this.vs = null; this.vsSel = null })
     },
     termHint(it) {
       const sp = (this.S.suppliers || []).find(x => Logic.supplierKey(x.name) === Logic.supplierKey(this.rcv.supplier))
@@ -4354,11 +4916,11 @@ const app = createApp({
     },
     async createAuthUser(login, pass, name) {
       try {
-        const c = supabase.createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } })
+        const c = supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } })
         const { data, error } = await c.auth.signUp({ email: toEmail(login), password: pass, options: { data: { display_name: name } } })
         if (error) return { error: error.message }
         if (data && data.user && Array.isArray(data.user.identities) && !data.user.identities.length) return { exists: true }
-        return {}
+        return { id: data && data.user ? data.user.id : null }
       } catch (e) { return { error: 'เชื่อมต่อไม่ได้' } }
     },
     async firstSetup() {
@@ -4367,6 +4929,21 @@ const app = createApp({
       if (!/^\d{4,8}$/.test(f.pin || '')) return this.toast('รหัสยืนยัน (PIN) ต้องเป็นตัวเลข 4-8 หลัก', 'bad')
       if (f.pin === '1234') return this.toast('ห้ามใช้ PIN 1234 ซึ่งเป็นค่าเริ่มต้น', 'bad')
       if (f.pin !== f.pin2) return this.toast('PIN สองช่องไม่ตรงกัน', 'bad')
+      if (DB_MODE) {
+        if (this.paying) return
+        this.paying = true
+        try {
+          await Db.setPin('', f.pin)
+          await Db.saveStaff({ id: null, login: this.loginName, name: f.name.trim(), empId: f.empId, role: 'ผู้ดูแล', admin: true, active: true, perms: PERM_PRESETS.admin.perms }, this.dbUid)
+          const me = (await Db.rows('v_me', '*', null, ['id']))[0] || null
+          this.dbMe = me; this.dbHasAdmin = !!(await Db.rpc('has_admin'))
+          await Db.reloadStaff(this.S, me)
+          this.actor = f.name.trim(); ACTOR = this.actor
+          this.setup = { name: '', empId: '', pin: '', pin2: '', busy: false }
+          this.toast('สร้างผู้ดูแลระบบแล้ว')
+        } catch (e) { this.toast(e.message, 'bad') } finally { this.paying = false }
+        return
+      }
       const ex = this.S.users.find(u => String(u.login).toLowerCase() === this.loginName)
       const rec = { ...this.usBlank(), id: ex ? ex.id : uid(), name: f.name.trim(), empId: String(f.empId || '').trim(), login: this.loginName, admin: true, active: true, role: 'ผู้ดูแล', perms: { ...PERM_PRESETS.admin.perms }, updatedAt: new Date().toISOString(), updatedBy: ACTOR }
       if (ex) this.S.users.splice(this.S.users.indexOf(ex), 1, rec); else this.S.users.push(rec)
@@ -4375,14 +4952,16 @@ const app = createApp({
       this.setup = { name: '', empId: '', pin: '', pin2: '', busy: false }
       this.toast('สร้างผู้ดูแลระบบแล้ว เพิ่มพนักงานและกำหนดสิทธิ์ได้ที่ ตั้งค่า > ผู้ใช้และสิทธิ์')
     },
-    addVendor() {
+    async addVendor() {
       const n = this.vendorNew.trim()
       if (!n) return
+      if (DB_MODE) { try { await Db.rpc('save_supplier', { p: { name: n } }); await Db.reloadSuppliers(this.S); this.vendorNew = ''; this.toast('เพิ่มผู้จำหน่ายแล้ว') } catch (e) { this.toast(e.message, 'bad') } return }
       if ((this.S.suppliers || []).some(x => Logic.supplierKey(x.name) === Logic.supplierKey(n))) return this.toast('มีผู้จำหน่ายนี้แล้ว', 'bad')
       Logic.ensureSupplier(this.S, n); this.vendorNew = ''; this.toast('เพิ่มผู้จำหน่ายแล้ว')
     },
-    removeVendor(row) {
+    async removeVendor(row) {
       if (row.count || row.orders) return this.toast('ผู้จำหน่ายนี้มีประวัติรับเข้า/สั่งซื้อ ลบไม่ได้', 'bad')
+      if (DB_MODE) { try { await Db.rpc('save_supplier', { p: { id: Number(row.sp.id), name: row.sp.name, active: false } }); await Db.reloadSuppliers(this.S) } catch (e) { this.toast(e.message, 'bad') } return }
       this.S.suppliers = this.S.suppliers.filter(x => x.id !== row.sp.id)
     },
 
@@ -4395,6 +4974,7 @@ const app = createApp({
       this.cashCounted = ''; this.closeNote = ''
     },
     saveClosing() {
+      if (DB_MODE) return this.toast('ปิดวันยังไม่รองรับในโหมดฐานข้อมูลใหม่ (กำลังพัฒนา)', 'bad')
       if (this.cashCounted === '' || this.cashCounted === null) return this.toast('ใส่ยอดเงินสดที่นับได้ก่อน', 'bad')
       const rec = { day: this.repDay, ts: new Date().toISOString(), openFloat: Number(this.openFloat) || 0, cashSales: this.rep.cash,
                     expected: this.cashExpected, counted: Number(this.cashCounted) || 0, diff: this.cashDiff, note: this.closeNote, by: this.actor }
@@ -4404,7 +4984,11 @@ const app = createApp({
     },
 
     // ===== ตั้งค่า =====
-    changePin() {
+    async changePin() {
+      if (DB_MODE) {
+        try { await Db.setPin(this.pinForm.old, this.pinForm.next); this.pinForm = { old: '', next: '' }; this.toast('เปลี่ยนรหัสยืนยัน (PIN) แล้ว') } catch (e) { this.toast(e.message, 'bad') }
+        return
+      }
       if (this.pinForm.old !== this.S.settings.pin) return this.toast('รหัสเดิมไม่ถูกต้อง', 'bad')
       if ((this.pinForm.next || '').length < 4) return this.toast('รหัสใหม่ต้องมีอย่างน้อย 4 ตัว', 'bad')
       this.S.settings.pin = this.pinForm.next
@@ -4451,12 +5035,12 @@ const app = createApp({
         ? { id: m.id, name: m.name, phone: m.phone, note: m.note, allergies: (m.allergies || []).map(a => ({ ...a })), fromPicker: false }
         : { id: '', name: '', phone: '', note: '', allergies: [], fromPicker: !!fromPicker }
     },
-    saveMemberForm() {
+    async saveMemberForm() {
       const f = this.memberForm
       try {
-        if (f.id) { Logic.updateMember(this.S, f.id, f); this.toast('บันทึกข้อมูลสมาชิกแล้ว') }
+        if (f.id) { await Logic.updateMember(this.S, f.id, f); this.toast('บันทึกข้อมูลสมาชิกแล้ว') }
         else {
-          const m = Logic.addMember(this.S, f)
+          const m = await Logic.addMember(this.S, f)
           this.toast('เพิ่มสมาชิกแล้ว: ' + this.memberLabel(m))
           if (f.fromPicker) this.selectMember(m)
         }
@@ -4515,8 +5099,8 @@ const app = createApp({
     },
     doVoidReceipt() {
       if (!this.can('editReceipt')) return this.deny('ยกเลิกรายการรับเข้า')
-      this.askPin('ยกเลิกบิลรับเข้า', () => {
-        try { Logic.voidReceipt(this.S, this.receiptModalId, this.rcVoidReason); this.rcVoidOpen = false; this.toast('ยกเลิกบิลรับเข้าแล้ว') }
+      this.askPin('ยกเลิกบิลรับเข้า', async () => {
+        try { await Logic.voidReceipt(this.S, this.receiptModalId, this.rcVoidReason); this.rcVoidOpen = false; this.toast('ยกเลิกบิลรับเข้าแล้ว') }
         catch (err) { this.toast(err.message, 'bad') }
       })
     },

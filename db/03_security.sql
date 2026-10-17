@@ -33,6 +33,7 @@ create or replace view v_permissions as select * from permissions where app.uid(
 create or replace view v_categories as select * from categories where app.uid() is not null or app.is_service();
 create or replace view v_drug_types as select * from drug_types where app.uid() is not null or app.is_service();
 create or replace view v_suppliers as select * from suppliers where app.has_perm('receive') or app.has_perm('stock') or app.has_perm('manage');
+create or replace view v_supplier_terms as select * from supplier_terms where app.has_perm('receive') or app.has_perm('stock') or app.has_perm('manage');
 create or replace view v_customers as select * from customers where app.has_perm('members') or app.has_perm('pos');
 create or replace view v_customer_allergies as select * from customer_allergies where app.has_perm('members') or app.has_perm('pos');
 create or replace view v_products as
@@ -55,14 +56,16 @@ create or replace view v_stock_movements as
 create or replace view v_sales as
   select s.* from sales s where app.has_perm('billsView') or app.has_perm('report') or app.has_perm('reports');
 create or replace view v_sale_lines as
-  select l.id, l.sale_id, l.line_no, l.product_id, l.name, l.unit, l.qty, l.unit_price, l.line_discount, l.line_total,
+  select l.id, l.sale_id, l.line_no, l.product_id, l.name, l.unit, l.qty, l.unit_price, l.line_discount, l.line_total, s.sale_date, s.status as sale_status,
          case when app.has_perm('viewCost') then l.cost_total end as cost_total
     from sale_lines l join sales s on s.id = l.sale_id
    where app.has_perm('billsView') or app.has_perm('report') or app.has_perm('reports');
 create or replace view v_receipts as select * from receipts where app.has_perm('receive');
-create or replace view v_receipt_lines as select l.* from receipt_lines l where app.has_perm('receive');
+create or replace view v_receipt_lines as
+  select l.*, r.received_on, r.status as receipt_status from receipt_lines l join receipts r on r.id = l.receipt_id where app.has_perm('receive');
 create or replace view v_purchase_orders as select * from purchase_orders where app.has_perm('receive');
-create or replace view v_purchase_order_lines as select * from purchase_order_lines where app.has_perm('receive');
+create or replace view v_purchase_order_lines as
+  select l.*, o.status as po_status, o.ordered_on from purchase_order_lines l join purchase_orders o on o.id = l.po_id where app.has_perm('receive');
 create or replace view v_closings as select * from daily_closings where app.has_perm('report');
 create or replace view v_audit_log as select * from audit_log where app.is_service() or exists (select 1 from staff s where s.auth_user_id = app.uid() and s.is_admin and s.active);
 

@@ -404,6 +404,19 @@ begin
     delete from product_drug_types where product_id = v_id;
     insert into product_drug_types select v_id, x from jsonb_array_elements_text(p->'drug_types') x on conflict do nothing;
   end if;
+  if p ? 'latest_cost' then update products set latest_cost = greatest(coalesce((p->>'latest_cost')::numeric, 0), 0) where id = v_id; end if;
+  if p ? 'bundle' then
+    delete from product_bundles where bundle_id = v_id;
+    if jsonb_typeof(p->'bundle') = 'array' then
+      insert into product_bundles (bundle_id, part_id, qty) select v_id, (x->>'part_id')::bigint, (x->>'qty')::int from jsonb_array_elements(p->'bundle') x where (x->>'part_id')::bigint <> v_id on conflict do nothing;
+    end if;
+  end if;
+  if p ? 'unpack' then
+    delete from product_unpack where parent_id = v_id;
+    if jsonb_typeof(p->'unpack') = 'object' and coalesce((p->'unpack'->>'ratio')::int, 0) >= 2 then
+      insert into product_unpack (parent_id, child_id, ratio) values (v_id, (p->'unpack'->>'child_id')::bigint, (p->'unpack'->>'ratio')::int);
+    end if;
+  end if;
   return v_id;
 end $$;
 
@@ -413,11 +426,20 @@ begin
   perform app.check_perm('receive');
   if coalesce(trim(p->>'name'), '') = '' then raise exception 'ใส่ชื่อผู้จำหน่ายก่อน'; end if;
   if v_id is null then
-    insert into suppliers (code, name, address, province, zip, phone, fax, tax_id, contact_name, contact_mobile, note)
-    values (nullif(p->>'code', ''), trim(p->>'name'), p->>'address', p->>'province', p->>'zip', p->>'phone', p->>'fax', p->>'tax_id', p->>'contact_name', p->>'contact_mobile', p->>'note') returning id into v_id;
+    insert into suppliers (code, name, address, province, zip, phone, fax, tax_id, contact_name, contact_mobile, open_time, close_time, note)
+    values (nullif(p->>'code', ''), trim(p->>'name'), p->>'address', p->>'province', p->>'zip', p->>'phone', p->>'fax', p->>'tax_id', p->>'contact_name', p->>'contact_mobile',
+            nullif(p->>'open_time', ''), nullif(p->>'close_time', ''), p->>'note') returning id into v_id;
   else
     update suppliers set code = nullif(p->>'code', ''), name = trim(p->>'name'), address = p->>'address', province = p->>'province', zip = p->>'zip', phone = p->>'phone', fax = p->>'fax',
-      tax_id = p->>'tax_id', contact_name = p->>'contact_name', contact_mobile = p->>'contact_mobile', note = p->>'note', active = coalesce((p->>'active')::boolean, true) where id = v_id;
+      tax_id = p->>'tax_id', contact_name = p->>'contact_name', contact_mobile = p->>'contact_mobile', open_time = nullif(p->>'open_time', ''), close_time = nullif(p->>'close_time', ''),
+      note = p->>'note', active = coalesce((p->>'active')::boolean, true) where id = v_id;
+  end if;
+  if jsonb_typeof(p->'terms') = 'array' then
+    delete from supplier_terms where supplier_id = v_id;
+    insert into supplier_terms (supplier_id, product_id, buy_qty, free_qty)
+      select v_id, (t->>'product_id')::bigint, (t->>'buy_qty')::int, (t->>'free_qty')::int from jsonb_array_elements(p->'terms') t
+       where coalesce((t->>'buy_qty')::int, 0) > 0 and coalesce((t->>'free_qty')::int, 0) > 0 and exists (select 1 from products where id = (t->>'product_id')::bigint)
+      on conflict do nothing;
   end if;
   return v_id;
 end $$;

@@ -1,0 +1,1 @@
+{ "name": "dbtest", "private": true, "version": "1.0.0", "description": "Runs the app in database mode against a local PostgreSQL test database", "dependencies": { "pg": "^8.11.0" } }
