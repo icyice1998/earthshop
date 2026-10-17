@@ -1527,7 +1527,8 @@
                 <div><label class="lbl" for="us-emp">รหัสพนักงาน</label><input id="us-emp" v-model="us.empId" class="inp"></div>
                 <div><label class="lbl" for="us-name">ชื่อพนักงาน</label><input id="us-name" v-model="us.name" class="inp"></div>
                 <div class="col-span-2"><label class="lbl" for="us-login">ชื่อ Login (ใช้พิมพ์ตอนเข้าสู่ระบบ เช่น earth)</label><input id="us-login" v-model="us.login" class="inp" autocapitalize="none" autocomplete="off" :disabled="!!us.id"></div>
-                <template v-if="!us.id">
+                <label v-if="!us.id && dbMode" class="col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" class="w-5 h-5" v-model="us.linkOnly"> บัญชีนี้สร้างไว้ใน Supabase แล้ว (กำหนดสิทธิ์อย่างเดียว ไม่ตั้งรหัสผ่านใหม่)</label>
+                <template v-if="!us.id && !us.linkOnly">
                   <div><label class="lbl" for="us-pw">รหัสผ่าน (อย่างน้อย 6 ตัว)</label><input id="us-pw" v-model="usPass" type="password" autocomplete="new-password" class="inp"></div>
                   <div><label class="lbl" for="us-pw2">ยืนยันรหัสผ่าน</label><input id="us-pw2" v-model="usPass2" type="password" autocomplete="new-password" class="inp"></div>
                 </template>
@@ -2619,7 +2620,7 @@ const _supabase = supabase.createClient(SB_URL, SB_KEY)
 // ชื่อผู้ใช้ที่พิมพ์สั้นๆ (เช่น earth) จะถูกต่อท้ายด้วยโดเมนนี้ให้กลายเป็นอีเมลตอนล็อกอิน
 // ต้องตรงกับโดเมนของอีเมลที่สร้างไว้ในหน้า Authentication > Users ของ Supabase
 // (ถ้าพิมพ์อีเมลเต็มที่มี @ ระบบจะใช้ตามที่พิมพ์)
-const LOGIN_DOMAIN = 'knockdown-shop.com'
+const LOGIN_DOMAIN = DB_MODE ? 'mypharm.com' : 'knockdown-shop.com'   // โหมดฐานข้อมูลใหม่ใช้ @mypharm.com
 const toEmail = u => { u = String(u || '').trim().toLowerCase(); return u.indexOf('@') >= 0 ? u : u + '@' + LOGIN_DOMAIN }
 const userNameOf = email => String(email || '').split('@')[0]
 let ACTOR = ''   // ชื่อผู้ใช้ที่ล็อกอินอยู่ ใช้บันทึกว่าใครเป็นคนทำรายการ
@@ -4522,7 +4523,7 @@ const app = createApp({
         } catch (e) { this.toast('นำเข้าไม่สำเร็จ: ' + e.message, 'bad') }
       })
     },
-    usBlank() { return { id: '', empId: '', name: '', login: '', role: '', active: true, admin: false, workStart: '', workEnd: '', perms: { ...PERM_PRESETS.cashier.perms } } },
+    usBlank() { return { linkOnly: false, id: '', empId: '', name: '', login: '', role: '', active: true, admin: false, workStart: '', workEnd: '', perms: { ...PERM_PRESETS.cashier.perms } } },
     usNew() { this.usSel = 'new'; this.us = this.usBlank(); this.usPass = ''; this.usPass2 = '' },
     usSelect(u) { this.usSel = u.id; this.us = { ...this.usBlank(), ...JSON.parse(JSON.stringify(u)), perms: { ...this.usBlank().perms, ...(u.perms || {}) } } },
     usPreset(k) { this.us.perms = { ...PERM_PRESETS[k].perms }; this.us.role = PERM_PRESETS[k].label },
@@ -4544,7 +4545,8 @@ const app = createApp({
       const others = this.S.users.filter(u => u.id !== d.id && u.active !== false && u.admin)
       if (this.hasAdmin && !others.length && !(d.admin && d.active)) return this.toast('ต้องมีผู้ดูแลที่ใช้งานอยู่อย่างน้อย 1 คน', 'bad')
       const isNewUser = !d.id
-      if (isNewUser) {
+      const linkOnly = isNewUser && !!d.linkOnly && DB_MODE
+      if (isNewUser && !linkOnly) {
         if (String(this.usPass || '').length < 6) return this.toast('รหัสผ่านต้องมีอย่างน้อย 6 ตัว', 'bad')
         if (this.usPass !== this.usPass2) return this.toast('รหัสผ่านสองช่องไม่ตรงกัน', 'bad')
       }
@@ -4552,7 +4554,7 @@ const app = createApp({
         if (DB_MODE) {
           try {
             let authId = null
-            if (isNewUser) {
+            if (isNewUser && !linkOnly) {
               const r = await this.createAuthUser(login, this.usPass, d.name.trim())
               if (r.error) return this.toast('สร้างบัญชีเข้าระบบไม่สำเร็จ: ' + r.error, 'bad')
               authId = r.id || null
@@ -5498,7 +5500,7 @@ const app = createApp({
       try {
         const c = supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } })
         const { data, error } = await c.auth.signUp({ email: toEmail(login), password: pass, options: { data: { display_name: name } } })
-        if (error) return { error: error.message }
+        if (error) { if (/already (been )?registered|already exists/i.test(error.message || '')) return { exists: true }; return { error: error.message } }
         if (data && data.user && Array.isArray(data.user.identities) && !data.user.identities.length) return { exists: true }
         return { id: data && data.user ? data.user.id : null }
       } catch (e) { return { error: 'เชื่อมต่อไม่ได้' } }
