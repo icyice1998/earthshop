@@ -33,17 +33,24 @@
     .rt { width:100%; border-collapse:collapse; }
     @media (max-width: 1279px) { .rt .col-xl { display:none; } }
     @media (max-width: 1023px) { .rt .col-lg { display:none; } }
-    @media (min-width: 640px) and (max-width: 1023px) { .rt .col-tab { display:none; } }
-    @media (max-width: 639px) {
-      .rt, .rt tbody, .rt tr, .rt td { display:block; }
-      .rt thead { display:none; }
-      .rt tr { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:.1rem .6rem; padding:.45rem .6rem; }
-      .rt td { padding:0 !important; text-align:left !important; }
-      .rt td[data-l]::before { content:attr(data-l); display:block; font-size:.7rem; color:#5b6f6b; font-weight:400; }
-      .rt td.c-code { order:-2; grid-column:1 / -1; font-size:.78rem; color:#5b6f6b; }
-      .rt td.c-name { order:-1; grid-column:1 / -1; margin-bottom:.25rem; }
-      .rt td.c-name::before, .rt td.c-code::before { display:none !important; }
-    }
+    @media (max-width: 1023px) { .rt .col-tab { display:none; } }
+    @media (max-width: 639px) { .rt { font-size:.82rem; } .rt td, .rt th { padding:.35rem .4rem !important; } .rt .c-name { min-width:9rem; } }
+    .gwrap { max-height: calc(100dvh - 15rem); overflow: auto; border: 1px solid var(--line); border-radius: .6rem; background: #fff; }
+    .gtbl { border-collapse: separate; border-spacing: 0; font-size: .85rem; min-width: 100%; }
+    .gtbl th { position: sticky; top: 0; z-index: 2; background: #e8f0ee; border-bottom: 1.5px solid var(--line); padding: .3rem .4rem; white-space: nowrap; text-align: left; font-weight: 600; }
+    .gtbl td { border-bottom: 1px solid var(--line); padding: 0; white-space: nowrap; }
+    .gtbl td.gc { text-align: center; }
+    .gtbl tr:hover td { background: #f4f9f8; }
+    .gtbl .gin { width: 100%; padding: .25rem .4rem; border: 1px solid transparent; background: transparent; border-radius: .25rem; font-size: .85rem; }
+    .gtbl .gin:focus { border-color: var(--pine); background: #fff; outline: none; }
+    .gtbl .gin:disabled { color: #8a9b98; }
+    .gtbl td.gchg { background: #fef9c3 !important; }
+    .gtbl .gnum { text-align: right; font-variant-numeric: tabular-nums; }
+    .gtbl .gstick { position: sticky; left: 0; z-index: 1; background: #fff; }
+    .gtbl th.gstick { z-index: 3; background: #e8f0ee; }
+    .gtbl .gstick { min-width: 7.2rem; max-width: 7.2rem; }
+    .gtbl .gstick2 { position: sticky; left: 7.2rem; z-index: 1; background: #fff; box-shadow: 1px 0 0 var(--line); }
+    .gtbl th.gstick2 { z-index: 3; background: #e8f0ee; }
     .ky-page { background:#fff; color:#000; padding:1.2rem; margin:0 auto .75rem; max-width:1123px; border:1px solid var(--line); border-radius:.6rem; font-size:.92rem; }
     .ky-no { text-align:right; font-weight:700; }
     .ky-title { text-align:center; font-weight:700; font-size:1.05rem; margin:.15rem 0 .5rem; }
@@ -829,11 +836,58 @@
     <!-- ============ ระบบบริหารจัดการยา ============ -->
     <section v-else-if="tab === 'manage'" class="h-full overflow-y-auto p-3">
       <div class="flex gap-2 mb-3">
+        <button class="chip" :class="mgMode === 'grid' ? 'chip-on' : ''" @click="mgMode = 'grid'">ตารางจัดการ (ข้อมูล · ประเภทยา · ราคา · สต็อก)</button>
         <button class="chip" :class="mgMode === 'edit' ? 'chip-on' : ''" @click="mgMode = 'edit'">แก้ไขรายตัว</button>
         <button class="chip" :class="mgMode === 'assign' ? 'chip-on' : ''" @click="bkOpen">กำหนดประเภทยา (หลายรายการ)</button>
       </div>
 
-      <div v-if="mgMode === 'assign'" class="card p-4">
+      <!-- ตารางจัดการ: แก้ข้อมูล ประเภทยา ราคา และปรับสต็อกในตารางเดียว -->
+      <div v-if="mgMode === 'grid'">
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+          <input v-model="mgQ" class="inp !w-72" placeholder="ค้นหาชื่อ / ชื่อสามัญ / รหัส / บาร์โค้ด / ผู้จำหน่าย" autocomplete="off">
+          <select v-model="mgFilter" class="inp !w-56"><option value="all">ทั้งหมด ({{ mgCounts.all }})</option><option v-for="fl in DRUG_FLAGS" :key="fl.k" :value="fl.k">{{ fl.label }} ({{ mgCounts[fl.k] }})</option><option value="inactive">ปิดใช้งาน ({{ mgCounts.inactive }})</option></select>
+          <span class="text-sm text-slate-500">แสดง {{ Math.min(gridLimit, mgRows.length) }} / {{ mgRows.length }}</span>
+          <span class="flex-1"></span>
+          <span v-if="gridCount" class="tag" style="background:#fef9c3;color:#854d0e">แก้ไขแล้ว {{ gridCount }} รายการ</span>
+          <button class="btn btn-ghost" :disabled="!gridCount" @click="gridReset">ยกเลิกการแก้</button>
+          <button class="btn btn-pri" :disabled="!gridCount || paying" @click="gridSave">บันทึกที่แก้ไข</button>
+          <button class="btn btn-ghost" @click="openForm(null)">+ เพิ่มสินค้า</button>
+        </div>
+        <div class="text-xs text-slate-500 mb-2">คลิกที่ช่องเพื่อแก้ไข Tab เลื่อนไปช่องถัดไป Enter ลงแถวถัดไป ช่องที่แก้ไขจะเป็นสีเหลือง การบันทึกต้องมีสิทธิ์และยืนยันด้วยรหัส PIN ก่อนเสมอ ช่อง "คงเหลือ" ที่แก้ไขคือการปรับสต็อก (ต้องมีสิทธิ์ปรับสต็อก) ช่องราคาทุนต้องมีสิทธิ์เห็นต้นทุน</div>
+        <div class="gwrap">
+          <table class="gtbl">
+            <thead>
+              <tr>
+                <th class="gstick">รหัส</th><th class="gstick2">ชื่อการค้า</th><th>ชื่อสามัญ</th><th>หมวด</th><th>หน่วย</th><th>บาร์โค้ด</th><th>ผู้จำหน่าย</th><th>ที่เก็บ</th>
+                <th v-for="fl in DRUG_FLAGS" :key="fl.k" class="gc" :title="fl.label" style="text-align:center">{{ FLAG_SHORT[fl.k] }}</th>
+                <th v-if="can('viewCost')" style="text-align:right">ทุน</th><th style="text-align:right">ราคาขาย</th><th style="text-align:right">คงเหลือ</th><th style="text-align:right">จุดเตือน</th><th style="text-align:center">ใช้งาน</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(p, ri) in mgRows.slice(0, gridLimit)" :key="p.id">
+                <td class="gstick" :class="gchg(p, 'code') ? 'gchg' : ''"><input class="gin" style="width:6.5rem" :value="gv(p, 'code')" :disabled="!can('manage')" :data-c="'code'" :data-r="ri" @input="gset(p, 'code', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
+                <td class="gstick2" :class="gchg(p, 'name') ? 'gchg' : ''"><input class="gin" style="width:15rem" :value="gv(p, 'name')" :disabled="!can('manage')" data-c="name" :data-r="ri" @input="gset(p, 'name', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
+                <td :class="gchg(p, 'generic') ? 'gchg' : ''"><input class="gin" style="width:11rem" :value="gv(p, 'generic')" :disabled="!can('manage')" data-c="generic" :data-r="ri" @input="gset(p, 'generic', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
+                <td :class="gchg(p, 'category') ? 'gchg' : ''"><select class="gin" style="width:8rem" :value="gv(p, 'category')" :disabled="!can('manage')" @change="gset(p, 'category', $event.target.value)"><option v-for="c in catList" :key="c" :value="c">{{ c }}</option></select></td>
+                <td :class="gchg(p, 'unit') ? 'gchg' : ''"><input class="gin" style="width:4.5rem" :value="gv(p, 'unit')" :disabled="!can('manage')" data-c="unit" :data-r="ri" @input="gset(p, 'unit', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
+                <td :class="gchg(p, 'barcode') ? 'gchg' : ''"><input class="gin" style="width:8.5rem" :value="gv(p, 'barcode')" :disabled="!can('manage')" data-c="barcode" :data-r="ri" @input="gset(p, 'barcode', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
+                <td :class="gchg(p, 'supplier') ? 'gchg' : ''"><input class="gin" style="width:10rem" list="supplier-list" :value="gv(p, 'supplier')" :disabled="!can('manage')" data-c="supplier" :data-r="ri" @input="gset(p, 'supplier', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
+                <td :class="gchg(p, 'location') ? 'gchg' : ''"><input class="gin" style="width:5.5rem" :value="gv(p, 'location')" :disabled="!can('manage')" data-c="location" :data-r="ri" @input="gset(p, 'location', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
+                <td v-for="fl in DRUG_FLAGS" :key="fl.k" class="gc" :class="gchg(p, fl.k) ? 'gchg' : ''"><input type="checkbox" class="w-4 h-4" :checked="gv(p, fl.k)" :disabled="!can('manage')" @change="gset(p, fl.k, $event.target.checked)"></td>
+                <td v-if="can('viewCost')" :class="gchg(p, 'cost') ? 'gchg' : ''"><input class="gin gnum" style="width:5.5rem" type="number" step="any" :value="gv(p, 'cost')" :disabled="!can('manage') || !!p.bundle" data-c="cost" :data-r="ri" @input="gset(p, 'cost', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
+                <td :class="gchg(p, 'price') ? 'gchg' : ''"><input class="gin gnum" style="width:5.5rem" type="number" step="any" :value="gv(p, 'price')" :disabled="!can('manage')" data-c="price" :data-r="ri" @input="gset(p, 'price', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
+                <td :class="gchg(p, 'stock') ? 'gchg' : ''"><input class="gin gnum" style="width:5rem" type="number" :value="gv(p, 'stock')" :disabled="!can('adjustStock') || !!p.bundle" :title="p.bundle ? 'ยาชุดปรับสต็อกที่ตัวยาแต่ละตัว' : ''" data-c="stock" :data-r="ri" @input="gset(p, 'stock', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
+                <td :class="gchg(p, 'reorder') ? 'gchg' : ''"><input class="gin gnum" style="width:4.5rem" type="number" :value="gv(p, 'reorder')" :disabled="!can('manage')" data-c="reorder" :data-r="ri" @input="gset(p, 'reorder', $event.target.value)" @keydown.enter.prevent="gridNext($event)"></td>
+                <td class="gc" :class="gchg(p, 'active') ? 'gchg' : ''"><input type="checkbox" class="w-4 h-4" :checked="gv(p, 'active')" :disabled="!can('manage')" @change="gset(p, 'active', $event.target.checked)"></td>
+              </tr>
+              <tr v-if="mgRows.length === 0"><td :colspan="20" class="p-6 text-center text-slate-400">ไม่พบรายการ</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="mgRows.length > gridLimit" class="text-center py-3"><button class="btn btn-ghost" @click="gridLimit += 100">แสดงเพิ่ม ({{ gridLimit }} / {{ mgRows.length }})</button></div>
+      </div>
+
+      <div v-else-if="mgMode === 'assign'" class="card p-4">
         <div class="flex flex-wrap items-end gap-3 mb-3">
           <div class="flex-1" style="min-width:14rem">
             <label class="lbl" for="bk-type">กำหนดประเภทยา</label>
@@ -873,7 +927,7 @@
         <div class="text-xs text-slate-500 mt-2">ยาห้ามขายจะถูกกันไม่ให้ขายที่หน้าร้าน ส่วนยาที่ตั้ง "พิมพ์ฉลากยาอัตโนมัติ" จะพิมพ์ฉลากให้ทุกครั้งที่ขาย แม้ไม่ได้ติ๊กพิมพ์ฉลาก</div>
       </div>
 
-      <div v-else class="grid gap-3 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
+      <div v-else-if="mgMode === 'edit'" class="grid gap-3 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
 
         <!-- รายการยา -->
         <div :class="mg ? 'hidden lg:block' : ''" class="card p-3">
@@ -1115,7 +1169,8 @@
         <button v-if="isAdmin" class="chip" :class="setTab === 'prog' ? 'chip-on' : ''" @click="setTab = 'prog'">ตั้งค่าโปรแกรม</button>
         <button v-if="isAdmin" class="chip" :class="setTab === 'vendors' ? 'chip-on' : ''" @click="setTab = 'vendors'">ผู้จำหน่าย</button>
         <button v-if="isAdmin" class="chip" :class="setTab === 'users' ? 'chip-on' : ''" @click="setTab = 'users'">ผู้ใช้และสิทธิ์</button>
-        <button class="chip" :class="setTab === 'general' || !isAdmin ? 'chip-on' : ''" @click="setTab = 'general'">บัญชีและข้อมูล</button>
+        <button v-if="isAdmin" class="chip" :class="setTab === 'backup' ? 'chip-on' : ''" @click="setTab = 'backup'">สำรอง / กู้คืน / นำเข้า</button>
+        <button class="chip" :class="setTab === 'general' || !isAdmin ? 'chip-on' : ''" @click="setTab = 'general'">บัญชีของฉัน</button>
       </div>
       <!-- ===== ข้อมูลร้าน ===== -->
       <div v-if="setTab === 'shop' && isAdmin" class="grid gap-3 lg:grid-cols-2 lg:items-start">
@@ -1271,41 +1326,22 @@
         </div>
       </div>
 
-      <div v-if="setTab === 'general' || !isAdmin">
-      <div class="card p-4 mb-3">
-        <div class="font-bold mb-1">ขนาดหน้าจอ (เฉพาะเครื่องนี้)</div>
-        <div class="flex gap-2">
-          <button v-for="o in [['s', 'เล็ก'], ['m', 'กลาง'], ['l', 'ใหญ่']]" :key="o[0]" class="chip" :class="uiSize === o[0] ? 'chip-on' : ''" @click="setUiSize(o[0])">{{ o[1] }}</button>
+      <div v-if="setTab === 'backup' && isAdmin">
+      <div v-if="dbMode" class="card p-4 mb-3">
+        <div class="font-bold mb-1">สำรองข้อมูลจากฐานข้อมูล (ส่งออกไฟล์)</div>
+        <div class="text-sm text-slate-600 mb-3">ดาวน์โหลดสำเนาข้อมูลหลักเป็นไฟล์ .json เก็บไว้ในเครื่องหรือไดรฟ์ของคุณ ข้อมูลที่ผู้ใช้ของคุณมีสิทธิ์เห็นเท่านั้นที่จะอยู่ในไฟล์ (ผู้ที่ไม่มีสิทธิ์เห็นต้นทุนจะไม่ได้ราคาทุน)</div>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div><label class="lbl" for="bk-from">บิลขาย ตั้งแต่วันที่</label><input id="bk-from" type="date" v-model="dbBackup.from" class="inp"></div>
+          <div><label class="lbl" for="bk-to">ถึงวันที่</label><input id="bk-to" type="date" v-model="dbBackup.to" class="inp"></div>
         </div>
+        <button class="btn btn-pri w-full" :disabled="dbBackup.busy" @click="dbExport">{{ dbBackup.busy ? 'กำลังรวบรวมข้อมูล ' + dbBackup.msg : 'ดาวน์โหลดไฟล์สำรอง' }}</button>
+        <div v-if="dbBackup.error" class="text-sm mt-2" style="color:var(--bad)">{{ dbBackup.error }}</div>
       </div>
-
-      <div class="card p-4 mb-3">
-        <div class="font-bold mb-1">บัญชีผู้ใช้</div>
-        <div class="text-sm text-slate-600 mb-3">เข้าสู่ระบบเป็น <b>{{ actor }}</b> · สถานะ: {{ syncLabel }}</div>
-        <label class="lbl">ชื่อที่แสดงในบิล (เช่น earth)</label>
-        <div class="flex gap-2 mb-3">
-          <input v-model="nameForm.name" class="inp" placeholder="ชื่อผู้คีย์">
-          <button class="btn btn-ghost whitespace-nowrap" @click="saveDisplayName">บันทึกชื่อ</button>
-        </div>
-        <label class="lbl">เปลี่ยนรหัสผ่านเข้าระบบ (อย่างน้อย 6 ตัว)</label>
-        <div class="flex gap-2 mb-3">
-          <input v-model="pwForm.next" type="password" autocomplete="new-password" class="inp" placeholder="รหัสผ่านใหม่">
-          <button class="btn btn-ghost whitespace-nowrap" @click="changeLoginPassword">เปลี่ยน</button>
-        </div>
-        <button class="btn btn-badline w-full" @click="askLogout">ออกจากระบบ</button>
+      <div v-if="dbMode" class="card p-4 mb-3">
+        <div class="font-bold mb-1">กู้คืนข้อมูล</div>
+        <div class="text-sm text-slate-600">การกู้คืนทับฐานข้อมูลทำที่ฝั่งฐานข้อมูล ไม่ทำจากหน้าจอนี้ เพื่อกันการกดผิดแล้วข้อมูลหาย: ใน Supabase ไปที่ Database &gt; Backups (แผน Pro มีสำรองอัตโนมัติรายวัน และกู้คืนย้อนหลังได้) หรือใช้ไฟล์ SQL ในโฟลเดอร์ db ของโปรเจกต์ ไฟล์ .json ด้านบนใช้เก็บเป็นหลักฐานและเปิดอ่านหรือนำไปประมวลผลต่อได้</div>
       </div>
-
-      <div class="card p-4 mb-3">
-        <div class="font-bold mb-1">เปลี่ยนรหัสยืนยัน (PIN)</div>
-        <div class="text-xs text-slate-500 mb-3">ใช้ยืนยันตอนปรับสต็อก และตอนยกเลิกบิลย้อนหลัง</div>
-        <div class="grid grid-cols-2 gap-3">
-          <div><label class="lbl">รหัสเดิม</label><input v-model="pinForm.old" type="password" inputmode="numeric" class="inp"></div>
-          <div><label class="lbl">รหัสใหม่ (4 ตัวขึ้นไป)</label><input v-model="pinForm.next" type="password" inputmode="numeric" class="inp"></div>
-        </div>
-        <button class="btn btn-ghost w-full mt-3" @click="changePin">เปลี่ยนรหัส</button>
-      </div>
-
-      <div v-if="isAdmin && !dbMode" class="card p-4 mb-3">
+      <div v-if="!dbMode" class="card p-4 mb-3">
         <div class="font-bold mb-1">นำเข้าข้อมูลจาก SmartDrugstore</div>
         <div class="text-xs text-slate-500 mb-3">เลือกไฟล์ .sql ที่ส่งออกจากโปรแกรมเดิม (Navicat / mysqldump) ระบบอ่านเป็นข้อความอย่างเดียว ไม่รันคำสั่งใดๆ จะนำเข้า สินค้า ล็อต ราคาทุน วันหมดอายุ ใบรับเข้า ผู้จำหน่าย ลูกค้า (ชื่อ เบอร์ ประวัติแพ้ยา) รายชื่อผู้ใช้ (ไม่รวมรหัสผ่าน) ข้อมูลร้าน และบิลขายย้อนหลังตามที่เลือก ไม่นำเข้ารหัสผ่าน เลขบัตรประชาชน ที่อยู่ลูกค้า หรือรูปภาพ</div>
         <label class="lbl" for="imp-days">นำเข้าบิลขายย้อนหลัง</label>
@@ -1355,6 +1391,43 @@
         <div class="text-xs text-slate-500 mb-3">ล้างทั้งหมดรวมทั้งรายการยาที่เพิ่ม/แก้ไว้ แล้วกลับไปใช้รายการและสต็อกตั้งต้นจากไฟล์ Excel (ชื่อร้านและรหัสผ่านยังอยู่)</div>
         <button class="btn btn-badline w-full" @click="resetAll">ล้างข้อมูลและกลับไปค่าเริ่มต้น</button>
       </div>
+      </div>
+
+      <div v-if="setTab === 'general' || !isAdmin">
+      <div class="card p-4 mb-3">
+        <div class="font-bold mb-1">ขนาดหน้าจอ (เฉพาะเครื่องนี้)</div>
+        <div class="flex gap-2">
+          <button v-for="o in [['s', 'เล็ก'], ['m', 'กลาง'], ['l', 'ใหญ่']]" :key="o[0]" class="chip" :class="uiSize === o[0] ? 'chip-on' : ''" @click="setUiSize(o[0])">{{ o[1] }}</button>
+        </div>
+      </div>
+
+      <div class="card p-4 mb-3">
+        <div class="font-bold mb-1">บัญชีผู้ใช้</div>
+        <div class="text-sm text-slate-600 mb-3">เข้าสู่ระบบเป็น <b>{{ actor }}</b> · สถานะ: {{ syncLabel }}</div>
+        <label class="lbl">ชื่อที่แสดงในบิล (เช่น earth)</label>
+        <div class="flex gap-2 mb-3">
+          <input v-model="nameForm.name" class="inp" placeholder="ชื่อผู้คีย์">
+          <button class="btn btn-ghost whitespace-nowrap" @click="saveDisplayName">บันทึกชื่อ</button>
+        </div>
+        <label class="lbl">เปลี่ยนรหัสผ่านเข้าระบบ (อย่างน้อย 6 ตัว)</label>
+        <div class="flex gap-2 mb-3">
+          <input v-model="pwForm.next" type="password" autocomplete="new-password" class="inp" placeholder="รหัสผ่านใหม่">
+          <button class="btn btn-ghost whitespace-nowrap" @click="changeLoginPassword">เปลี่ยน</button>
+        </div>
+        <button class="btn btn-badline w-full" @click="askLogout">ออกจากระบบ</button>
+      </div>
+
+      <div class="card p-4 mb-3">
+        <div class="font-bold mb-1">เปลี่ยนรหัสยืนยัน (PIN)</div>
+        <div class="text-xs text-slate-500 mb-3">ใช้ยืนยันตอนปรับสต็อก และตอนยกเลิกบิลย้อนหลัง</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="lbl">รหัสเดิม</label><input v-model="pinForm.old" type="password" inputmode="numeric" class="inp"></div>
+          <div><label class="lbl">รหัสใหม่ (4 ตัวขึ้นไป)</label><input v-model="pinForm.next" type="password" inputmode="numeric" class="inp"></div>
+        </div>
+        <button class="btn btn-ghost w-full mt-3" @click="changePin">เปลี่ยนรหัส</button>
+      </div>
+
+
     </div>
 
       <div v-else-if="setTab === 'users' && isAdmin" class="grid gap-3 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
@@ -2129,6 +2202,8 @@ const PERM_PRESETS = {
   stock: { label: 'พนักงานคลัง', perms: permsOf(['stock', 'receive', 'viewCost']) }
 }
 const SUB_PERM = { salesrep: 'reports', kyforms: 'forms', pos: 'pos', report: 'report', history: 'report', members: 'members', stock: 'stock', supplies: 'stock', manage: 'manage', receive: 'receive', settings: 'settings' }
+const FLAG_SHORT = { banned: 'ห้ามขาย', danger: 'อันตราย', controlled: 'ควบคุม', offsys: 'นอกระบบ', otc: 'OTC', ky9n: '9N', nontax: 'นอกภาษี', autolabel: 'ฉลากอัตโนมัติ', ky8: 'ขย.8', ky11: 'ขย.11', ky13: 'ขย.13', special: 'เฉพาะ' }
+const GRID_FIELDS = ['code', 'name', 'generic', 'category', 'unit', 'barcode', 'supplier', 'location', 'cost', 'price', 'reorder']
 const RX_FLAGS = ['danger', 'controlled', 'ky8', 'ky11']
 const MEAL_TIME = { before: 'ก่อนอาหาร', with: 'พร้อมอาหาร', after: 'หลังอาหาร' }
 const STORAGE_TYPE = { room: 'เก็บที่อุณหภูมิห้อง', fridge: 'เก็บในตู้เย็น' }
@@ -3602,7 +3677,7 @@ const app = createApp({
       printOpt: (() => { try { const o = JSON.parse(localStorage.getItem('knockdown_print_opt')); return { receipt: !!(o && o.receipt), label: !!(o && o.label) } } catch (e) { return { receipt: false, label: false } } })(),
       histDay: today, billsOpen: window.innerHeight >= 900, saleDetailId: null, voidReason: 'คีย์ผิด',
       invSearch: '', invFilter: 'all', invLimit: 50, invSort: { key: '', dir: 1 },
-      invView: (() => { try { return localStorage.getItem('knockdown_inv_view') === 'table' ? 'table' : 'card' } catch (e) { return 'card' } })(),
+      invView: (() => { try { return localStorage.getItem('knockdown_inv_view') === 'card' ? 'card' : 'table' } catch (e) { return 'table' } })(),
       invCols: [{ key: 'code', label: 'รหัส' }, { key: 'name', label: 'ชื่อสินค้า' }, { key: 'generic', cls: 'col-xl', label: 'ชื่อสามัญ' }, { key: 'category', cls: 'col-lg', label: 'หมวด' },
                 { key: 'unit', cls: 'col-lg', label: 'หน่วย' }, { key: 'stock', label: 'คงเหลือ', num: true }, { key: 'cost', label: 'ทุน', num: true }, { key: 'price', label: 'ขาย', num: true },
                 { key: 'margin', cls: 'col-tab', label: 'กำไร%', num: true }, { key: 'exp', cls: 'col-tab', label: 'หมดอายุ' }, { key: 'barcode', cls: 'col-xl', label: 'บาร์โค้ด' }, { key: 'supplier', cls: 'col-xl', label: 'ผู้จำหน่าย' }, { key: 'location', cls: 'col-lg', label: 'ที่เก็บ' }], productModal: null, adj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, formModal: null,
@@ -3613,9 +3688,9 @@ const app = createApp({
       posLimit: 120, imp: { busy: false, pct: 0, msg: '', days: 365, result: null, backup: true },
       loginName: '', nowTick: Date.now(), dbMode: DB_MODE, dbHasAdmin: false, dbMe: null, dbUid: '', dbCfg: { url: '', key: '', open: false }, paying: false, dbSr: { rows: [], totals: { bills: 0, qty: 0, sales: 0, cost: 0, profit: 0 }, lines: [] }, dbKy: null, dbLoading: false, uiSize: (() => { try { const u = localStorage.getItem('knockdown_ui_size'); return u === 's' || u === 'l' ? u : 'm' } catch (e) { return 'm' } })(), setTab: 'general', usSel: null, us: null, usPass: '', usPass2: '', vs: null, vsSel: null, vsTab: 'gen', vsSearch: '', vsTermSearch: '',
       setup: { name: '', empId: '', pin: '', pin2: '', busy: false },
-      mgMode: 'edit', bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
+      dbBackup: { from: '', to: '', busy: false, msg: '', error: '' }, mgMode: 'grid', gridEdits: {}, gridLimit: 100, bkType: 'banned', bkSet: {}, bkL: '', bkR: '', bkSelL: {}, bkSelR: {},
       mgSel: null, mg: null, mgQ: '', mgFilter: 'all', mgLimit: 50, mgAdj: { counted: 0, reason: 'นับสต็อกไม่ตรง', note: '' }, mgLots: {},
-      DRUG_FLAGS,
+      DRUG_FLAGS, FLAG_SHORT,
       rcvDupOk: false,
       rcv: { invoice: '', supplier: '', day: today, items: [], discount: '', invoiceTotal: '', orderId: '' }, rcvSearch: '', rcvOpen: false,
       ord: { supplier: '', day: today, note: '', items: [] }, ordSearch: '', ordOpen: false, ordFilter: 'active', orderModalId: null, vendorOpen: false, vendorNew: '',
@@ -3694,6 +3769,7 @@ const app = createApp({
         return !q || p.name.toLowerCase().includes(q) || (p.generic || '').toLowerCase().includes(q) || p.code.toLowerCase().includes(q) || (p.barcode || '').includes(q) || (p.supplier || '').toLowerCase().includes(q)
       }).slice().sort((a, b) => String(a.code).localeCompare(String(b.code), 'th', { numeric: true }))
     },
+    gridCount() { return Object.keys(this.gridEdits).length },
     mgCounts() {
       const c = { all: 0, inactive: 0 }
       for (const f of DRUG_FLAGS) c[f.k] = 0
@@ -3939,8 +4015,8 @@ const app = createApp({
     tab(v) { if (DB_MODE && this.authed) { if (v === 'salesrep') this.dbSrLoad(); if (v === 'kyforms') this.dbKyLoad() } },
     search() { this.posLimit = 120 },
     cat() { this.posLimit = 120 },
-    mgQ() { this.mgLimit = 50 },
-    mgFilter() { this.mgLimit = 50 },
+    mgQ() { this.mgLimit = 50; this.gridLimit = 100 },
+    mgFilter() { this.mgLimit = 50; this.gridLimit = 100 },
     invSearch() { this.invLimit = 50 },
     invFilter() { this.invLimit = 50 },
     S: {
@@ -4049,6 +4125,25 @@ const app = createApp({
       if (key.length < 20 || /service_role/.test(key)) return this.toast('ใส่ anon / publishable key (ห้ามใช้ service_role key)', 'bad')
       try { localStorage.setItem('earthshop_db', JSON.stringify({ url, key })) } catch (e) { return this.toast('บันทึกในเครื่องนี้ไม่ได้', 'bad') }
       location.reload()
+    },
+    async dbExport() {
+      const b = this.dbBackup
+      b.busy = true; b.error = ''; b.msg = ''
+      const out = { exportedAt: new Date().toISOString(), by: this.actor, tables: {} }
+      const take = async (key, view, mod, order) => { b.msg = key; try { out.tables[key] = await Db.rows(view, '*', mod, order) } catch (e) { out.tables[key] = { error: e.message } } }
+      try {
+        await take('shop', 'v_shop', null, ['id']); await take('products', 'v_products'); await take('bundles', 'v_product_bundles', null, ['bundle_id', 'part_id']); await take('lots', 'v_lots')
+        await take('suppliers', 'v_suppliers'); await take('customers', 'v_customers'); await take('customer_allergies', 'v_customer_allergies')
+        await take('receipts', 'v_receipts'); await take('receipt_lines', 'v_receipt_lines'); await take('purchase_orders', 'v_purchase_orders'); await take('purchase_order_lines', 'v_purchase_order_lines')
+        if (this.isAdmin) await take('staff', 'v_staff')
+        const f = b.from || '2000-01-01', t = b.to || '2100-01-01'
+        await take('sales', 'v_sales', q => q.gte('sale_date', f).lte('sale_date', t)); await take('sale_lines', 'v_sale_lines', q => q.gte('sale_date', f).lte('sale_date', t))
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(out)], { type: 'application/json' }))
+        a.download = 'backup-db-' + dayKey(new Date()) + '.json'
+        a.click()
+        this.toast('สร้างไฟล์สำรองแล้ว')
+      } catch (e) { b.error = 'สำรองข้อมูลไม่สำเร็จ: ' + e.message } finally { b.busy = false; b.msg = '' }
     },
     dbClearCfg() { try { localStorage.removeItem('earthshop_db') } catch (e) { /* ignore */ } location.reload() },
     async startApp(user) {
@@ -4548,6 +4643,83 @@ const app = createApp({
           this.toast('ปรับสต็อกแล้ว (' + (d > 0 ? '+' : '') + d + ')')
           this.adj = { counted, reason: 'นับสต็อกไม่ตรง', note: '' }
         } catch (e) { this.toast(e.message, 'bad') }
+      })
+    },
+    // ===== ตารางจัดการ =====
+    gv(p, f) {
+      const e = this.gridEdits[p.id]
+      if (e && f in e) return e[f]
+      if (f === 'stock') return this.stockMap[p.id] || 0
+      if (f === 'active') return p.active !== false
+      if (DRUG_FLAGS.some(x => x.k === f)) return !!p[f]
+      return p[f] === undefined || p[f] === null ? '' : p[f]
+    },
+    gchg(p, f) { const e = this.gridEdits[p.id]; return !!(e && f in e) },
+    gset(p, f, v) {
+      const orig = f === 'stock' ? (this.stockMap[p.id] || 0) : f === 'active' ? p.active !== false : DRUG_FLAGS.some(x => x.k === f) ? !!p[f] : (p[f] === undefined || p[f] === null ? '' : p[f])
+      const same = typeof orig === 'boolean' ? v === orig : (String(v) === String(orig))
+      const cur = { ...(this.gridEdits[p.id] || {}) }
+      if (same) delete cur[f]; else cur[f] = v
+      const all = { ...this.gridEdits }
+      if (Object.keys(cur).length) all[p.id] = cur; else delete all[p.id]
+      this.gridEdits = all
+    },
+    gridReset() { this.gridEdits = {} },
+    gridNext(ev) {
+      const el = ev.target, c = el.getAttribute('data-c'), r = Number(el.getAttribute('data-r')) + 1
+      const nx = document.querySelector('.gtbl input[data-c="' + c + '"][data-r="' + r + '"]')
+      if (nx && !nx.disabled) { nx.focus(); nx.select && nx.select() }
+    },
+    gridSave() {
+      const ids = Object.keys(this.gridEdits)
+      if (!ids.length) return
+      const prods = ids.map(id => this.S.products.find(x => x.id === id)).filter(Boolean)
+      const needManage = prods.some(p => Object.keys(this.gridEdits[p.id]).some(f => f !== 'stock'))
+      const needStock = prods.some(p => 'stock' in this.gridEdits[p.id])
+      if (needManage && !this.can('manage')) return this.deny('แก้ไขข้อมูลยา')
+      if (needStock && !this.can('adjustStock')) return this.deny('ปรับสต็อก')
+      // ตรวจก่อนบันทึก
+      const codes = new Set(), bars = new Set()
+      for (const p of this.S.products) { const e = this.gridEdits[p.id] || {}; codes.add(String('code' in e ? e.code : p.code).trim()); }
+      for (const p of prods) {
+        const e = this.gridEdits[p.id]
+        if ('code' in e && !String(e.code).trim()) return this.toast('รหัสสินค้าห้ามว่าง: ' + p.name, 'bad')
+        if ('name' in e && !String(e.name).trim()) return this.toast('ชื่อสินค้าห้ามว่าง: ' + p.code, 'bad')
+        if ('code' in e && this.S.products.some(x => x.id !== p.id && String(this.gridEdits[x.id] && 'code' in this.gridEdits[x.id] ? this.gridEdits[x.id].code : x.code).trim() === String(e.code).trim())) return this.toast('รหัสซ้ำ: ' + e.code, 'bad')
+        if ('barcode' in e && String(e.barcode).trim() && this.S.products.some(x => x.id !== p.id && String(this.gridEdits[x.id] && 'barcode' in this.gridEdits[x.id] ? this.gridEdits[x.id].barcode : x.barcode || '').trim() === String(e.barcode).trim())) return this.toast('บาร์โค้ดซ้ำ: ' + e.barcode, 'bad')
+        for (const f of ['price', 'cost', 'reorder']) if (f in e && !(Number(e[f]) >= 0 && String(e[f]) !== '')) return this.toast('ตัวเลขไม่ถูกต้อง (' + f + '): ' + p.name, 'bad')
+        if ('stock' in e && !(Math.floor(Number(e.stock)) >= 0 && String(e.stock) !== '')) return this.toast('จำนวนคงเหลือไม่ถูกต้อง: ' + p.name, 'bad')
+      }
+      this.askPin('บันทึกการแก้ไข ' + prods.length + ' รายการ', async () => {
+        this.paying = true
+        let ok = 0; const fail = []
+        for (const p of prods) {
+          const e = this.gridEdits[p.id]
+          try {
+            const next = {}
+            for (const f of GRID_FIELDS) if (f in e) next[f] = ['price', 'cost'].includes(f) ? Number(e[f]) : f === 'reorder' ? Math.floor(Number(e[f])) : String(e[f]).trim()
+            for (const fl of DRUG_FLAGS) if (fl.k in e) next[fl.k] = !!e[fl.k]
+            if ('active' in e) next.active = !!e.active
+            if (Object.keys(next).length) {
+              if (DB_MODE) await Db.saveProduct(this.S, p, next)
+              else {
+                const L = Object.keys(next).map(k => k + ' ' + (p[k] === undefined || p[k] === '' ? '-' : p[k]) + ' → ' + next[k])
+                Object.assign(p, next)
+                if (!p.log) p.log = []
+                p.log.push({ ts: new Date().toISOString(), by: ACTOR, text: L.join('; ') + ' (ตารางจัดการ)' })
+              }
+            }
+            if ('stock' in e) {
+              const counted = Math.floor(Number(e.stock))
+              if (counted !== (this.stockMap[p.id] || 0)) await Logic.adjust(this.S, p.id, counted, 'ปรับจากตารางจัดการ', '')
+            }
+            const rest = { ...this.gridEdits }; delete rest[p.id]; this.gridEdits = rest
+            ok++
+          } catch (err) { fail.push(p.name + ': ' + err.message) }
+        }
+        this.paying = false
+        if (fail.length) this.toast('บันทึกแล้ว ' + ok + ' รายการ ไม่สำเร็จ ' + fail.length + ': ' + fail[0], 'bad')
+        else this.toast('บันทึกแล้ว ' + ok + ' รายการ')
       })
     },
     bkInit(type) {
