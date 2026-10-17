@@ -2185,28 +2185,69 @@
     </div>
   </div>
 
-  <!-- ตรวจไฟล์ CSV ก่อนนำเข้า -->
-  <div v-if="csvImp" class="modal-bg" @click.self="!csvImp.busy && (csvImp = null)">
+  <!-- ตรวจไฟล์ CSV ก่อนนำเข้า / ความคืบหน้า / ตรวจเทียบหลังนำเข้า -->
+  <div v-if="csvImp" class="modal-bg" @click.self="csvImp.stage === 'preview' && (csvImp = null)">
     <div class="modal modal-lg p-5">
-      <div class="flex justify-between items-start mb-2"><div class="font-bold text-lg">ตรวจไฟล์ {{ csvImp.fname }} ({{ csvImp.kind === 'products' ? 'สินค้า' : 'สมาชิก' }})</div><button class="text-slate-400 text-2xl leading-none" :disabled="csvImp.busy" @click="csvImp = null">&times;</button></div>
-      <div class="grid grid-cols-4 gap-2 text-center mb-3">
-        <div class="rounded-lg p-2" style="background:#dcfce7"><div class="text-xs">ใหม่</div><div class="font-bold num">{{ csvImp.counts.new }}</div></div>
-        <div class="rounded-lg p-2" style="background:#fef9c3"><div class="text-xs">แก้ไข</div><div class="font-bold num">{{ csvImp.counts.change }}</div></div>
-        <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs">ไม่เปลี่ยน</div><div class="font-bold num">{{ csvImp.counts.same }}</div></div>
-        <div class="rounded-lg p-2" style="background:#fee2e2"><div class="text-xs">ผิดพลาด</div><div class="font-bold num">{{ csvImp.counts.error }}</div></div>
+      <div class="flex justify-between items-start mb-2"><div class="font-bold text-lg">{{ csvImp.fname }} ({{ csvImp.kind === 'products' ? 'สินค้า' : 'สมาชิก' }})</div><button class="text-slate-400 text-2xl leading-none" :disabled="csvImp.busy" @click="csvImp = null">&times;</button></div>
+
+      <!-- ความคืบหน้า -->
+      <div v-if="csvImp.stage === 'running'" class="py-3">
+        <div class="flex justify-between text-sm mb-1"><span>{{ csvImp.prog.phase }}</span><span class="num">{{ csvImp.prog.done }} / {{ csvImp.prog.total }} ({{ Math.round(csvImp.prog.done * 100 / Math.max(csvImp.prog.total, 1)) }}%)</span></div>
+        <div style="height:14px;background:#e2ece9;border-radius:99px;overflow:hidden"><div :style="'height:100%;background:var(--pine);transition:width .2s;width:' + Math.round(csvImp.prog.done * 100 / Math.max(csvImp.prog.total, 1)) + '%'"></div></div>
+        <div class="text-sm text-slate-600 mt-2">สำเร็จ {{ csvImp.prog.ok }} · ไม่สำเร็จ {{ csvImp.prog.fail }}</div>
+        <div class="text-xs text-slate-500 mt-2">อย่าล็อกหน้าจอหรือสลับไปแอปอื่นระหว่างนี้ (บน iPhone เบราว์เซอร์อาจหยุดงานเมื่อหน้าจอดับ) ถ้าหยุดกลางทาง เปิดไฟล์เดิมเข้ามาอีกครั้ง ระบบจะข้ามรายการที่ตรงกันแล้วและทำต่อเฉพาะที่เหลือ</div>
+        <button class="btn btn-badline w-full mt-3" :disabled="csvImp.prog.cancel" @click="csvImp.prog.cancel = true">{{ csvImp.prog.cancel ? 'กำลังหยุด...' : 'หยุด' }}</button>
       </div>
-      <div v-if="csvImp.ignored.length" class="text-xs text-slate-500 mb-2">คอลัมน์ที่ระบบไม่รู้จัก (ข้าม): {{ csvImp.ignored.join(', ') }}</div>
-      <div style="max-height:40vh;overflow-y:auto" class="text-sm">
-        <div v-for="r in csvImp.rows.filter(x => x.err || x.status !== 'same').slice(0, 60)" :key="r.line" class="py-1 border-b" style="border-color:var(--line)">
-          <span class="tag mr-1" :style="r.err ? 'background:#fee2e2;color:#b91c1c' : (r.status === 'new' ? 'background:#dcfce7;color:#166534' : 'background:#fef9c3;color:#854d0e')">{{ r.err ? 'ผิดพลาด' : (r.status === 'new' ? 'ใหม่' : 'แก้ไข') }}</span>
-          <b>{{ r.code }}</b> {{ r.name }} <span class="text-slate-500">{{ r.err || r.changes.join(' · ') }}</span>
+
+      <!-- ผลหลังนำเข้า -->
+      <div v-else-if="csvImp.stage === 'done'">
+        <div class="grid grid-cols-3 gap-2 text-center mb-3">
+          <div class="rounded-lg p-2" style="background:#dcfce7"><div class="text-xs">สำเร็จ</div><div class="font-bold num">{{ csvImp.prog.ok }}</div></div>
+          <div class="rounded-lg p-2" :style="csvImp.prog.fail ? 'background:#fee2e2' : 'background:#eef3f2'"><div class="text-xs">ไม่สำเร็จ</div><div class="font-bold num">{{ csvImp.prog.fail }}</div></div>
+          <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs">เวลา (วินาที)</div><div class="font-bold num">{{ csvImp.prog.secs }}</div></div>
         </div>
-        <div v-if="csvImp.rows.filter(x => x.err || x.status !== 'same').length > 60" class="text-xs text-slate-500 pt-1">และอีกหลายรายการ</div>
+        <div v-if="csvImp.after" class="p-3 rounded-xl text-sm mb-3" :style="(csvImp.after.counts.new + csvImp.after.counts.change) === 0 ? 'background:#dcfce7;color:#166534' : 'background:#fef9c3;color:#854d0e'">
+          ตรวจเทียบไฟล์กับข้อมูลในระบบตอนนี้: ตรงกัน {{ csvImp.after.counts.same }} · ยังต่างกัน {{ csvImp.after.counts.change }} · ยังไม่มีในระบบ {{ csvImp.after.counts.new }} · ผิดพลาดในไฟล์ {{ csvImp.after.counts.error }}
+        </div>
+        <div v-if="csvImp.rows.some(r => r.failMsg)" style="max-height:30vh;overflow-y:auto" class="text-sm mb-3">
+          <div v-for="r in csvImp.rows.filter(x => x.failMsg).slice(0, 100)" :key="r.line" class="py-1 border-b" style="border-color:var(--line)"><b>{{ r.code }}</b> {{ r.name }} <span style="color:var(--bad)">{{ r.failMsg }}</span></div>
+        </div>
+        <div class="flex flex-wrap gap-2 justify-end">
+          <button v-if="csvImp.rows.some(r => r.failMsg && !r.done)" class="btn btn-ghost" @click="csvRetryFailed">ลองรายการที่ไม่สำเร็จอีกครั้ง</button>
+          <button v-if="csvImp.after && (csvImp.after.counts.new + csvImp.after.counts.change) > 0" class="btn btn-ghost" @click="csvRecheck">ดูส่วนที่ยังต่าง / ตัดสินใจอีกรอบ</button>
+          <button class="btn btn-pri" @click="csvImp = null">เสร็จ</button>
+        </div>
       </div>
-      <div class="text-xs text-slate-500 mt-3">รายการที่หายไปจากไฟล์จะไม่ถูกลบ รายการที่มีข้อผิดพลาดจะถูกข้าม การนำเข้าต้องยืนยันด้วย PIN</div>
-      <div class="flex gap-2 mt-3 justify-end">
-        <button class="btn btn-ghost" :disabled="csvImp.busy" @click="csvImp = null">ยกเลิก</button>
-        <button class="btn btn-pri" :disabled="csvImp.busy || (csvImp.counts.new + csvImp.counts.change) === 0" @click="csvApply">{{ csvImp.busy ? 'กำลังบันทึก ' + csvProg : 'นำเข้า ' + (csvImp.counts.new + csvImp.counts.change) + ' รายการ' }}</button>
+
+      <!-- ตรวจก่อนนำเข้า -->
+      <div v-else>
+        <div class="grid grid-cols-4 gap-2 text-center mb-3">
+          <div class="rounded-lg p-2" style="background:#dcfce7"><div class="text-xs">ใหม่</div><div class="font-bold num">{{ csvImp.counts.new }}</div></div>
+          <div class="rounded-lg p-2" style="background:#fef9c3"><div class="text-xs">แก้ไข</div><div class="font-bold num">{{ csvImp.counts.change }}</div></div>
+          <div class="rounded-lg p-2" style="background:#eef3f2"><div class="text-xs">ไม่เปลี่ยน</div><div class="font-bold num">{{ csvImp.counts.same }}</div></div>
+          <div class="rounded-lg p-2" style="background:#fee2e2"><div class="text-xs">ผิดพลาด</div><div class="font-bold num">{{ csvImp.counts.error }}</div></div>
+        </div>
+        <div v-if="csvImp.ignored.length" class="text-xs text-slate-500 mb-2">คอลัมน์ที่ระบบไม่รู้จัก (ข้าม): {{ csvImp.ignored.join(', ') }}</div>
+        <div class="flex flex-wrap gap-2 mb-2 items-center">
+          <button class="chip !py-1" :class="csvImp.filter === 'todo' ? 'chip-on' : ''" @click="csvImp.filter = 'todo'">ที่จะเปลี่ยน</button>
+          <button class="chip !py-1" :class="csvImp.filter === 'err' ? 'chip-on' : ''" @click="csvImp.filter = 'err'">ผิดพลาด</button>
+          <button v-if="csvImp.rows.some(r => r.failMsg)" class="chip !py-1" :class="csvImp.filter === 'failed' ? 'chip-on' : ''" @click="csvImp.filter = 'failed'">ไม่สำเร็จรอบก่อน</button>
+          <span class="flex-1"></span>
+          <button class="text-sm underline" @click="csvPickAll('all')">เลือกทั้งหมด</button><button class="text-sm underline" @click="csvPickAll('new')">เฉพาะใหม่</button><button class="text-sm underline" @click="csvPickAll('change')">เฉพาะแก้ไข</button><button class="text-sm underline" @click="csvPickAll('none')">ไม่เลือก</button>
+        </div>
+        <div style="max-height:38vh;overflow-y:auto" class="text-sm">
+          <label v-for="r in csvShown()" :key="r.line" class="flex items-start gap-2 py-1 border-b" style="border-color:var(--line)">
+            <input v-if="!r.err && r.status !== 'same'" type="checkbox" class="w-5 h-5 mt-0.5 shrink-0" v-model="r.pick"><span v-else class="w-5 shrink-0"></span>
+            <span><span class="tag mr-1" :style="r.err || r.failMsg ? 'background:#fee2e2;color:#b91c1c' : (r.status === 'new' ? 'background:#dcfce7;color:#166534' : 'background:#fef9c3;color:#854d0e')">{{ r.err || r.failMsg ? 'ผิดพลาด' : (r.status === 'new' ? 'ใหม่' : 'แก้ไข') }}</span><b>{{ r.code }}</b> {{ r.name }} <span class="text-slate-500">{{ r.failMsg || r.err || r.changes.join(' · ') }}</span></span>
+          </label>
+          <div v-if="csvShown().length === 0" class="text-center text-slate-400 py-6">ไม่มีรายการในหมวดนี้</div>
+          <div v-if="csvShown().length >= 300" class="text-xs text-slate-500 pt-1">แสดง 300 รายการแรก (ปุ่มเลือกทั้งหมด/เฉพาะใหม่/เฉพาะแก้ไข ใช้กับทุกรายการ)</div>
+        </div>
+        <div class="text-xs text-slate-500 mt-3">ติ๊กเฉพาะรายการที่ต้องการบันทึก รายการที่หายไปจากไฟล์จะไม่ถูกลบ รายการที่ผิดพลาดจะถูกข้าม ระบบส่งทีละหลายรายการ ใช้เวลาไม่นานแม้เป็นพันรายการ และบันทึกซ้ำได้โดยไม่ซ้ำซ้อน</div>
+        <div class="flex gap-2 mt-3 justify-end">
+          <button class="btn btn-ghost" @click="csvImp = null">ยกเลิก</button>
+          <button class="btn btn-pri" :disabled="csvPickCount() === 0" @click="csvApply">นำเข้า {{ csvPickCount() }} รายการ</button>
+        </div>
       </div>
     </div>
   </div>
@@ -5130,7 +5171,7 @@ const app = createApp({
       r.onload = () => { try { this.csvPrepare(kind, Csv.parse(String(r.result)), f.name) } catch (e) { this.toast('อ่านไฟล์ไม่ได้: ' + e.message, 'bad') } }
       r.readAsText(f, 'utf-8')
     },
-    csvPrepare(kind, table, fname) {
+    csvPrepare(kind, table, fname, opt) {
       if (table.length < 2) return this.toast('ไฟล์ไม่มีข้อมูล', 'bad')
       const head = table[0].map(h => String(h).trim()), idx = {}; head.forEach((h, i) => { idx[h] = i })
       const known = kind === 'products' ? PROD_CSV : MEM_CSV
@@ -5190,30 +5231,119 @@ const app = createApp({
       }
       const c = { new: 0, change: 0, same: 0, error: 0 }
       for (const r of out) c[r.status === 'same' && r.err ? 'error' : r.err ? 'error' : r.status]++
-      this.csvImp = { kind, fname, rows: out, counts: c, ignored, busy: false }
+      for (const r of out) r.pick = !r.err && (r.status === 'new' || r.status === 'change')
+      const im = { kind, fname, table, rows: out, counts: c, ignored, busy: false, stage: 'preview', filter: 'todo', prog: null, after: null }
+      if (opt && opt.ret) return im
+      this.csvImp = im
     },
     csvApply() {
       const im = this.csvImp
       if (!im || im.busy) return
       if (!this.isAdmin) return this.deny('นำเข้าไฟล์ CSV')
-      const todo = im.rows.filter(r => !r.err && (r.status === 'new' || r.status === 'change'))
-      if (!todo.length) return this.toast('ไม่มีรายการที่ต้องบันทึก', 'bad')
-      this.askPin('นำเข้า CSV: ' + todo.length + ' รายการ', async () => {
-        im.busy = true
-        let ok = 0; const fail = []
-        for (const r of todo) {
-          this.csvProg = (ok + fail.length + 1) + ' / ' + todo.length
-          try {
-            if (im.kind === 'products') await this.csvApplyProduct(r); else await this.csvApplyMember(r)
-            ok++
-          } catch (e) { fail.push('บรรทัด ' + r.line + ' (' + r.code + '): ' + e.message) }
-          if ((ok + fail.length) % 25 === 0) await new Promise(res => setTimeout(res, 0))
+      const todo = im.rows.filter(r => r.pick && !r.err && (r.status === 'new' || r.status === 'change') && !r.done)
+      if (!todo.length) return this.toast('ไม่ได้เลือกรายการที่จะบันทึก', 'bad')
+      this.askPin('นำเข้า CSV: ' + todo.length + ' รายการ', () => this.csvRun(todo))
+    },
+    csvPickAll(mode) {
+      for (const r of this.csvImp.rows) r.pick = !r.err && !r.done && (r.status === 'new' || r.status === 'change') && (mode === 'all' || (mode === 'new' && r.status === 'new') || (mode === 'change' && r.status === 'change'))
+    },
+    csvShown() {
+      const im = this.csvImp; if (!im) return []
+      const f = im.filter
+      return im.rows.filter(r => f === 'all' ? true : f === 'err' ? !!r.err : f === 'failed' ? !!r.failMsg : (r.status !== 'same' && !r.err && !r.done)).slice(0, 300)
+    },
+    csvPickCount() { const im = this.csvImp; return im ? im.rows.filter(r => r.pick && !r.err && !r.done && (r.status === 'new' || r.status === 'change')).length : 0 },
+    async dbBulk(kind, items, prog) {
+      const fn = kind === 'products' ? 'bulk_save_products' : 'bulk_save_customers'
+      const chunks = []; for (let i = 0; i < items.length; i += 150) chunks.push(items.slice(i, i + 150))
+      const out = {}; let next = 0
+      const sleep = ms => new Promise(r => setTimeout(r, ms))
+      const worker = async () => {
+        while (next < chunks.length && !prog.cancel) {
+          const ch = chunks[next++]; let res = null, last = null
+          for (let a = 0; a < 4 && !prog.cancel; a++) {
+            try { res = await Db.rpc(fn, { p: { items: ch.map(x => x.payload) } }); break } catch (e) { last = e; if (e.code === '42501') break; await sleep(800 * (a + 1)) }
+          }
+          if (!res) { for (const x of ch) out[x.key] = { ok: false, error: last ? last.message : 'ยกเลิกก่อนส่ง' }; prog.fail += ch.length }
+          else res.forEach((r, i) => { out[ch[i].key] = r; if (r.ok) prog.ok++; else prog.fail++ })
+          prog.done += ch.length
         }
-        this.csvProg = ''; im.busy = false
-        this.csvImp = null
-        if (fail.length) { this.csvFail = fail; this.toast('นำเข้าแล้ว ' + ok + ' รายการ ไม่สำเร็จ ' + fail.length + ': ' + fail[0], 'bad') }
-        else this.toast('นำเข้าแล้ว ' + ok + ' รายการ')
-      })
+      }
+      await Promise.all([worker(), worker(), worker()])
+      return out
+    },
+    async csvRun(todo) {
+      const im = this.csvImp
+      im.busy = true; im.stage = 'running'
+      const prog = im.prog = { total: todo.length, done: 0, ok: 0, fail: 0, start: Date.now(), cancel: false, phase: 'กำลังบันทึก' }
+      let lock = null
+      try { if (navigator.wakeLock) lock = await navigator.wakeLock.request('screen') } catch (e) { /* ไม่รองรับ ข้ามได้ */ }
+      try {
+        if (!DB_MODE) {
+          for (const r of todo) {
+            if (prog.cancel) break
+            try { if (im.kind === 'products') await this.csvApplyProduct(r); else await this.csvApplyMember(r); r.done = true; r.failMsg = ''; prog.ok++ }
+            catch (e) { r.failMsg = e.message; prog.fail++ }
+            prog.done++
+            if (prog.done % 25 === 0) await new Promise(res => setTimeout(res, 0))
+          }
+        } else {
+          const S = this.S
+          if (im.kind === 'products') {
+            const names = [...new Set(todo.map(r => (r.data && r.data.supplier) || '').filter(Boolean))].filter(n => !S.suppliers.some(x => Logic.supplierKey(x.name) === Logic.supplierKey(n)))
+            if (names.length) { prog.phase = 'สร้างผู้จำหน่ายใหม่'; for (const n of names) await Db.rpc('save_supplier', { p: { name: n } }); await Db.reloadSuppliers(S) }
+            prog.phase = 'กำลังบันทึก'
+            const items = todo.map(r => ({ key: r.line, payload: this.dbItemProduct(r) }))
+            const res = await this.dbBulk('products', items, prog)
+            const ids = []
+            for (const r of todo) { const x = res[r.line]; if (!x) continue; if (x.ok) { r.done = true; r.failMsg = ''; if (x.id) ids.push(String(x.id)) } else r.failMsg = x.error || 'ไม่สำเร็จ' }
+            prog.phase = 'โหลดข้อมูลล่าสุด'
+            for (let i = 0; i < ids.length; i += 200) { const part = ids.slice(i, i + 200); await Db.reloadProducts(S, part); await Db.reloadLots(S, part) }
+          } else {
+            let mx = 0; for (const m of S.members) { const n = /^M(\d+)$/.exec(m.code || ''); if (n) mx = Math.max(mx, Number(n[1])) }
+            const items = todo.map(r => {
+              const ex = r.ex ? S.members.find(x => x.id === r.ex) : (r.code ? S.members.find(x => String(x.code) === String(r.code)) : null), d = r.data
+              const code = ex ? ex.code : (r.code || 'M' + String(++mx).padStart(4, '0'))
+              return { key: r.line, payload: { id: ex ? Number(ex.id) : null, code, name: d.name, phone: d.phone === undefined ? (ex ? ex.phone : '') : d.phone, note: d.note === undefined ? (ex ? ex.note : '') : d.note,
+                allergies: (d.allergies === undefined ? (ex ? ex.allergies : []) : d.allergies).map(a => ({ drug: a.drug, reaction: a.reaction || '' })) } }
+            })
+            const res = await this.dbBulk('members', items, prog)
+            const ids = []
+            for (const r of todo) { const x = res[r.line]; if (!x) continue; if (x.ok) { r.done = true; r.failMsg = ''; if (x.id) ids.push(Number(x.id)) } else r.failMsg = x.error || 'ไม่สำเร็จ' }
+            prog.phase = 'โหลดข้อมูลล่าสุด'
+            for (let i = 0; i < ids.length; i += 200) {
+              const part = ids.slice(i, i + 200)
+              const rows = await Db.rows('v_customers', '*', q => q.in('id', part)), al = await Db.rows('v_customer_allergies', '*', q => q.in('customer_id', part)), ag = Db.group(al, 'customer_id')
+              for (const r of rows) { const m = Db.mapMember(r, ag[r.id]); const i2 = S.members.findIndex(x => x.id === m.id); if (i2 >= 0) S.members.splice(i2, 1, m); else S.members.push(m) }
+            }
+          }
+        }
+      } catch (e) { this.toast('หยุดกลางทาง: ' + e.message, 'bad') }
+      try { if (lock) await lock.release() } catch (e) { /* ignore */ }
+      // ตรวจเทียบไฟล์กับข้อมูลในระบบตอนนี้
+      prog.phase = 'ตรวจเทียบ'
+      const chk = this.csvPrepare(im.kind, im.table, im.fname, { ret: true })
+      im.after = chk ? { counts: chk.counts, rows: chk.rows } : null
+      prog.secs = Math.round((Date.now() - prog.start) / 1000)
+      im.busy = false; im.stage = 'done'
+    },
+    csvRecheck() {
+      const im = this.csvImp; if (!im || !im.after) return
+      const fresh = this.csvPrepare(im.kind, im.table, im.fname, { ret: true })
+      if (fresh) this.csvImp = fresh
+    },
+    csvRetryFailed() {
+      const im = this.csvImp; if (!im) return
+      for (const r of im.rows) r.pick = !!r.failMsg && !r.done
+      im.stage = 'preview'; im.filter = 'failed'
+    },
+    dbItemProduct(r) {
+      const ex = this.S.products.find(x => String(x.code) === String(r.code)), d = { ...r.data }
+      const base = ex ? { ...ex, ...d } : { code: r.code, name: r.name, generic: '', category: 'อื่นๆ', unit: 'ชิ้น', price: 0, cost: 0, reorder: 0, note: '', type: 'sell', active: true, ...d }
+      const pay = Db.productPayload(this.S, base, ex ? (ex.bundle || null) : null, ex ? (ex.unpack || null) : null)
+      pay.id = ex ? Number(ex.id) : null
+      if (r.stock !== undefined && !(ex && ex.bundle) && (ex || r.stock > 0)) pay.stock = r.stock
+      return pay
     },
     async csvApplyProduct(r) {
       const ex = this.S.products.find(x => String(x.code) === String(r.code))
@@ -5329,6 +5459,28 @@ const app = createApp({
       }
       this.askPin('บันทึกการแก้ไข ' + prods.length + ' รายการ', async () => {
         this.paying = true
+        if (DB_MODE) {
+          try {
+            const items = prods.map(p => {
+              const e = this.gridEdits[p.id], next = {}
+              for (const f of GRID_FIELDS) if (f in e) next[f] = ['price', 'cost'].includes(f) ? Number(e[f]) : f === 'reorder' ? Math.floor(Number(e[f])) : String(e[f]).trim()
+              for (const fl of DRUG_FLAGS) if (fl.k in e) next[fl.k] = !!e[fl.k]
+              if ('active' in e) next.active = !!e.active
+              const pay = Db.productPayload(this.S, { ...p, ...next }, p.bundle || null, p.unpack || null)
+              pay.id = Number(p.id)
+              if ('stock' in e && !p.bundle) pay.stock = Math.floor(Number(e.stock))
+              return { key: p.id, payload: pay }
+            })
+            const prog = { total: items.length, done: 0, ok: 0, fail: 0, cancel: false }
+            const res = await this.dbBulk('products', items, prog)
+            const okIds = [], bad = []
+            for (const p of prods) { const x = res[p.id]; if (x && x.ok) { okIds.push(p.id); const rest = { ...this.gridEdits }; delete rest[p.id]; this.gridEdits = rest } else bad.push(p.name + ': ' + ((x && x.error) || 'ไม่สำเร็จ')) }
+            for (let i = 0; i < okIds.length; i += 200) { await Db.reloadProducts(this.S, okIds.slice(i, i + 200)); await Db.reloadLots(this.S, okIds.slice(i, i + 200)) }
+            this.toast(bad.length ? 'บันทึกแล้ว ' + okIds.length + ' รายการ ไม่สำเร็จ ' + bad.length + ': ' + bad[0] : 'บันทึกแล้ว ' + okIds.length + ' รายการ', bad.length ? 'bad' : undefined)
+          } catch (err) { this.toast('บันทึกไม่สำเร็จ: ' + err.message, 'bad') }
+          this.paying = false
+          return
+        }
         let ok = 0; const fail = []
         for (const p of prods) {
           const e = this.gridEdits[p.id]
