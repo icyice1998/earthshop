@@ -113,3 +113,10 @@ do $$ declare f text; begin
   foreach f in array array['claim_staff()', 'has_admin()', 'open_stock(bigint,int,numeric,text,date)', 'pin_is_set()', 'verify_pin(text)', 'set_pin(text,text)', 'save_shop(jsonb)']
   loop execute format('revoke execute on function public.%s from public', f); execute format('grant execute on function public.%s to authenticated', f); end loop;
 end $$;
+
+-- the login screen shows the shop name before anyone is logged in: only the name is exposed, nothing else
+create or replace function shop_public() returns text language sql stable security definer set search_path = public as $$
+  select nullif(trim(name), '') from shop where id = 1
+$$;
+revoke execute on function shop_public() from public;
+grant execute on function shop_public() to anon, authenticated;

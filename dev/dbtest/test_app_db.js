@@ -180,6 +180,18 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   ok(late && late.is_admin && late.auth_user_id === null, 'admin can give admin to an account that already exists (not yet linked): ' + JSON.stringify(late))
   await pg.context().close()
 
+  // the login screen shows the shop name before login (only the name is public)
+  const lp = await browser.newPage(); await attach(lp, pool, authUsers)
+  await lp.addInitScript(() => { localStorage.setItem('earthshop_db', JSON.stringify({ url: 'https://test.supabase.co', key: 'x'.repeat(40) })) })
+  await lp.route('**/@supabase/supabase-js@2', r => r.fulfill({ contentType: 'application/javascript', body: '' }))
+  if (LIB) { await lp.route('**/vue@*/**', r => r.fulfill({ contentType: 'application/javascript', body: fs.readFileSync(path.join(LIB, 'vue.js')) })); await lp.route('**/cdn.tailwindcss.com/**', r => r.fulfill({ contentType: 'application/javascript', body: fs.readFileSync(path.join(LIB, 'tw.js')) })) }
+  await lp.goto('file://' + path.join(__dirname, '..', '..', 'index.html')); await lp.waitForSelector('input[name=username]', { timeout: 60000 }); await lp.waitForTimeout(1500)
+  const title = await lp.locator('input[name=username]').evaluate(e => e.closest('.bg-white').querySelector('.text-2xl').innerText)
+  ok(title === 'ร้านทดสอบ DB', 'login screen shows the shop name before login: ' + title)
+  const leak = await lp.evaluate(async () => { const r = await window.__pg('rpc', { uid: null, fn: 'shop_public', args: {} }); return r.data })
+  ok(leak === 'ร้านทดสอบ DB', 'shop_public returns only the name')
+  await lp.context().close()
+
   // ---------------- cashier ----------------
   pg = await open('cash', 'secret2')
   const c = await vm(pg, () => { const v = window.__vm; return { admin: v.me && v.me.admin, canVoid: v.can('voidSale'), canCost: v.can('viewCost'), cost: v.S.products[0].cost, tabs: v.visibleGroups.map(g => g.id).join(), lots: v.S.lots.length, users: v.S.users.length } })

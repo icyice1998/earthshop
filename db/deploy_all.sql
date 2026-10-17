@@ -1359,6 +1359,13 @@ do $$ declare f text; begin
   loop execute format('revoke execute on function public.%s from public', f); execute format('grant execute on function public.%s to authenticated', f); end loop;
 end $$;
 
+-- the login screen shows the shop name before anyone is logged in: only the name is exposed, nothing else
+create or replace function shop_public() returns text language sql stable security definer set search_path = public as $$
+  select nullif(trim(name), '') from shop where id = 1
+$$;
+revoke execute on function shop_public() from public;
+grant execute on function shop_public() to anon, authenticated;
+
 
 -- ===== 06_import.sql =====
 -- =====================================================================
@@ -1455,6 +1462,11 @@ begin
   if jsonb_array_length(p->'items') > 500 then raise exception 'ส่งทีละไม่เกิน 500 รายการ'; end if;
   for it in select * from jsonb_array_elements(p->'items') loop
     begin
+      -- a row sent again after a lost connection finds its product by code instead of failing as a duplicate
+      if nullif(it->>'id', '') is null then
+        select id into v_id from products where code = trim(it->>'code');
+        if v_id is not null then it := jsonb_set(it, '{id}', to_jsonb(v_id)); end if;
+      end if;
       v_id := save_product(it - 'stock');
       if it ? 'stock' and nullif(it->>'stock', '') is not null then
         v_counted := (it->>'stock')::int;
@@ -1479,6 +1491,10 @@ begin
   if jsonb_array_length(p->'items') > 500 then raise exception 'ส่งทีละไม่เกิน 500 รายการ'; end if;
   for it in select * from jsonb_array_elements(p->'items') loop
     begin
+      if nullif(it->>'id', '') is null and nullif(it->>'code', '') is not null then
+        select id into v_id from customers where code = it->>'code';
+        if v_id is not null then it := jsonb_set(it, '{id}', to_jsonb(v_id)); end if;
+      end if;
       v_id := save_customer(it);
       res := res || jsonb_build_array(jsonb_build_object('code', it->>'code', 'id', v_id, 'ok', true));
     exception when others then
