@@ -129,6 +129,22 @@
   </style>
 </head>
 <body>
+<div id="boot" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;background:#0f3f3a;color:#b9dcd7;font-family:system-ui,sans-serif;text-align:center;padding:1.5rem;z-index:300">
+  <div style="font-size:1.1rem">กำลังโหลด...</div><div id="boot-msg" style="font-size:.85rem;max-width:26rem"></div>
+</div>
+<script>
+(function () {
+  var msg = function (t) { var e = document.getElementById('boot-msg'); if (e) e.textContent += t + ' ' }
+  window.addEventListener('error', function (ev) { msg('ผิดพลาด: ' + (ev.message || (ev.target && ev.target.src) || '')) }, true)
+  setTimeout(function () {
+    if (!document.getElementById('boot')) return
+    var m = []
+    if (typeof Vue === 'undefined') m.push('โหลด Vue ไม่สำเร็จ (ตรวจอินเทอร์เน็ต)')
+    if (typeof tailwind === 'undefined') m.push('โหลด Tailwind ไม่สำเร็จ')
+    if (m.length) msg(m.join(' · '))
+  }, 8000)
+})()
+</script>
 <div id="app" v-cloak style="height:100vh; height:100dvh;" class="flex flex-col max-w-7xl mx-auto relative">
 
   <!-- หน้าจอโหลดข้อมูลจาก Supabase -->
@@ -4337,6 +4353,7 @@ app.component('ky-sheet', {
   </div>`
 })
 app.mount('#app')
+{ const b = document.getElementById('boot'); if (b) b.remove() }
 </script>
 </body>
 </html>
