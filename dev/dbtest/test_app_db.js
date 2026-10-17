@@ -25,7 +25,7 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   await q(`select open_stock($1::bigint, 5, 10)`, [pOtc])
   await q(`select save_customer('{"name":"สมหญิง ใจดี","phone":"0811111111","allergies":[{"drug":"Penicillin","reaction":"ผื่น"}]}')`)
 
-  const authUsers = { 'earth@mypharm.com': { id: U.admin, pw: 'secret1' }, 'cash@mypharm.com': { id: U.cashier, pw: 'secret2' }, 'late@mypharm.com': { id: '33333333-3333-3333-3333-333333333333', pw: 'secret3' } }
+  const authUsers = { 'earth@mypharm.com': { id: U.admin, pw: 'secret1' }, 'cash@mypharm.com': { id: U.cashier, pw: 'secret2' }, 'late@mypharm.com': { id: '33333333-3333-3333-3333-333333333333', pw: 'secret3' }, 'moved@mypharm.com': { id: '44444444-4444-4444-4444-444444444444', pw: 'secret4' } }
   const browser = await chromium.launch()
   const errs = []
   const open = async (user, pw) => {
@@ -164,6 +164,12 @@ const ok = (c, m) => { console.log((c ? 'ok   - ' : 'FAIL - ') + m); if (!c) pro
   ok(/ไม่มีสิทธิ์/.test(cs.danger) && /ไม่มีสิทธิ์/.test(cs.adj) && cs.otc === 'sold', 'database blocks dangerous sale and stock adjust for cashier; OTC sale works: ' + JSON.stringify(cs))
   await pg.context().close()
 
+  // staff row tied to a deleted/old auth account (e.g. email domain changed): the new login with the same name takes it over
+  await q(`select save_staff(jsonb_build_object('login','moved','display_name','ย้ายโดเมน','is_admin',true,'permissions','[]'::jsonb,'auth_user_id','99999999-9999-9999-9999-999999999999'))`)
+  const pm = await open('moved', 'secret4')
+  const mv = await vm(pm, () => { const v = window.__vm; return { admin: v.me && v.me.admin } })
+  ok(mv.admin, 'a login recreated under a new email domain takes over the old staff record: ' + JSON.stringify(mv))
+  await pm.context().close()
   const pl = await open('late', 'secret3')
   const lt = await vm(pl, () => { const v = window.__vm; return { admin: v.me && v.me.admin, can: v.can('voidSale'), name: v.actor } })
   ok(lt.admin && lt.can, 'after the first login the account is linked and has admin rights: ' + JSON.stringify(lt))

@@ -1,5 +1,5 @@
 -- Pharmacy database: everything in one file for the Supabase SQL Editor (runs 01..06 in order).
--- Run once on an empty project. If you already ran 01-05 earlier, run only 06_import.sql.
+-- Run once on an empty project. If you already ran an older version, see db/README.md (only 05_api.sql and 06_import.sql can be re-run).
 
 -- ===== 01_schema.sql =====
 -- =====================================================================
@@ -460,6 +460,7 @@ create table promotions (
   end_date    date not null,
   check (end_date >= start_date)
 );
+
 
 -- ===== 02_functions.sql =====
 -- =====================================================================
@@ -956,6 +957,7 @@ begin
   return v_id;
 end $$;
 
+
 -- ===== 03_security.sql =====
 -- =====================================================================
 -- Pharmacy database: security
@@ -1045,6 +1047,7 @@ end $$;
 grant usage on schema app to authenticated;
 grant execute on function app.uid(), app.has_perm(text), app.stock_of(bigint), app.local_date(timestamptz), app.find_duplicate_receipt(bigint, text), app.staff_name(), app.open_mode(), app.is_service() to authenticated;
 grant usage on schema public to authenticated;
+
 
 -- ===== 04_reports.sql =====
 -- =====================================================================
@@ -1238,6 +1241,7 @@ do $$ declare f text; begin
   loop execute format('revoke execute on function public.%s from public', f); execute format('grant execute on function public.%s to authenticated', f); end loop;
 end $$;
 
+
 -- ===== 05_api.sql =====
 -- =====================================================================
 -- Pharmacy database: functions the app calls for settings and the PIN
@@ -1341,14 +1345,20 @@ declare v_claims jsonb := coalesce(nullif(current_setting('request.jwt.claims', 
 begin
   if app.uid() is null then return; end if;
   v_login := lower(split_part(coalesce(v_claims->>'email', ''), '@', 1));
-  if v_login = '' then return; end if;
-  update staff set auth_user_id = app.uid() where login = v_login and auth_user_id is null and not exists (select 1 from staff x where x.auth_user_id = app.uid());
+  if v_login = '' or exists (select 1 from staff x where x.auth_user_id = app.uid()) then return; end if;
+  -- link by login name when the staff row is not linked yet, or is linked to a login that no longer exists (for example the account was deleted and created again with another email domain)
+  if to_regclass('auth.users') is not null then
+    execute 'update staff set auth_user_id = $1 where login = $2 and (auth_user_id is null or not exists (select 1 from auth.users u where u.id = staff.auth_user_id))' using app.uid(), v_login;
+  else
+    update staff set auth_user_id = app.uid() where login = v_login and auth_user_id is null;
+  end if;
 end $$;
 
 do $$ declare f text; begin
   foreach f in array array['claim_staff()', 'has_admin()', 'open_stock(bigint,int,numeric,text,date)', 'pin_is_set()', 'verify_pin(text)', 'set_pin(text,text)', 'save_shop(jsonb)']
   loop execute format('revoke execute on function public.%s from public', f); execute format('grant execute on function public.%s to authenticated', f); end loop;
 end $$;
+
 
 -- ===== 06_import.sql =====
 -- =====================================================================
@@ -1426,5 +1436,6 @@ begin
 end $$;
 revoke execute on function import_smart(jsonb) from public;
 grant execute on function import_smart(jsonb) to authenticated;
+
 
 notify pgrst, 'reload schema';

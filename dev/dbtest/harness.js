@@ -75,6 +75,7 @@ async function attach(page, pool, authUsers) {
       if (kind === 'login') {
         const u = authUsers[String(a.email).toLowerCase()]
         if (!u || u.pw !== a.password) return { error: 'Invalid login credentials' }
+        await pool.query('insert into auth.users (id, email) values ($1, $2) on conflict do nothing', [u.id, a.email])
         return { id: u.id }
       }
       if (kind === 'signup') {
@@ -113,6 +114,7 @@ async function freshDb(name) {
   await root.query('drop database if exists ' + name); await root.query('create database ' + name); await root.end()
   const pool = admin(name)
   const dir = path.join(__dirname, '..', '..', 'db')
+  await pool.query('create schema if not exists auth; create table if not exists auth.users (id uuid primary key, email text)')
   for (const f of ['01_schema', '02_functions', '03_security', '04_reports', '05_api', '06_import']) await pool.query(fs.readFileSync(path.join(dir, f + '.sql'), 'utf8'))
   return pool
 }

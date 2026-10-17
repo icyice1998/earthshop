@@ -100,8 +100,13 @@ declare v_claims jsonb := coalesce(nullif(current_setting('request.jwt.claims', 
 begin
   if app.uid() is null then return; end if;
   v_login := lower(split_part(coalesce(v_claims->>'email', ''), '@', 1));
-  if v_login = '' then return; end if;
-  update staff set auth_user_id = app.uid() where login = v_login and auth_user_id is null and not exists (select 1 from staff x where x.auth_user_id = app.uid());
+  if v_login = '' or exists (select 1 from staff x where x.auth_user_id = app.uid()) then return; end if;
+  -- link by login name when the staff row is not linked yet, or is linked to a login that no longer exists (for example the account was deleted and created again with another email domain)
+  if to_regclass('auth.users') is not null then
+    execute 'update staff set auth_user_id = $1 where login = $2 and (auth_user_id is null or not exists (select 1 from auth.users u where u.id = staff.auth_user_id))' using app.uid(), v_login;
+  else
+    update staff set auth_user_id = app.uid() where login = v_login and auth_user_id is null;
+  end if;
 end $$;
 
 do $$ declare f text; begin
