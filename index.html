@@ -2304,6 +2304,9 @@ const PERM_PRESETS = {
 const SUB_PERM = { salesrep: 'reports', kyforms: 'forms', pos: 'pos', report: 'report', history: 'report', members: 'members', stock: 'stock', supplies: 'stock', manage: 'manage', receive: 'receive', settings: 'settings' }
 const FLAG_SHORT = { banned: 'ห้ามขาย', danger: 'อันตราย', controlled: 'ควบคุม', offsys: 'นอกระบบ', otc: 'OTC', ky9n: '9N', nontax: 'นอกภาษี', autolabel: 'ฉลากอัตโนมัติ', ky8: 'ขย.8', ky11: 'ขย.11', ky13: 'ขย.13', special: 'เฉพาะ' }
 const GRID_FIELDS = ['code', 'name', 'generic', 'category', 'unit', 'barcode', 'supplier', 'location', 'cost', 'price', 'reorder']
+// สิ่งที่จำไว้ในเครื่องนี้ (แยกตามผู้ใช้) เพื่อให้รีเฟรชหน้าแล้วกลับมาที่เดิม
+const UI_KEYS = ['tab', 'setTab', 'cat', 'search', 'invSearch', 'invFilter', 'mgMode', 'mgQ', 'mgFilter', 'bkType', 'memMode', 'memSearch', 'rcvTab', 'ordFilter', 'kyForm', 'kyPreset', 'kyFrom', 'kyTo', 'kyOnly9n', 'kyManual', 'kyPids',
+  'srPreset', 'srFrom', 'srTo', 'srTf', 'srTt', 'srStaff', 'srCat', 'srFlag', 'srMethod', 'srQ', 'srGroup', 'vsTab', 'cart', 'discount', 'cartMemberId', 'rcv', 'ord']
 const RX_FLAGS = ['danger', 'controlled', 'ky8', 'ky11']
 const MEAL_TIME = { before: 'ก่อนอาหาร', with: 'พร้อมอาหาร', after: 'หลังอาหาร' }
 const STORAGE_TYPE = { room: 'เก็บที่อุณหภูมิห้อง', fridge: 'เก็บในตู้เย็น' }
@@ -3856,6 +3859,7 @@ const app = createApp({
       const tm = (d, t, end) => { const a = String(d || dayKey(new Date())).split('-').map(Number), b = String(t || (end ? '23:59' : '00:00')).split(':').map(Number); return new Date(a[0], a[1] - 1, a[2], b[0] || 0, b[1] || 0, end ? 59 : 0, end ? 999 : 0).getTime() }
       return { from: tm(this.srFrom, this.srTf, false), to: tm(this.srTo || this.srFrom, this.srTt, true) }
     },
+    uiSnap() { const o = {}; for (const k of UI_KEYS) o[k] = this[k]; return JSON.stringify(o) },
     kyKey() { return JSON.stringify([this.kyForm, this.kyRange.from, this.kyRange.to, this.kyOnly9n, this.kyManual, this.kyPids]) },
     srOpts() { return { from: this.srRange.from, to: this.srRange.to, staff: this.srStaff, category: this.srCat, flag: this.srFlag, method: this.srMethod, q: this.srQ, group: this.srGroup === 'detail' ? 'day' : this.srGroup } },
     srData() { return DB_MODE ? this.dbSr : Logic.salesReport(this.S, this.srOpts) },
@@ -4138,6 +4142,8 @@ const app = createApp({
     formModal(v) { if (!v && this.mgSel && this.mgProduct) this.mg = this.mgDraft(this.mgProduct) },
     'S.users': { deep: true, handler() { this.ensureTab() } },
     loginName() { this.ensureTab() },
+    authed(v) { if (v) this.$nextTick(() => this.restoreUi()); else this.uiReady = false },
+    uiSnap(v) { if (!this.uiReady) return; clearTimeout(this.uiTimer); this.uiTimer = setTimeout(() => { try { localStorage.setItem(this.uiKey(), v) } catch (e) { /* ignore */ } }, 400) },
     'S.settings': { deep: true, handler() {
       if (!DB_MODE || this.isLoading || this.suppressWatch || !this.authed || !this.can('settings')) return
       clearTimeout(this.shopTimer); this.shopTimer = setTimeout(() => Db.saveShop(this.S).catch(e => this.toast('บันทึกการตั้งค่าไม่สำเร็จ: ' + e.message, 'bad')), 800)
@@ -4597,6 +4603,23 @@ const app = createApp({
       return !!(u.perms && u.perms[key])
     },
     allowedTab(id) { const k = SUB_PERM[id]; return !k || this.can(k) },
+    uiKey() { return 'earthshop_ui_' + (DB_MODE ? 'db' : 'js') + '_' + (this.loginName || 'x') },
+    restoreUi() {
+      try {
+        const o = JSON.parse(localStorage.getItem(this.uiKey()) || 'null')
+        if (o && typeof o === 'object') {
+          for (const k of UI_KEYS) if (k in o && o[k] !== undefined) this[k] = o[k]
+          const has = id => this.S.products.some(p => p.id === id)
+          this.cart = (Array.isArray(this.cart) ? this.cart : []).filter(i => !i.pid || has(i.pid))
+          if (this.rcv && Array.isArray(this.rcv.items)) this.rcv.items = this.rcv.items.filter(i => has(i.pid))
+          if (this.ord && Array.isArray(this.ord.items)) this.ord.items = this.ord.items.filter(i => has(i.pid))
+          if (this.cartMemberId && !this.S.members.some(m => m.id === this.cartMemberId)) this.cartMemberId = ''
+          this.cartOpen = false
+        }
+      } catch (e) { /* ค่าที่จำไว้เสีย ใช้ค่าเริ่มต้น */ }
+      this.ensureTab()
+      this.$nextTick(() => { this.uiReady = true })
+    },
     ensureTab() { if (!this.allowedTab(this.tab)) { const g = this.visibleGroups[0]; if (g) this.tab = g.subs[0].id } },
     deny(what) { this.toast('ไม่มีสิทธิ์' + (what ? ': ' + what : ''), 'bad') },
     goTab(id) { if (!this.allowedTab(id)) return this.deny('เข้าหน้านี้'); this.tab = id; this.cartOpen = false; if (id === 'report') this.loadClosing() },
