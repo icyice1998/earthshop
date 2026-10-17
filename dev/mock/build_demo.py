@@ -1,5 +1,6 @@
 """Builds a self-contained demo page (mock data, fake login, no real Supabase) from index.html.
 usage: python3 dev/mock/build_demo.py OUTPUT.html [--standalone]
+--inline-libs DIR (with vue.js and tw.js) puts Vue and Tailwind into the page instead of loading them from a CDN.
 --standalone wraps the page in a full HTML document (for GitHub Pages / any static host)."""
 import re, sys, os
 root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -29,6 +30,12 @@ head = '''<title>Pharmacy POS Demo</title>
   #demo-tag button { color:#fff; text-decoration:underline; background:none; border:0; font:inherit; cursor:pointer; padding:.2rem; }
 </style>
 '''
+if '--inline-libs' in sys.argv:
+    lib = sys.argv[sys.argv.index('--inline-libs') + 1]
+    for url, f in (('<script src="https://cdn.tailwindcss.com/3.4.17"></script>', 'tw.js'), ('<script src="https://unpkg.com/vue@3.4.38/dist/vue.global.prod.js"></script>', 'vue.js')):
+        js = open(os.path.join(lib, f), encoding='utf-8').read()
+        assert '</script' not in js and url in head
+        head = head.replace(url, '<script>' + js + '</script>')
 if standalone:
     page = ('<!doctype html>\n<html lang="th">\n<head>\n<meta charset="UTF-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n'
