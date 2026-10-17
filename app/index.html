@@ -3714,6 +3714,7 @@ const Db = {
   async saveShop(S) {
     const s = S.settings
     const settings = {}; for (const k of Object.keys(s)) if (!['pin', 'shopName', 'shopAddress', 'shopProvince', 'shopZip', 'shopPhone', 'shopFax', 'shopTaxId', 'openTime', 'closeTime', 'branchCode', 'branchName', 'pharmacistName', 'licenseNo', 'nearExpiryDays'].includes(k)) settings[k] = s[k]
+    try { if (s.shopName) localStorage.setItem('earthshop_shop_name', s.shopName) } catch (e) { /* ignore */ }
     await this.rpc('save_shop', { p: { name: s.shopName, address: s.shopAddress || '', province: s.shopProvince || '', zip: s.shopZip || '', phone: s.shopPhone || '', fax: s.shopFax || '', tax_id: s.shopTaxId || '',
       license_no: s.licenseNo || '', pharmacist_name: s.pharmacistName || '', branch_code: s.branchCode || '', branch_name: s.branchName || '', open_time: s.openTime || '', close_time: s.closeTime || '',
       near_expiry_days: Math.floor(Number(s.nearExpiryDays)) || 90, settings } })
@@ -4371,6 +4372,11 @@ const app = createApp({
     _supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT' && this.authed) { this.authed = false; this.loginForm.error = 'หมดเวลาการเข้าสู่ระบบ กรุณาเข้าใหม่' }
     })
+    if (DB_MODE) {
+      // ชื่อร้านบนหน้าล็อกอิน: ใช้ชื่อที่จำไว้ในเครื่องก่อน แล้วถามฐานข้อมูล (ฟังก์ชันนี้เปิดเผยเฉพาะชื่อร้าน)
+      try { const c = localStorage.getItem('earthshop_shop_name'); if (c) this.S.settings.shopName = c } catch (e) { /* ignore */ }
+      Db.rpc('shop_public').then(n => { if (n && !this.authed) { this.S.settings.shopName = n; try { localStorage.setItem('earthshop_shop_name', n) } catch (e) { /* ignore */ } } }).catch(() => {})
+    }
     try {
       const { data } = await _supabase.auth.getSession()
       if (data && data.session) await this.startApp(data.session.user)
@@ -4397,6 +4403,7 @@ const app = createApp({
         this.actor = dn || userNameOf(user.email); ACTOR = this.actor; this.nameForm.name = dn || ''
         this.loginName = r.me ? r.me.login : userNameOf(user.email).toLowerCase()
         this.dbMe = r.me; this.dbUid = user.id; this.dbHasAdmin = r.hasAdmin
+      try { if (r.S.settings.shopName) localStorage.setItem('earthshop_shop_name', r.S.settings.shopName) } catch (e) { /* ignore */ }
         this.setState(r.S); this.cloudRev = 0; this.dirty = false; this.syncState = 'saved'
         this.ensureTab()
         this.authed = true; this.isLoading = false
